@@ -1,0 +1,163 @@
+package net.janrupf.thunderwasm.assembler.part;
+
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
+import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.MethodEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.Visibility;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.instructions.Expr;
+import net.janrupf.thunderwasm.instructions.InstructionInstance;
+import net.janrupf.thunderwasm.instructions.Local;
+import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.module.encoding.LargeArray;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.types.ValueType;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Helper class to assemble a function to java bytecode.
+ */
+public final class FunctionAssembler {
+    private final LargeArray<Local> locals;
+    private final Expr expr;
+
+    public FunctionAssembler(LargeArray<Local> locals, Expr expr) {
+        this.locals = locals;
+        this.expr = expr;
+    }
+
+    public void assemble(
+            ClassFileEmitter classEmitter,
+            String functionName,
+            LargeArray<ValueType> inputs,
+            LargeArray<ValueType> outputs
+    ) throws WasmAssemblerException  {
+        if (Long.compareUnsigned(inputs.length(), 255) > 0) {
+            throw new WasmAssemblerException(
+                    "Function has too many inputs, maximum is 255"
+            );
+        }
+
+        // Somewhat arbitrary limit, but we need to limit the number of outputs...
+        // besides that, if you need more than 255 outputs, you're doing something wrong
+        if (Long.compareUnsigned(outputs.length(), 255) > 0) {
+            throw new WasmAssemblerException(
+                    "Function has too many outputs, maximum is 255"
+            );
+        }
+
+        if (Long.compareUnsigned(outputs.length(), 1) > 0) {
+            throw new WasmAssemblerException(
+                    "Function has too many outputs, currently only 1 is supported"
+            );
+        }
+
+        JavaType returnType;
+        if (outputs.length() != 0) {
+            // 1 output
+            returnType = WasmTypeConverter.toJavaType(outputs.get(LargeArrayIndex.ZERO));
+        } else {
+            // 0 outputs
+            returnType = PrimitiveType.VOID;
+        }
+
+        MethodEmitter methodEmitter = classEmitter.method(
+                functionName,
+                // TODO: Exports...
+                Visibility.PUBLIC,
+                false,
+                false,
+                returnType,
+                WasmTypeConverter.toJavaTypes(inputs.asFlatArray()),
+                new JavaType[0]
+        );
+
+        CodeEmitter codeEmitter = methodEmitter.code();
+
+        // Expand locals
+        List<ValueType> expandedLocals = new ArrayList<>();
+        for (Local local : locals.asFlatArray()) {
+            if (expandedLocals.size() + local.getCount() > 65535) {
+                throw new WasmAssemblerException(
+                        "Function has too many locals, maximum is 65535"
+                );
+            }
+
+            for (int i = 0; i < local.getCount(); i++) {
+                expandedLocals.add(local.getType());
+            }
+        }
+
+        WasmFrameState frameState = new WasmFrameState(inputs.asFlatArray(), expandedLocals);
+
+        for (InstructionInstance instruction : expr.getInstructions()) {
+            this.processInstruction(instruction, codeEmitter, frameState);
+        }
+
+        this.processFunctionEpilogue(codeEmitter, frameState, outputs, returnType);
+
+        // Finish code generation
+        codeEmitter.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
+        methodEmitter.finish();
+    }
+
+    private void processInstruction(
+            InstructionInstance instruction,
+            CodeEmitter codeEmitter,
+            WasmFrameState frameState
+    ) throws WasmAssemblerException {
+        WasmInstruction<? extends WasmInstruction.Data> wasmInstruction = instruction.getInstruction();
+        WasmInstruction.Data data = instruction.getData();
+
+        // This intermediary helper method is necessary in order to be able to cast
+        // the data to the correct type
+        this.processInstructionWithData(wasmInstruction, data, codeEmitter, frameState);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <D extends WasmInstruction.Data> void processInstructionWithData(
+            WasmInstruction<D> instruction,
+            Object instructionData,
+            CodeEmitter codeEmitter,
+            WasmFrameState frameState
+    ) throws WasmAssemblerException {
+        D data = (D) instructionData;
+        instruction.emitCode(frameState, codeEmitter, data);
+    }
+
+    private void processFunctionEpilogue(
+            CodeEmitter codeEmitter,
+            WasmFrameState frameState,
+            LargeArray<ValueType> wasmOutputs,
+            JavaType javaOutput
+    ) throws WasmAssemblerException {
+        if (!frameState.isReachable() || wasmOutputs.length() < 1) {
+            return;
+        }
+
+        // We have no trailing return instruction, insert one!
+        if (wasmOutputs.length() > 1) {
+            throw new WasmAssemblerException("Only one output is supported for now");
+        }
+
+        ValueType output = wasmOutputs.get(LargeArrayIndex.ZERO);
+        JavaType javaOutputType = WasmTypeConverter.toJavaType(output);
+
+        // We expect the output to be on the stack
+        frameState.popOperand(output);
+
+        if (!javaOutputType.equals(javaOutput)) {
+            throw new WasmAssemblerException(
+                    "Expected output type " + javaOutput.toJvmDescriptor() + " but got " + javaOutputType.toJvmDescriptor()
+            );
+        }
+
+        codeEmitter.doReturn(javaOutputType);
+    }
+}

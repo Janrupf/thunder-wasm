@@ -1,0 +1,102 @@
+package net.janrupf.thunderwasm.instructions;
+
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
+import net.janrupf.thunderwasm.module.InvalidModuleException;
+import net.janrupf.thunderwasm.module.WasmLoader;
+
+import java.io.IOException;
+import java.util.Objects;
+
+public abstract class WasmInstruction<D extends WasmInstruction.Data> {
+    private final String name;
+    private final byte opCode;
+
+    public WasmInstruction(String name, byte opCode) {
+        this.name = name;
+        this.opCode = opCode;
+    }
+
+    /**
+     * Retrieves the name of the instruction.
+     *
+     * @return the name of the instruction
+     */
+    public final String getName() {
+        return name;
+    }
+
+    /**
+     * Retrieves the opcode of the instruction.
+     *
+     * @return the opcode of the instruction
+     */
+    public final byte getOpCode() {
+        return opCode;
+    }
+
+    /**
+     * Retrieves the decoder for this instruction.
+     * <p>
+     * By default, this is an {@link InstructionDecoder} that only checks the opcode.
+     *
+     * @return the decoder
+     */
+    public InstructionDecoder getDecoder() {
+        return InstructionDecoder.opCodeOnly(this);
+    }
+
+    @Override
+    public final String toString() {
+        return getName() + " (0x" + Integer.toUnsignedString(((int) getOpCode()) & 0xFF, 16) + ")";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof WasmInstruction)) return false;
+        WasmInstruction<?> that = (WasmInstruction<?>) o;
+        return opCode == that.opCode && Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, opCode);
+    }
+
+    /**
+     * Read the instruction data after the opcode.
+     *
+     * @param loader the loader to read the data from
+     * @return the data
+     * @throws IOException            if an I/O error occurs
+     * @throws InvalidModuleException if the module is invalid
+     */
+    public abstract D readData(WasmLoader loader) throws IOException, InvalidModuleException;
+
+    /**
+     * Emit code for the instruction.
+     *
+     * @param frameState the current frame state
+     * @param emitter the code emitter
+     * @param data the instruction data
+     */
+    public void emitCode(
+            WasmFrameState frameState,
+            CodeEmitter emitter,
+            D data
+    ) throws WasmAssemblerException  {
+        throw new WasmAssemblerException(
+                "Code emitter not implemented for " + getName(),
+                new UnsupportedOperationException("TODO")
+        );
+    }
+
+    /**
+     * Marker interface for instruction data.
+     */
+    public interface Data {
+    }
+}

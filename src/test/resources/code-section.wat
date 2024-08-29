@@ -1,0 +1,13 @@
+(module
+    (import "something" "aFunction" (func $aFunction (param i32) (result i32)))
+    (func $const (result i32)
+        (local i32)
+        (local i32)
+        (local f64)
+        (block (result i32)
+            (nop)
+            (i32.const 42)
+            (call $aFunction)
+        )
+    )
+)
