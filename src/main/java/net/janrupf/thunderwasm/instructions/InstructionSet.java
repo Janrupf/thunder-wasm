@@ -3,6 +3,8 @@ package net.janrupf.thunderwasm.instructions;
 import net.janrupf.thunderwasm.instructions.control.*;
 import net.janrupf.thunderwasm.instructions.memory.DataDrop;
 import net.janrupf.thunderwasm.instructions.numeric.*;
+import net.janrupf.thunderwasm.instructions.parametric.Drop;
+import net.janrupf.thunderwasm.instructions.parametric.Select;
 import net.janrupf.thunderwasm.instructions.reference.RefFunc;
 import net.janrupf.thunderwasm.instructions.reference.RefIsNull;
 import net.janrupf.thunderwasm.instructions.reference.RefNull;
@@ -50,6 +52,16 @@ public final class InstructionSet {
      * The base WASM specification instruction set.
      */
     public static final InstructionSet BASE = InstructionSet.of(
+            // Reference instructions
+            RefNull.INSTANCE,
+            RefIsNull.INSTANCE,
+            RefFunc.INSTANCE,
+
+            // Parametric instructions
+            Drop.INSTANCE,
+            Select.VARIANT_WITHOUT_TYPES,
+            Select.VARIANT_WITH_TYPES,
+
             // Control instructions
             Unreachable.INSTANCE,
             Nop.INSTANCE,
@@ -62,11 +74,6 @@ public final class InstructionSet {
             Return.INSTANCE,
             Call.INSTANCE,
             CallIndirect.INSTANCE,
-
-            // Reference instructions
-            RefNull.INSTANCE,
-            RefIsNull.INSTANCE,
-            RefFunc.INSTANCE,
 
             // Variable instructions
             LocalGet.INSTANCE,

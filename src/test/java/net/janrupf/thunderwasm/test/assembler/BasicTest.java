@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.test.assembler;
 
 import net.janrupf.thunderwasm.assembler.WasmAssembler;
 import net.janrupf.thunderwasm.module.WasmModule;
+import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.test.TestUtil;
 import org.junit.jupiter.api.Test;
 
@@ -30,9 +31,11 @@ public class BasicTest {
         Object result = TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[] { double.class },
+                new Class<?>[] { double.class, double.class, int.class },
                 new Object[] {
-                        1.0
+                        1.0,
+                        0.0,
+                        1
                 }
         );
 

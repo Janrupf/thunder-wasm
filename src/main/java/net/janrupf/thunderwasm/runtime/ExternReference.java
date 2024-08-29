@@ -2,6 +2,8 @@ package net.janrupf.thunderwasm.runtime;
 
 import net.janrupf.thunderwasm.types.ReferenceType;
 
+import java.util.Objects;
+
 public final class ExternReference extends ElementReference {
     private final Object referent;
 
@@ -26,6 +28,11 @@ public final class ExternReference extends ElementReference {
     @Override
     public ReferenceType getType() {
         return ReferenceType.EXTERNREF;
+    }
+
+    @Override
+    public String toString() {
+        return "ExternReference[" + referent + "]";
     }
 
     /**

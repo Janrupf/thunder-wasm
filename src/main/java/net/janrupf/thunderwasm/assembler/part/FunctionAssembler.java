@@ -137,13 +137,16 @@ public final class FunctionAssembler {
             LargeArray<ValueType> wasmOutputs,
             JavaType javaOutput
     ) throws WasmAssemblerException {
-        if (!frameState.isReachable() || wasmOutputs.length() < 1) {
+        if (!frameState.isReachable()) {
             return;
         }
 
         // We have no trailing return instruction, insert one!
         if (wasmOutputs.length() > 1) {
             throw new WasmAssemblerException("Only one output is supported for now");
+        } else if (wasmOutputs.length() < 1) {
+            codeEmitter.doReturn(PrimitiveType.VOID);
+            return;
         }
 
         ValueType output = wasmOutputs.get(LargeArrayIndex.ZERO);

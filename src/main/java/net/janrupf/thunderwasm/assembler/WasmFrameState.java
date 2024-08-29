@@ -1,6 +1,8 @@
 package net.janrupf.thunderwasm.assembler;
 
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.module.encoding.LargeArray;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.util.ArrayList;
@@ -130,6 +132,30 @@ public final class WasmFrameState {
 
         if (!found.equals(type)) {
             throw new WasmAssemblerException("Expected " + type.getName() + " but got " + found.getName());
+        }
+    }
+
+    /**
+     * Requires multiple value types from the operand stack.
+     *
+     * @param types the value types to require
+     * @throws WasmAssemblerException if the operand stack is empty,
+     *                                the value types do not match the expected types,
+     *                                or there are not enough operands
+     */
+    public void requireOperands(LargeArray<ValueType> types) throws WasmAssemblerException {
+        for (long i = 0; i < types.length(); i++) {
+            ValueType requiredType = types.get(LargeArrayIndex.fromU64(i));
+
+            long stackTargetIndex = operandStack.size() - i - 1;
+            if (stackTargetIndex < 0) {
+                throw new WasmAssemblerException("Tried to require more operands than available");
+            }
+
+            ValueType found = operandStack.get((int) stackTargetIndex);
+            if (!found.equals(requiredType)) {
+                throw new WasmAssemblerException("Expected " + requiredType.getName() + " but got " + found.getName());
+            }
         }
     }
 
