@@ -30,12 +30,12 @@ public class BasicTest {
         Object result = TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[] { float.class },
+                new Class<?>[] { double.class },
                 new Object[] {
-                        4294967040.0f
+                        1.0
                 }
         );
 
-        System.out.println("$code_0() = " + Integer.toUnsignedString((int) result));
+        System.out.println("$code_0() = " + result);
     }
 }

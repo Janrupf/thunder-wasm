@@ -1,7 +1,7 @@
 (module
-    (func $test (param f32) (result i32)
+    (func $test (param f64) (result i64)
         (local.get 0)
-        (i32.trunc_f32_u)
+        (i64.trunc_sat_f64_u)
     )
     (export "test" (func $test))
 )

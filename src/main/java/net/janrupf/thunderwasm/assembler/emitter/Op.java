@@ -197,9 +197,39 @@ public enum Op {
     I2L,
 
     /**
+     * Convert integer to float.
+     */
+    I2F,
+
+    /**
+     * Convert integer to double.
+     */
+    I2D,
+
+    /**
+     * Convert integer to byte.
+     */
+    I2B,
+
+    /**
+     * Convert integer to short.
+     */
+    I2S,
+
+    /**
      * Convert long to integer.
      */
     L2I,
+
+    /**
+     * Convert long to float.
+     */
+    L2F,
+
+    /**
+     * Convert long to double.
+     */
+    L2D,
 
     /**
      * Convert float to double.
@@ -220,4 +250,14 @@ public enum Op {
      * Convert float to long.
      */
     F2L,
+
+    /**
+     * Convert double to integer.
+     */
+    D2I,
+
+    /**
+     * Convert double to long.
+     */
+    D2L,
 }

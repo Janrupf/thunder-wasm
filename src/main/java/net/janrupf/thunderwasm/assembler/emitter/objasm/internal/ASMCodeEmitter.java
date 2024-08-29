@@ -556,8 +556,32 @@ public final class ASMCodeEmitter implements CodeEmitter {
                 opCode = Opcodes.I2L;
                 break;
 
+            case I2F:
+                opCode = Opcodes.I2F;
+                break;
+
+            case I2D:
+                opCode = Opcodes.I2D;
+                break;
+
+            case I2B:
+                opCode = Opcodes.I2B;
+                break;
+
+            case I2S:
+                opCode = Opcodes.I2S;
+                break;
+
             case L2I:
                 opCode = Opcodes.L2I;
+                break;
+
+            case L2F:
+                opCode = Opcodes.L2F;
+                break;
+
+            case L2D:
+                opCode = Opcodes.L2D;
                 break;
 
             case F2D:
@@ -574,6 +598,14 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
             case F2L:
                 opCode = Opcodes.F2L;
+                break;
+
+            case D2I:
+                opCode = Opcodes.D2I;
+                break;
+
+            case D2L:
+                opCode = Opcodes.D2L;
                 break;
 
             default:

@@ -65,4 +65,56 @@ public final class WasmMath {
     private static boolean isSpecialOrZero(double value) {
         return Double.isNaN(value) || Double.isInfinite(value) || value == 0.0f;
     }
+
+    public static float u32ToF32(int value) {
+        float res;
+
+        if (value < 0) {
+            res = (float) Integer.MAX_VALUE;
+            res -= (value + Integer.MIN_VALUE);
+        } else {
+            res = (float) value;
+        }
+
+        return res;
+    }
+
+    public static float u64ToF32(long value) {
+        float res;
+
+        if (value < 0) {
+            res = (float) Long.MAX_VALUE;
+            res += (value + Long.MIN_VALUE);
+        } else {
+            res = (float) value;
+        }
+
+        return res;
+    }
+
+    public static double u32ToF64(int value) {
+        double res;
+
+        if (value < 0) {
+            res = Integer.MAX_VALUE;
+            res -= (value + Integer.MIN_VALUE);
+        } else {
+            res = value;
+        }
+
+        return res;
+    }
+
+    public static double u64ToF64(long value) {
+        double res;
+
+        if (value < 0) {
+            res = Long.MAX_VALUE;
+            res += (value + Long.MIN_VALUE);
+        } else {
+            res = value;
+        }
+
+        return res;
+    }
 }
