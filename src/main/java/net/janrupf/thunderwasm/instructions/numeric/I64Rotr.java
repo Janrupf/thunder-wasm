@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.Op;
@@ -20,7 +21,10 @@ public final class I64Rotr extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(WasmFrameState frameState, CodeEmitter emitter, EmptyInstructionData data) throws WasmAssemblerException {
+    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
         frameState.popOperand(NumberType.I64);
         frameState.requireOperand(NumberType.I64);
         emitter.op(Op.L2I);

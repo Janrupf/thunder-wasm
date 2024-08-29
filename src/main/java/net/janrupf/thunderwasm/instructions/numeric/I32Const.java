@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -23,9 +22,9 @@ public final class I32Const extends WasmInstruction<I32Const.Data> {
     }
 
     @Override
-    public void emitCode(WasmFrameState frameState, CodeEmitter emitter, Data data) throws WasmAssemblerException {
-        emitter.loadConstant(data.value);
-        frameState.pushOperand(NumberType.I32);
+    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        context.getEmitter().loadConstant(data.value);
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 
     public static class Data implements WasmInstruction.Data {

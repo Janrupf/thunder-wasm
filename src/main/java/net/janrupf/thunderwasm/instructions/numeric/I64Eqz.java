@@ -16,10 +16,11 @@ public final class I64Eqz extends PlainNumeric {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            EmptyInstructionData data
+            CodeEmitContext context, EmptyInstructionData data
     ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
         frameState.pushOperand(NumberType.I64);
         emitter.loadConstant(0L);
         frameState.popOperand(NumberType.I64);

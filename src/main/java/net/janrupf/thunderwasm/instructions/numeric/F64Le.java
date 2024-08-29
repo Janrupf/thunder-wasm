@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.ComparisonResult;
 import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
@@ -17,10 +16,12 @@ public final class F64Le extends PlainNumeric {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            EmptyInstructionData data
+            CodeEmitContext context, EmptyInstructionData data
     ) throws WasmAssemblerException {
-        CommonBytecodeGenerator.evalDoubleCompNaNZero(frameState, emitter, ComparisonResult.LESS_THAN_OR_EQUAL);
+        CommonBytecodeGenerator.evalDoubleCompNaNZero(
+                context.getFrameState(),
+                context.getEmitter(),
+                ComparisonResult.LESS_THAN_OR_EQUAL
+        );
     }
 }

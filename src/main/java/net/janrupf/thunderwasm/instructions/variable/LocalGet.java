@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.variable;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.LocalIndexData;
@@ -26,10 +27,11 @@ public final class LocalGet extends WasmInstruction<LocalIndexData> {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            LocalIndexData data
+            CodeEmitContext context, LocalIndexData data
     ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
         ValueType type = frameState.requireLocal(data.getIndex());
         emitter.loadLocal(frameState.computeJavaLocalIndex(data.getIndex()), WasmTypeConverter.toJavaType(type));
         frameState.pushOperand(type);

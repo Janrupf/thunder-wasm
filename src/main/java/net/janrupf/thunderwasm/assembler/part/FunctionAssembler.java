@@ -3,10 +3,7 @@ package net.janrupf.thunderwasm.assembler.part;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
-import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
-import net.janrupf.thunderwasm.assembler.emitter.MethodEmitter;
-import net.janrupf.thunderwasm.assembler.emitter.Visibility;
+import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.Expr;
@@ -128,7 +125,10 @@ public final class FunctionAssembler {
             WasmFrameState frameState
     ) throws WasmAssemblerException {
         D data = (D) instructionData;
-        instruction.emitCode(frameState, codeEmitter, data);
+        instruction.emitCode(
+                new CodeEmitContext(codeEmitter, frameState),
+                data
+        );
     }
 
     private void processFunctionEpilogue(

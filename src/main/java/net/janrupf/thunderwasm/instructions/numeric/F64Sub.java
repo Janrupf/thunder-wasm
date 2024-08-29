@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
@@ -16,9 +15,9 @@ public final class F64Sub extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(WasmFrameState frameState, CodeEmitter emitter, EmptyInstructionData data) throws WasmAssemblerException {
-        frameState.popOperand(NumberType.F64);
-        frameState.requireOperand(NumberType.F64);
-        emitter.op(Op.DSUB);
+    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.F64);
+        context.getFrameState().requireOperand(NumberType.F64);
+        context.getEmitter().op(Op.DSUB);
     }
 }

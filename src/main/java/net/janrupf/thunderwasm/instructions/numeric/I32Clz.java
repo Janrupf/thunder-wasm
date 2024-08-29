@@ -1,20 +1,14 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
-import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
-import net.janrupf.thunderwasm.module.InvalidModuleException;
-import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.NumberType;
-
-import java.io.IOException;
 
 public final class I32Clz extends PlainNumeric {
     public static final I32Clz INSTANCE = new I32Clz();
@@ -24,9 +18,9 @@ public final class I32Clz extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(WasmFrameState frameState, CodeEmitter emitter, EmptyInstructionData data) throws WasmAssemblerException {
-        frameState.requireOperand(NumberType.I32);
-        emitter.invoke(
+    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().requireOperand(NumberType.I32);
+        context.getEmitter().invoke(
                 ObjectType.of(Integer.class),
                 "numberOfLeadingZeros",
                 new JavaType[]{PrimitiveType.INT},

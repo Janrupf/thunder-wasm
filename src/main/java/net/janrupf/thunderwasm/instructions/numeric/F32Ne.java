@@ -16,10 +16,11 @@ public final class F32Ne extends PlainNumeric {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            EmptyInstructionData data
+            CodeEmitContext context, EmptyInstructionData data
     ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
         frameState.popOperand(NumberType.F32);
         frameState.popOperand(NumberType.F32);
         emitter.op(Op.FCMPG);

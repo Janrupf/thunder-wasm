@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
@@ -21,12 +20,10 @@ public final class I64Ctz extends PlainNumeric {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            EmptyInstructionData data
+            CodeEmitContext context, EmptyInstructionData data
     ) throws WasmAssemblerException {
-        frameState.requireOperand(NumberType.I64);
-        emitter.invoke(
+        context.getFrameState().requireOperand(NumberType.I64);
+        context.getEmitter().invoke(
                 ObjectType.of(Long.class),
                 "numberOfTrailingZeros",
                 new JavaType[]{PrimitiveType.LONG},
@@ -34,6 +31,6 @@ public final class I64Ctz extends PlainNumeric {
                 InvokeType.STATIC,
                 false
         );
-        emitter.op(Op.I2L);
+        context.getEmitter().op(Op.I2L);
     }
 }

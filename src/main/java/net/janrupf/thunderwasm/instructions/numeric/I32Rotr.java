@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
@@ -19,10 +18,10 @@ public final class I32Rotr extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(WasmFrameState frameState, CodeEmitter emitter, EmptyInstructionData data) throws WasmAssemblerException {
-        frameState.popOperand(NumberType.I32);
-        frameState.requireOperand(NumberType.I32);
-        emitter.invoke(
+    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().requireOperand(NumberType.I32);
+        context.getEmitter().invoke(
                 ObjectType.of(Integer.class),
                 "rotateRight",
                 new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},

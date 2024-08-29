@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.reference;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
@@ -22,13 +21,17 @@ public final class RefIsNull extends WasmInstruction<EmptyInstructionData> {
     }
 
     @Override
-    public void emitCode(WasmFrameState frameState, CodeEmitter emitter, EmptyInstructionData data) throws WasmAssemblerException {
-        ValueType type = frameState.popAnyOperand();
+    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        ValueType type = context.getFrameState().popAnyOperand();
         if (!(type instanceof ReferenceType)) {
             throw new WasmAssemblerException("Expected reference type on stack");
         }
 
-        CommonBytecodeGenerator.evalConditionZeroOrOne(frameState, emitter, JumpCondition.IS_NULL);
+        CommonBytecodeGenerator.evalConditionZeroOrOne(
+                context.getFrameState(),
+                context.getEmitter(),
+                JumpCondition.IS_NULL
+        );
     }
 
     @Override

@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.variable;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
@@ -27,10 +28,11 @@ public final class LocalTee extends WasmInstruction<LocalIndexData> {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            LocalIndexData data
+            CodeEmitContext context, LocalIndexData data
     ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
         ValueType type = frameState.requireLocal(data.getIndex());
         frameState.requireOperand(type);
 

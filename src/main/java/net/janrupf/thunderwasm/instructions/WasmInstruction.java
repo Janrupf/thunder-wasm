@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -79,15 +78,13 @@ public abstract class WasmInstruction<D extends WasmInstruction.Data> {
     /**
      * Emit code for the instruction.
      *
-     * @param frameState the current frame state
-     * @param emitter the code emitter
-     * @param data the instruction data
+     * @param context the code emit context
+     * @param data    the instruction data
      */
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
+            CodeEmitContext context,
             D data
-    ) throws WasmAssemblerException  {
+    ) throws WasmAssemblerException {
         throw new WasmAssemblerException(
                 "Code emitter not implemented for " + getName(),
                 new UnsupportedOperationException("TODO")

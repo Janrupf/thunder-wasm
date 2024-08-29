@@ -1,8 +1,7 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
@@ -18,11 +17,13 @@ public final class I32Eqz extends PlainNumeric {
 
     @Override
     public void emitCode(
-            WasmFrameState frameState,
-            CodeEmitter emitter,
-            EmptyInstructionData data
+            CodeEmitContext context, EmptyInstructionData data
     ) throws WasmAssemblerException {
-        frameState.popOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalConditionZeroOrOne(frameState, emitter, JumpCondition.INT_EQUAL_ZERO);
+        context.getFrameState().popOperand(NumberType.I32);
+        CommonBytecodeGenerator.evalConditionZeroOrOne(
+                context.getFrameState(),
+                context.getEmitter(),
+                JumpCondition.INT_EQUAL_ZERO
+        );
     }
 }

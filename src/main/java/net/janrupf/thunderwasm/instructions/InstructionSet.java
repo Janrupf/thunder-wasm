@@ -86,6 +86,10 @@ public final class InstructionSet {
             I32LtU.INSTANCE,
             I32GtS.INSTANCE,
             I32GtU.INSTANCE,
+            I32LeS.INSTANCE,
+            I32LeU.INSTANCE,
+            I32GeS.INSTANCE,
+            I32GeU.INSTANCE,
 
             I64Eqz.INSTANCE,
             I64Eq.INSTANCE,
