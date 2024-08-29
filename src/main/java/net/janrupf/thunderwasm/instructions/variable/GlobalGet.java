@@ -6,9 +6,11 @@ import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.data.Global;
+import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.GlobalIndexData;
 import net.janrupf.thunderwasm.instructions.data.LocalIndexData;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
@@ -35,17 +37,13 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
             CodeEmitContext context,
             GlobalIndexData data
     ) throws WasmAssemblerException {
-        LargeArray<Global> globals = context.getLookups()
-                .requireSingleSection(GlobalSection.class, (byte) 0x06).getGlobals();
-        LargeArrayIndex index = LargeArrayIndex.fromU32(data.getIndex());
-
-        if (!globals.isValid(index)) {
-            throw new WasmAssemblerException("Invalid global index");
-        }
+        FoundElement<Global, GlobalImportDescription> gElement = context.getLookups().requireGlobal(
+                LargeArrayIndex.fromU32(data.getIndex())
+        );
 
         context.getGenerators().getGlobalGenerator().emitGetGlobal(
-                index,
-                globals.get(index),
+                gElement.getIndex(),
+                gElement.getElement(),
                 context
         );
     }

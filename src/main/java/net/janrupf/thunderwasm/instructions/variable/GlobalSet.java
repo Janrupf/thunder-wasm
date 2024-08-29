@@ -3,8 +3,10 @@ package net.janrupf.thunderwasm.instructions.variable;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.data.Global;
+import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.GlobalIndexData;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
@@ -31,22 +33,17 @@ public final class GlobalSet extends WasmInstruction<GlobalIndexData> {
             CodeEmitContext context,
             GlobalIndexData data
     ) throws WasmAssemblerException {
-        LargeArray<Global> globals = context.getLookups()
-                .requireSingleSection(GlobalSection.class, (byte) 0x06).getGlobals();
-        LargeArrayIndex index = LargeArrayIndex.fromU32(data.getIndex());
+        FoundElement<Global, GlobalImportDescription> gElement = context.getLookups().requireGlobal(
+                LargeArrayIndex.fromU32(data.getIndex())
+        );
 
-        if (!globals.isValid(index)) {
-            throw new WasmAssemblerException("Invalid global index");
-        }
-
-        Global global = globals.get(index);
-        if (global.getType().getMutability() != GlobalType.Mutability.VAR) {
+        if (gElement.getElement().getType().getMutability() != GlobalType.Mutability.VAR) {
             throw new WasmAssemblerException("Cannot set immutable global");
         }
 
-        context.getGenerators().getGlobalGenerator().emitSetGlobal(
-                index,
-                global,
+        context.getGenerators().getGlobalGenerator().emitGetGlobal(
+                gElement.getIndex(),
+                gElement.getElement(),
                 context
         );
     }

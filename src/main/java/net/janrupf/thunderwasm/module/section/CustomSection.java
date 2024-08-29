@@ -1,8 +1,11 @@
 package net.janrupf.thunderwasm.module.section;
 
+import net.janrupf.thunderwasm.lookup.SectionLocator;
 import net.janrupf.thunderwasm.module.encoding.LargeByteArray;
 
 public final class CustomSection extends WasmSection {
+    public static final SectionLocator<CustomSection> LOCATOR = SectionLocator.of(CustomSection.class, (byte) 0);
+
     private final String name;
     private final LargeByteArray data;
 

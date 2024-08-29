@@ -1,5 +1,6 @@
-package net.janrupf.thunderwasm.assembler;
+package net.janrupf.thunderwasm.lookup;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.section.WasmSection;
 
@@ -19,18 +20,20 @@ public final class ModuleLookups {
     /**
      * Retrieves all sections of the given type from the module.
      *
-     * @param sectionType the type of section to retrieve
-     * @param id          the id of the section to retrieve
-     * @param <T>         the type of section to retrieve
+     * @param locator the locator for the sections to retrieve
+     * @param <T>     the type of section to retrieve
      * @return all sections of the given type
      * @throws WasmAssemblerException if the section types mismatch
      */
-    public <T extends WasmSection> List<T> allSections(Class<T> sectionType, byte id)
+    public <T extends WasmSection> List<T> allSections(SectionLocator<T> locator)
             throws WasmAssemblerException {
+        byte id = locator.getSectionId();
+        Class<T> sectionType = locator.getSectionType();
+
         CachedSectionList cached = cache[id];
 
         if (cached == null) {
-            return cacheSections(sectionType, id);
+            return cacheSections(locator);
         } else {
             return cached.getAll(sectionType);
         }
@@ -39,40 +42,65 @@ public final class ModuleLookups {
     /**
      * Retrieves a single section of the given type from the module.
      *
-     * @param sectionType the type of section to retrieve
-     * @param id          the id of the section to retrieve
-     * @param <T>         the type of section to retrieve
+     * @param locator the locator for the section to retrieve
+     * @param <T>     the type of section to retrieve
      * @return the section of the given type
-     * @throws WasmAssemblerException if the section types mismatch
+     * @throws WasmAssemblerException if the section types mismatch or multiple sections are found
      */
-    public <T extends WasmSection> T requireSingleSection(Class<T> sectionType, byte id) throws WasmAssemblerException {
+    public <T extends WasmSection> T findSingleSection(SectionLocator<T> locator) throws WasmAssemblerException {
+        byte id = locator.getSectionId();
+        Class<T> sectionType = locator.getSectionType();
+
         CachedSectionList cached = cache[id];
 
         if (cached == null) {
-            List<T> l = cacheSections(sectionType, id);
-            if (l.size() != 1) {
+            List<T> l = cacheSections(locator);
+            if (l.size() > 1) {
                 throw new WasmAssemblerException(
-                        "Expected exactly one section of type " + sectionType.getName()
+                        "Expected at most one section of type " + sectionType.getName()
                                 + " but got " + l.size()
                 );
             }
 
-            return l.get(0);
+            return l.isEmpty() ? null : l.get(0);
         } else {
-            return cached.getSingle(sectionType);
+            return cached.findSingle(sectionType);
         }
+    }
+
+    /**
+     * Retrieves a single section of the given type from the module.
+     *
+     * @param locator the locator for the section to retrieve
+     * @param <T>     the type of section to retrieve
+     * @return the section of the given type
+     * @throws WasmAssemblerException if the section types mismatch
+     */
+    public <T extends WasmSection> T requireSingleSection(SectionLocator<T> locator) throws WasmAssemblerException {
+        T value = findSingleSection(locator);
+
+        if (value == null) {
+            throw new WasmAssemblerException(
+                    "Expected exactly one section of type " + locator.getSectionType().getName()
+                            + " but got none"
+            );
+        }
+
+        return value;
     }
 
     /**
      * Populates the cache with all sections of the given type.
      *
-     * @param sectionType the type of section to cache
-     * @param id          the id of the section to cache
-     * @param <T>         the type of section to cache
+     * @param locator the locator for the section to cache
+     * @param <T>     the type of section to cache
      * @return the cached sections
      * @throws WasmAssemblerException if the section types mismatch
      */
-    private <T extends WasmSection> List<T> cacheSections(Class<T> sectionType, byte id) throws WasmAssemblerException {
+    private <T extends WasmSection> List<T> cacheSections(SectionLocator<T> locator) throws WasmAssemblerException {
+        byte id = locator.getSectionId();
+        Class<T> sectionType = locator.getSectionType();
+
         List<T> matchingSections = new ArrayList<>();
 
         for (WasmSection section : module.getSections()) {
@@ -135,14 +163,14 @@ public final class ModuleLookups {
         }
 
         /**
-         * Extracts a single section of the given type from this list.
+         * Finds a single section of the given type from this list.
          *
          * @param targetType the type of section to extract
          * @param <T>        the type of section to extract
          * @return the extracted section
          * @throws WasmAssemblerException if there is not exactly one section of the given type
          */
-        public <T extends WasmSection> T getSingle(Class<T> targetType) throws WasmAssemblerException {
+        public <T extends WasmSection> T findSingle(Class<T> targetType) throws WasmAssemblerException {
             if (!canExtract(targetType)) {
                 throw new WasmAssemblerException(
                         "Section id-type mismatch, got sections of type " + sectionType.getName()
@@ -150,14 +178,35 @@ public final class ModuleLookups {
                 );
             }
 
-            if (sections.size() != 1) {
+            if (sections.size() > 1) {
                 throw new WasmAssemblerException(
-                        "Expected exactly one section of type " + targetType.getName()
+                        "Expected at most one section of type " + targetType.getName()
                                 + " but got " + sections.size()
                 );
             }
 
-            return targetType.cast(sections.get(0));
+            return sections.isEmpty() ? null : targetType.cast(sections.get(0));
+        }
+
+        /**
+         * Requires a single section of the given type from this list.
+         *
+         * @param targetType the type of section to extract
+         * @param <T>        the type of section to extract
+         * @return the extracted section
+         * @throws WasmAssemblerException if there is not exactly one section of the given type
+         */
+        public <T extends WasmSection> T requireSingle(Class<T> targetType) throws WasmAssemblerException {
+            T value = findSingle(targetType);
+
+            if (value == null) {
+                throw new WasmAssemblerException(
+                        "Expected exactly one section of type " + targetType.getName()
+                                + " but got none"
+                );
+            }
+
+            return value;
         }
     }
 }

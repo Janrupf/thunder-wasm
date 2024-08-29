@@ -1,0 +1,144 @@
+package net.janrupf.thunderwasm.lookup;
+
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.data.Global;
+import net.janrupf.thunderwasm.imports.GlobalImportDescription;
+import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.ImportDescription;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.GlobalSection;
+import net.janrupf.thunderwasm.module.section.ImportSection;
+
+public final class ElementLookups {
+    private final ModuleLookups moduleLookups;
+
+    public ElementLookups(ModuleLookups moduleLookups) {
+        this.moduleLookups = moduleLookups;
+    }
+
+    /**
+     * Require the global at the given index.
+     *
+     * @param i the index of the global
+     * @return the found global
+     * @throws WasmAssemblerException if the global could not be found
+     */
+    public FoundElement<Global, GlobalImportDescription> requireGlobal(LargeArrayIndex i) throws WasmAssemblerException {
+        ImportSearchResult<GlobalImportDescription> res = findNthImportDescription(GlobalImportDescription.class, i);
+        if (res.wasFound()) {
+            return FoundElement.ofImport(
+                    res.getDescription(),
+                    res.getNewSearchIndex()
+            );
+        }
+
+        LargeArrayIndex globalSectionIndex = res.getNewSearchIndex();
+        GlobalSection globalSection = moduleLookups.findSingleSection(GlobalSection.LOCATOR);
+        if (globalSection == null || !globalSection.getGlobals().isValid(globalSectionIndex)) {
+            throw new WasmAssemblerException("Global index " + i + " out of bounds");
+        }
+
+        return FoundElement.ofInternal(
+                globalSection.getGlobals().get(globalSectionIndex),
+                globalSectionIndex
+        );
+    }
+
+    /**
+     * Find the nth import description of the given type.
+     *
+     * @param type   the type of the import description
+     * @param target the index of the import description to find
+     * @param <T>    the type of the import description
+     * @return the search result
+     * @throws WasmAssemblerException if an error occurs while searching for the import description
+     */
+    private <T extends ImportDescription> ImportSearchResult<T> findNthImportDescription(
+            Class<T> type,
+            LargeArrayIndex target
+    ) throws WasmAssemblerException {
+        ImportSection importSection = moduleLookups.findSingleSection(ImportSection.LOCATOR);
+        if (importSection != null) {
+            LargeArrayIndex elementIndex = LargeArrayIndex.ZERO;
+
+            for (Import importEntry : importSection.getImports()) {
+                ImportDescription description = importEntry.getDescription();
+                if (type.isInstance(description)) {
+                    if (elementIndex.equals(target)) {
+                        return ImportSearchResult.found(type.cast(description));
+                    }
+
+                    elementIndex = elementIndex.add(1);
+                }
+            }
+
+            return ImportSearchResult.notFound(target.subtract(elementIndex));
+        }
+
+        return ImportSearchResult.notFound(target);
+    }
+
+    /**
+     * The result of searching for an import description.
+     *
+     * @param <T> the type of the import description
+     */
+    private static final class ImportSearchResult<T extends ImportDescription> {
+        private final T description;
+        private final LargeArrayIndex newSearchIndex;
+
+        private ImportSearchResult(T description, LargeArrayIndex newSearchIndex) {
+            this.description = description;
+            this.newSearchIndex = newSearchIndex;
+        }
+
+        /**
+         * Whether the import description was found.
+         *
+         * @return true if the import description was found, false otherwise
+         */
+        public boolean wasFound() {
+            return description != null;
+        }
+
+        /**
+         * Retrieves the found import description.
+         *
+         * @return the import description
+         */
+        public T getDescription() {
+            return description;
+        }
+
+        /**
+         * Retrieves the new search index.
+         *
+         * @return the new search index
+         */
+        public LargeArrayIndex getNewSearchIndex() {
+            return newSearchIndex;
+        }
+
+        /**
+         * Creates a new search result for a found import description.
+         *
+         * @param description the found import description
+         * @param <T>         the type of the import description
+         * @return the created search result
+         */
+        public static <T extends ImportDescription> ImportSearchResult<T> found(T description) {
+            return new ImportSearchResult<>(description, null);
+        }
+
+        /**
+         * Creates a new search result for a not found import description.
+         *
+         * @param newSearchIndex the new search index
+         * @param <T>            the type of the import description
+         * @return the created search result
+         */
+        public static <T extends ImportDescription> ImportSearchResult<T> notFound(LargeArrayIndex newSearchIndex) {
+            return new ImportSearchResult<>(null, newSearchIndex);
+        }
+    }
+}

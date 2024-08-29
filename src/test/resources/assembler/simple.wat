@@ -1,12 +1,12 @@
 (module
-    (global $g (mut i32) (i32.const 69))
+    (import "env" "test-global" (global $g0 i32))
+    (import "env" "test-memory" (memory $m 1))
+    (import "env" "test-global-2" (global $g1 i32))
+
+    (global $g2 (mut i32) (i32.const 42))
 
     (func $test (param i32) (result i32)
-        (global.get $g)
-        (local.get 0)
-        (i32.eq)
-        (global.set $g)
-        (global.get $g)
+        (global.get $g1)
     )
     (export "test" (func $test))
 )

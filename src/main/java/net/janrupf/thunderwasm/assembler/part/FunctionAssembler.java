@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.assembler.part;
 
-import net.janrupf.thunderwasm.assembler.ModuleLookups;
+import net.janrupf.thunderwasm.lookup.ElementLookups;
+import net.janrupf.thunderwasm.lookup.ModuleLookups;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
@@ -137,7 +138,7 @@ public final class FunctionAssembler {
     ) throws WasmAssemblerException {
         D data = (D) instructionData;
         instruction.emitCode(
-                new CodeEmitContext(lookups, codeEmitter, frameState, generators),
+                new CodeEmitContext(new ElementLookups(lookups), codeEmitter, frameState, generators),
                 data
         );
     }
