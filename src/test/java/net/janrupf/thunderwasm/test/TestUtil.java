@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.test;
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.WasmAssembler;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.WasmGenerators;
 import net.janrupf.thunderwasm.assembler.emitter.objasm.ObjectWebASMClassFileEmitterFactory;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.InstructionRegistry;
@@ -92,7 +93,8 @@ public class TestUtil {
                 module,
                 new ObjectWebASMClassFileEmitterFactory(),
                 "net.janrupf.thunderwasm.generated",
-                "TestModule" + counter
+                "TestModule" + counter,
+                new WasmGenerators()
         );
     }
 

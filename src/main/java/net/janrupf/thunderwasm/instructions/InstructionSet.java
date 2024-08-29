@@ -8,9 +8,7 @@ import net.janrupf.thunderwasm.instructions.parametric.Select;
 import net.janrupf.thunderwasm.instructions.reference.RefFunc;
 import net.janrupf.thunderwasm.instructions.reference.RefIsNull;
 import net.janrupf.thunderwasm.instructions.reference.RefNull;
-import net.janrupf.thunderwasm.instructions.variable.LocalGet;
-import net.janrupf.thunderwasm.instructions.variable.LocalSet;
-import net.janrupf.thunderwasm.instructions.variable.LocalTee;
+import net.janrupf.thunderwasm.instructions.variable.*;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -79,6 +77,8 @@ public final class InstructionSet {
             LocalGet.INSTANCE,
             LocalSet.INSTANCE,
             LocalTee.INSTANCE,
+            GlobalSet.INSTANCE,
+            GlobalGet.INSTANCE,
 
             // Numeric instructions
             I32Const.INSTANCE,

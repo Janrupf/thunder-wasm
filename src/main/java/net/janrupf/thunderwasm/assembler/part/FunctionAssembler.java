@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.assembler.part;
 
+import net.janrupf.thunderwasm.assembler.ModuleLookups;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
@@ -21,10 +22,19 @@ import java.util.List;
  * Helper class to assemble a function to java bytecode.
  */
 public final class FunctionAssembler {
+    private final ModuleLookups lookups;
+    private final WasmGenerators generators;
     private final LargeArray<Local> locals;
     private final Expr expr;
 
-    public FunctionAssembler(LargeArray<Local> locals, Expr expr) {
+    public FunctionAssembler(
+            ModuleLookups lookups,
+            WasmGenerators generators,
+            LargeArray<Local> locals,
+            Expr expr
+    ) {
+        this.lookups = lookups;
+        this.generators = generators;
         this.locals = locals;
         this.expr = expr;
     }
@@ -33,7 +43,8 @@ public final class FunctionAssembler {
             ClassFileEmitter classEmitter,
             String functionName,
             LargeArray<ValueType> inputs,
-            LargeArray<ValueType> outputs
+            LargeArray<ValueType> outputs,
+            boolean isStatic
     ) throws WasmAssemblerException  {
         if (Long.compareUnsigned(inputs.length(), 255) > 0) {
             throw new WasmAssemblerException(
@@ -68,7 +79,7 @@ public final class FunctionAssembler {
                 functionName,
                 // TODO: Exports...
                 Visibility.PUBLIC,
-                false,
+                isStatic,
                 false,
                 returnType,
                 WasmTypeConverter.toJavaTypes(inputs.asFlatArray()),
@@ -126,7 +137,7 @@ public final class FunctionAssembler {
     ) throws WasmAssemblerException {
         D data = (D) instructionData;
         instruction.emitCode(
-                new CodeEmitContext(codeEmitter, frameState),
+                new CodeEmitContext(lookups, codeEmitter, frameState, generators),
                 data
         );
     }

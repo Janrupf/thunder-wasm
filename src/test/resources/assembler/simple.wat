@@ -1,9 +1,12 @@
 (module
-    (func $test (param f64) (param f64) (param i32) (result f64)
+    (global $g (mut i32) (i32.const 69))
+
+    (func $test (param i32) (result i32)
+        (global.get $g)
         (local.get 0)
-        (local.get 1)
-        (local.get 2)
-        (select (result f64))
+        (i32.eq)
+        (global.set $g)
+        (global.get $g)
     )
     (export "test" (func $test))
 )

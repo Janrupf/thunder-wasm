@@ -31,11 +31,9 @@ public class BasicTest {
         Object result = TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[] { double.class, double.class, int.class },
+                new Class<?>[] { int.class },
                 new Object[] {
-                        1.0,
-                        0.0,
-                        1
+                        69
                 }
         );
 

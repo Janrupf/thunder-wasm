@@ -5,14 +5,18 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.part.FunctionAssembler;
+import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.instructions.Function;
+import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.ValueType;
 
+import java.util.Collections;
 import java.util.EnumSet;
 
 /**
@@ -27,11 +31,14 @@ public final class WasmAssembler {
     private final ModuleLookups lookups;
     private final EnumSet<ProcessedSections> onceProcessedSections;
 
+    private final WasmGenerators generators;
+
     public WasmAssembler(
             WasmModule module,
             ClassFileEmitterFactory emitterFactory,
             String packageName,
-            String className
+            String className,
+            WasmGenerators generators
     ) {
         this.packageName = packageName;
         this.className = className;
@@ -41,6 +48,8 @@ public final class WasmAssembler {
 
         this.lookups = new ModuleLookups(module);
         this.onceProcessedSections = EnumSet.noneOf(ProcessedSections.class);
+
+        this.generators = generators;
     }
 
     /**
@@ -85,6 +94,14 @@ public final class WasmAssembler {
      * Emit the constructor for the class.
      */
     private void emitConstructor() throws WasmAssemblerException {
+        // Create global constructors
+        GlobalSection globalSection = lookups.requireSingleSection(GlobalSection.class, (byte) 0x06);
+        LargeArray<Global> globals = globalSection.getGlobals();
+
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
+            emitGlobalInitializer(globals.get(i), determineMethodName("global", i));
+        }
+
         MethodEmitter constructor = this.emitter.method(
                 "<init>",
                 Visibility.PUBLIC,
@@ -95,12 +112,78 @@ public final class WasmAssembler {
                 new JavaType[0]
         );
 
-        // Emit an empty constructor
+        // Emit a call to the super constructor
         CodeEmitter code = constructor.code();
         code.loadThis();
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
+
+        int maxOperands = 0;
+        int maxLocals = 0;
+
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
+            Global global = globals.get(i);
+
+            // Invoke the global initializers
+            code.invoke(
+                    emitter.getOwner(),
+                    determineMethodName("global", i),
+                    new JavaType[0],
+                    WasmTypeConverter.toJavaType(global.getType().getValueType()),
+                    InvokeType.STATIC,
+                    false
+            );
+
+            // Create an isolated emit context
+            WasmFrameState frameState = new WasmFrameState(
+                    new ValueType[0],
+                    Collections.emptyList()
+            );
+
+            frameState.pushOperand(global.getType().getValueType());
+
+            // Emit the setter
+            generators.getGlobalGenerator().emitSetGlobal(i, global, new CodeEmitContext(
+                    lookups,
+                    code,
+                    frameState,
+                    generators
+            ));
+
+            if (frameState.getMaxOperandSlotCount() > maxOperands) {
+                maxOperands = frameState.getMaxOperandSlotCount();
+            }
+
+            if (frameState.getMaxLocalSlotCount() > maxLocals) {
+                maxLocals = frameState.getMaxLocalSlotCount();
+            }
+        }
+
         code.doReturn(PrimitiveType.VOID);
-        code.finish(1, 0);
+        code.finish(1 + maxOperands, maxLocals);
+    }
+
+    private void emitGlobalInitializer(
+            Global global,
+            String name
+    ) throws WasmAssemblerException {
+        ValueType type = global.getType().getValueType();
+
+        // Emit the initializer code
+        FunctionAssembler assembler = new FunctionAssembler(
+                lookups,
+                generators,
+                LargeArray.of(Local.class),
+                global.getInit()
+        );
+
+        // Emit the initializer
+        assembler.assemble(
+                emitter,
+                name,
+                LargeArray.of(ValueType.class),
+                LargeArray.of(ValueType.class, type),
+                true
+        );
     }
 
     private void processSection(WasmSection section) throws WasmAssemblerException {
@@ -109,8 +192,26 @@ public final class WasmAssembler {
             return;
         }
 
-        if (section instanceof CodeSection) {
+        if (section instanceof GlobalSection) {
+            processGlobalSection((GlobalSection) section);
+        } else if (section instanceof CodeSection) {
             processCodeSection((CodeSection) section);
+        }
+    }
+
+    /**
+     * Processes a global section.
+     *
+     * @param section the global section to process
+     * @throws WasmAssemblerException if an error occurs during processing
+     */
+    private void processGlobalSection(GlobalSection section) throws WasmAssemblerException {
+        // There can only ever be one global section
+        markAsProcessed(ProcessedSections.GLOBAL);
+
+        LargeArray<Global> globals = section.getGlobals();
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
+            generators.getGlobalGenerator().addGlobal(i, globals.get(i), emitter);
         }
     }
 
@@ -139,6 +240,8 @@ public final class WasmAssembler {
      */
     private void processFunction(LargeArrayIndex index, Function function) throws WasmAssemblerException {
         FunctionAssembler functionAssembler = new FunctionAssembler(
+                lookups,
+                generators,
                 function.getLocals(),
                 function.getExpr()
         );
@@ -167,7 +270,8 @@ public final class WasmAssembler {
                 emitter,
                 determineMethodName("code", index),
                 functionType.getInputs(),
-                functionType.getOutputs()
+                functionType.getOutputs(),
+                false
         );
     }
 

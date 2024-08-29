@@ -3,8 +3,16 @@ package net.janrupf.thunderwasm.assembler.emitter;
 import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
 public interface CodeEmitter {
+    /**
+     * Retrieve the type of the class being emitted.
+     *
+     * @return the type of the class being emitted
+     */
+    ObjectType getOwner();
+
     /**
      * Creates a new, not yet resolved label.
      *
@@ -95,6 +103,24 @@ public interface CodeEmitter {
             JavaType returnType,
             InvokeType invokeType,
             boolean ownerIsInterface
+    ) throws WasmAssemblerException;
+
+    /**
+     * Emit a field access instruction.
+     *
+     * @param type      the type of the object to access the field on
+     * @param fieldName the name of the field to access
+     * @param fieldType the type of the field
+     * @param isStatic  whether the field is static
+     * @param isSet     whether the field is being set
+     * @throws WasmAssemblerException if the field access instruction is invalid
+     */
+    void accessField(
+            JavaType type,
+            String fieldName,
+            JavaType fieldType,
+            boolean isStatic,
+            boolean isSet
     ) throws WasmAssemblerException;
 
     /**

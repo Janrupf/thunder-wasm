@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -12,12 +13,17 @@ import org.objectweb.asm.Type;
 public final class ASMCodeEmitter implements CodeEmitter {
     private final MethodVisitor visitor;
     private final boolean hasThisLocal;
-    private final Type owner;
+    private final ObjectType owner;
 
-    ASMCodeEmitter(MethodVisitor visitor, boolean hasThisLocal, Type owner) {
+    ASMCodeEmitter(MethodVisitor visitor, boolean hasThisLocal, ObjectType owner) {
         this.visitor = visitor;
         this.hasThisLocal = hasThisLocal;
         this.owner = owner;
+    }
+
+    @Override
+    public ObjectType getOwner() {
+        return owner;
     }
 
     @Override
@@ -40,7 +46,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
             Object[] locals = new Object[localCountWithThis];
             if (hasThisLocal) {
-                locals[0] = owner.getInternalName();
+                locals[0] = ASMConverter.convertType(owner).getInternalName();
             }
 
             for (int i = 0; i < localCount; i++) {
@@ -313,6 +319,29 @@ public final class ASMCodeEmitter implements CodeEmitter {
                 methodName,
                 Type.getMethodDescriptor(asmReturnType, asmParameterTypes),
                 ownerIsInterface
+        );
+    }
+
+    @Override
+    public void accessField(
+            JavaType type,
+            String fieldName,
+            JavaType fieldType,
+            boolean isStatic,
+            boolean isSet
+    ) {
+        int opCode;
+        if (isSet) {
+            opCode = isStatic ? Opcodes.PUTSTATIC : Opcodes.PUTFIELD;
+        } else {
+            opCode = isStatic ? Opcodes.GETSTATIC : Opcodes.GETFIELD;
+        }
+
+        visitor.visitFieldInsn(
+                opCode,
+                ASMConverter.convertType(type).getInternalName(),
+                fieldName,
+                ASMConverter.convertType(fieldType).getDescriptor()
         );
     }
 
