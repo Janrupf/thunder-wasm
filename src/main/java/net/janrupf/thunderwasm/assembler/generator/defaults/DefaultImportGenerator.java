@@ -145,18 +145,33 @@ public class DefaultImportGenerator implements ImportGenerator {
         // Load the linked global
         accessImportField(im, context, false);
 
+        DefaultFieldTypeLookup.Selected selectedStorage = DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
+                im.getDescription().getType().getValueType(),
+                false
+        );
+
+        JavaType argType;
+        if (selectedStorage.isGeneric()) {
+            argType = ObjectType.OBJECT;
+        } else {
+            argType = WasmTypeConverter.toJavaType(im.getDescription().getType().getValueType());
+        }
+
         // We now have the global on the stack
         context.getEmitter().invoke(
-                DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
-                        im.getDescription().getType().getValueType(),
-                        true
-                ).getType(),
+                selectedStorage.getType(),
                 "get",
                 new JavaType[0],
-                WasmTypeConverter.toJavaType(im.getDescription().getType().getValueType()),
+                argType,
                 InvokeType.INTERFACE,
                 true
         );
+
+        if (selectedStorage.isGeneric()) {
+            context.getEmitter().checkCast(
+                    (ObjectType) WasmTypeConverter.toJavaType(im.getDescription().getType().getValueType())
+            );
+        }
 
         context.getFrameState().popOperand(ReferenceType.OBJECT);
         context.getFrameState().pushOperand(im.getDescription().getType().getValueType());
@@ -170,14 +185,23 @@ public class DefaultImportGenerator implements ImportGenerator {
         // We now have the global on the stack, swap it with the value
         CommonBytecodeGenerator.swap(context.getFrameState(), context.getEmitter());
 
+        DefaultFieldTypeLookup.Selected selectedStorage = DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
+                im.getDescription().getType().getValueType(),
+                false
+        );
+
+        JavaType argType;
+        if (selectedStorage.isGeneric()) {
+            argType = ObjectType.OBJECT;
+        } else {
+            argType = WasmTypeConverter.toJavaType(im.getDescription().getType().getValueType());
+        }
+
         // We now have the value on top of the stack, call the set method
         context.getEmitter().invoke(
-                DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
-                        im.getDescription().getType().getValueType(),
-                        false
-                ).getType(),
+                selectedStorage.getType(),
                 "set",
-                new JavaType[]{WasmTypeConverter.toJavaType(im.getDescription().getType().getValueType())},
+                new JavaType[]{argType},
                 PrimitiveType.VOID,
                 InvokeType.INTERFACE,
                 true
