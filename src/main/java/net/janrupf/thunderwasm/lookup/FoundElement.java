@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.lookup;
 
+import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.imports.ImportDescription;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 
@@ -10,16 +11,16 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
  */
 public final class FoundElement<E, D extends ImportDescription> {
     private final E element;
-    private final D importDescription;
+    private final Import<D> im;
     private final LargeArrayIndex index;
 
     private FoundElement(
             E element,
-            D importDescription,
+            Import<D> im,
             LargeArrayIndex index
     ) {
         this.element = element;
-        this.importDescription = importDescription;
+        this.im = im;
         this.index = index;
     }
 
@@ -33,12 +34,12 @@ public final class FoundElement<E, D extends ImportDescription> {
     }
 
     /**
-     * Retrieves the import description of the element.
+     * Retrieves the import.
      *
-     * @return the import description, or {@code null} if the element is not an import
+     * @return the import, or {@code null} if the element is not an import
      */
-    public D getImportDescription() {
-        return importDescription;
+    public Import<D> getImport() {
+        return im;
     }
 
     /**
@@ -56,33 +57,33 @@ public final class FoundElement<E, D extends ImportDescription> {
      * @return whether the element is an import
      */
     public boolean isImport() {
-        return importDescription != null;
+        return im != null;
     }
 
     /**
      * Creates a new found element which is an import.
      *
-     * @param importDescription the import description
+     * @param im    the import
      * @param index the index
+     * @param <E>   the type of the element
+     * @param <D>   the type of the import description
      * @return the found element
-     * @param <E> the type of the element
-     * @param <D> the type of the import description
      */
     public static <E, D extends ImportDescription> FoundElement<E, D> ofImport(
-            D importDescription,
+            Import<D> im,
             LargeArrayIndex index
     ) {
-        return new FoundElement<>(null, importDescription, index);
+        return new FoundElement<>(null, im, index);
     }
 
     /**
      * Creates a new found element which is not an import.
      *
      * @param element the element
-     * @param index the index
+     * @param index   the index
+     * @param <E>     the type of the element
+     * @param <D>     the type of the import description
      * @return the found element
-     * @param <E> the type of the element
-     * @param <D> the type of the import description
      */
     public static <E, D extends ImportDescription> FoundElement<E, D> ofInternal(
             E element,

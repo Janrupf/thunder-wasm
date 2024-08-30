@@ -27,7 +27,7 @@ public final class ElementLookups {
         ImportSearchResult<GlobalImportDescription> res = findNthImportDescription(GlobalImportDescription.class, i);
         if (res.wasFound()) {
             return FoundElement.ofImport(
-                    res.getDescription(),
+                    res.getImport(),
                     res.getNewSearchIndex()
             );
         }
@@ -61,11 +61,12 @@ public final class ElementLookups {
         if (importSection != null) {
             LargeArrayIndex elementIndex = LargeArrayIndex.ZERO;
 
-            for (Import importEntry : importSection.getImports()) {
-                ImportDescription description = importEntry.getDescription();
-                if (type.isInstance(description)) {
+            for (Import<?> importEntry : importSection.getImports()) {
+                Import<T> casted = importEntry.tryCast(type);
+
+                if (casted != null) {
                     if (elementIndex.equals(target)) {
-                        return ImportSearchResult.found(type.cast(description));
+                        return ImportSearchResult.found(casted);
                     }
 
                     elementIndex = elementIndex.add(1);
@@ -79,35 +80,35 @@ public final class ElementLookups {
     }
 
     /**
-     * The result of searching for an import description.
+     * The result of searching for an import.
      *
      * @param <T> the type of the import description
      */
     private static final class ImportSearchResult<T extends ImportDescription> {
-        private final T description;
+        private final Import<T> im;
         private final LargeArrayIndex newSearchIndex;
 
-        private ImportSearchResult(T description, LargeArrayIndex newSearchIndex) {
-            this.description = description;
+        private ImportSearchResult(Import<T> im, LargeArrayIndex newSearchIndex) {
+            this.im = im;
             this.newSearchIndex = newSearchIndex;
         }
 
         /**
-         * Whether the import description was found.
+         * Whether the import was found.
          *
-         * @return true if the import description was found, false otherwise
+         * @return true if the import was found, false otherwise
          */
         public boolean wasFound() {
-            return description != null;
+            return im != null;
         }
 
         /**
-         * Retrieves the found import description.
+         * Retrieves the found import.
          *
-         * @return the import description
+         * @return the import
          */
-        public T getDescription() {
-            return description;
+        public Import<T> getImport() {
+            return im;
         }
 
         /**
@@ -120,18 +121,18 @@ public final class ElementLookups {
         }
 
         /**
-         * Creates a new search result for a found import description.
+         * Creates a new search result for a found import.
          *
-         * @param description the found import description
-         * @param <T>         the type of the import description
+         * @param im  the found import
+         * @param <T> the type of the import description
          * @return the created search result
          */
-        public static <T extends ImportDescription> ImportSearchResult<T> found(T description) {
-            return new ImportSearchResult<>(description, null);
+        public static <T extends ImportDescription> ImportSearchResult<T> found(Import<T> im) {
+            return new ImportSearchResult<>(im, null);
         }
 
         /**
-         * Creates a new search result for a not found import description.
+         * Creates a new search result for a not found import.
          *
          * @param newSearchIndex the new search index
          * @param <T>            the type of the import description

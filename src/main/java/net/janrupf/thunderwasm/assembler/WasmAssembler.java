@@ -1,11 +1,13 @@
 package net.janrupf.thunderwasm.assembler;
 
+import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.part.FunctionAssembler;
 import net.janrupf.thunderwasm.data.Global;
+import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
@@ -16,6 +18,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.util.Collections;
@@ -97,9 +100,17 @@ public final class WasmAssembler {
      */
     private void emitConstructor() throws WasmAssemblerException {
         WasmFrameState frameState = new WasmFrameState(
-                new ValueType[0],
+                new ValueType[] { ReferenceType.OBJECT },
                 Collections.emptyList()
         );
+
+        // Create the import fields
+        ImportSection importSection = lookups.findSingleSection(ImportSection.LOCATOR);
+        if (importSection != null) {
+            for (Import<?> im : importSection.getImports()) {
+                generators.getImportGenerator().addImport(im, emitter);
+            }
+        }
 
         // Create global constructors
         GlobalSection globalSection = lookups.findSingleSection(GlobalSection.LOCATOR);
@@ -113,8 +124,8 @@ public final class WasmAssembler {
                 false,
                 false,
                 PrimitiveType.VOID,
-                new JavaType[0],
-                new JavaType[0]
+                new JavaType[] { generators.getImportGenerator().getLinkerType() },
+                new JavaType[] { ObjectType.of(ThunderWasmException.class) }
         );
 
         // Emit a call to the super constructor
@@ -122,13 +133,29 @@ public final class WasmAssembler {
         code.loadThis();
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
 
+        // Initializes imports if any
+        if (importSection != null) {
+            for (Import<?> im : importSection.getImports()) {
+                // The contract for emitLinkImport says the linker should be on top of the stack
+                code.loadLocal(0, generators.getImportGenerator().getLinkerType());
+                frameState.pushOperand(ReferenceType.OBJECT);
+
+                generators.getImportGenerator().emitLinkImport(im, new CodeEmitContext(
+                        new ElementLookups(lookups),
+                        code,
+                        frameState,
+                        generators
+                ));
+            }
+        }
+
         // Initializes globals if any
         if (globalSection != null) {
             emitGlobalInitializers(globalSection, code, frameState);
         }
 
         code.doReturn(PrimitiveType.VOID);
-        code.finish(1 + frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
+        code.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
     }
 
     private void emitAllGlobalConstructor(GlobalSection section) throws WasmAssemblerException {

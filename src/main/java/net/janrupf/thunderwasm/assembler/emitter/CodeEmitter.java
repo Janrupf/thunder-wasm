@@ -164,6 +164,14 @@ public interface CodeEmitter {
     void op(Op op) throws WasmAssemblerException;
 
     /**
+     * Emit a cast check instruction.
+     *
+     * @param type the type to check for
+     * @throws WasmAssemblerException if the cast check instruction is invalid
+     */
+    void checkCast(ObjectType type) throws WasmAssemblerException;
+
+    /**
      * Finish the code generation.
      * <p>
      * This method automatically adjusts for "this" locals.

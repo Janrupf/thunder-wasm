@@ -14,6 +14,7 @@ import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.types.*;
+import net.janrupf.thunderwasm.util.ObjectUtil;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -174,7 +175,7 @@ public class WasmLoader {
      * @throws InvalidModuleException if the module is invalid
      */
     public ImportSection readImportSection(byte id) throws IOException, InvalidModuleException {
-        LargeArray<Import> imports = this.readVec(Import.class, this::readImport);
+        LargeArray<Import<?>> imports = ObjectUtil.forceCast(this.readVec(Import.class, this::readImport));
         return new ImportSection(id, imports);
     }
 
@@ -495,7 +496,7 @@ public class WasmLoader {
      * @throws IOException            if an I/O error occurs
      * @throws InvalidModuleException if the module is invalid
      */
-    public Import readImport() throws IOException, InvalidModuleException {
+    public Import<?> readImport() throws IOException, InvalidModuleException {
         String module = this.readName();
         String name = this.readName();
 
@@ -532,7 +533,7 @@ public class WasmLoader {
             }
         }
 
-        return new Import(module, name, description);
+        return new Import<>(module, name, description);
     }
 
     /**

@@ -41,10 +41,17 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
                 LargeArrayIndex.fromU32(data.getIndex())
         );
 
-        context.getGenerators().getGlobalGenerator().emitGetGlobal(
-                gElement.getIndex(),
-                gElement.getElement(),
-                context
-        );
+        if (gElement.isImport()) {
+            context.getGenerators().getImportGenerator().emitGlobalGet(
+                    gElement.getImport(),
+                    context
+            );
+        } else {
+            context.getGenerators().getGlobalGenerator().emitGetGlobal(
+                    gElement.getIndex(),
+                    gElement.getElement(),
+                    context
+            );
+        }
     }
 }

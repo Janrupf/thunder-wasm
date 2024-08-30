@@ -19,7 +19,7 @@ public class ImportSectionTest {
         TypeSection typeSection = TestUtil.getSection(module, (byte) 1);
 
         ImportSection section = TestUtil.getSection(module, (byte) 2);
-        LargeArray<Import> imports = section.getImports();
+        LargeArray<Import<?>> imports = section.getImports();
 
         /*
             (module

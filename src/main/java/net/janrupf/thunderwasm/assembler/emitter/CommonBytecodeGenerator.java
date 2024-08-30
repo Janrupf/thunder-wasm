@@ -3,8 +3,15 @@ package net.janrupf.thunderwasm.assembler.emitter;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.ReferenceType;
+import net.janrupf.thunderwasm.types.ValueType;
+import net.janrupf.thunderwasm.types.VecType;
+
+import java.util.function.BiConsumer;
 
 public class CommonBytecodeGenerator {
     private CommonBytecodeGenerator() {
@@ -403,22 +410,164 @@ public class CommonBytecodeGenerator {
     }
 
     /**
-     * Convert the top i32 to an i64 without sign extension.
+     * Swap the top two values on the stack.
      *
      * @param frameState the current frame state
      * @param emitter    the code emitter
-     * @throws WasmAssemblerException if the conversion is invalid
+     * @throws WasmAssemblerException if the swap cannot be generated
      */
-    public static void i2lUnsigned(WasmFrameState frameState, CodeEmitter emitter) throws WasmAssemblerException {
-        frameState.popOperand(NumberType.I32);
+    public static void swap(
+            WasmFrameState frameState,
+            CodeEmitter emitter
+    ) throws WasmAssemblerException {
+        ValueType top = frameState.popAnyOperand();
+        ValueType below = frameState.popAnyOperand();
 
-        emitter.op(Op.I2L);
+        JavaType topType = WasmTypeConverter.toJavaType(top);
+        JavaType belowType = WasmTypeConverter.toJavaType(below);
 
-        frameState.pushOperand(NumberType.I64);
+        if (topType.getSlotCount() < 2 && belowType.getSlotCount() < 2) {
+            // Simple swap
+            emitter.op(Op.SWAP);
+        } else {
+            // Swap using locals
+            int topLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(top));
+            int belowLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(below));
 
-        // frameState.pushOperand(NumberType.I64);
-        // emitter.loadConstant(0x00000000FFFFFFFFL);
-        // emitter.op(Op.LAND);
-        // frameState.popOperand(NumberType.I64);
+            emitter.storeLocal(topLocal, topType);
+            emitter.storeLocal(belowLocal, belowType);
+
+            emitter.loadLocal(topLocal, topType);
+            emitter.loadLocal(belowLocal, belowType);
+
+            frameState.freeLocal();
+            frameState.freeLocal();
+        }
+
+        frameState.pushOperand(top);
+        frameState.pushOperand(below);
+    }
+
+    /**
+     * Load the value of "this" and move it below n values.
+     *
+     * @param frameState      the current frame state
+     * @param emitter         the code emitter
+     * @param valuesAboveThis the number of values above "this"
+     * @throws WasmAssemblerException if the load cannot be generated
+     */
+    public static void loadThisBelow(
+            WasmFrameState frameState,
+            CodeEmitter emitter,
+            int valuesAboveThis
+    ) throws WasmAssemblerException {
+        loadBelow(frameState, emitter, valuesAboveThis, ReferenceType.OBJECT, emitter::loadThis);
+    }
+
+    /**
+     * Load a value and move it below n values.
+     *
+     * @param frameState      the current frame state
+     * @param emitter         the code emitter
+     * @param valuesAbove     the number of values above the value
+     * @param type            the type of the value
+     * @param emitterFunction the function to invoke to generate the emitting instructions
+     * @throws WasmAssemblerException if the load cannot be generated
+     */
+    public static void loadBelow(
+            WasmFrameState frameState,
+            CodeEmitter emitter,
+            int valuesAbove,
+            ValueType type,
+            Emitter emitterFunction
+    ) throws WasmAssemblerException {
+        if (valuesAbove == 0) {
+            emitterFunction.emit();
+            frameState.pushOperand(type);
+            return;
+        }
+
+        // Remove all values above
+        ValueType[] toPop = new ValueType[valuesAbove];
+        for (int i = 0; i < valuesAbove; i++) {
+            toPop[i] = frameState.popAnyOperand();
+        }
+
+        JavaType firstToPop = WasmTypeConverter.toJavaType(toPop[0]);
+        JavaType toPush = WasmTypeConverter.toJavaType(type);
+        if (toPop.length == 1 && firstToPop.getSlotCount() < 2 && toPush.getSlotCount() < 2) {
+            // Simple swap
+            frameState.pushOperand(type);
+            frameState.pushOperand(toPop[0]);
+            emitterFunction.emit();
+            emitter.op(Op.SWAP);
+        } else {
+            // Transfer the values to locals
+            int[] locals = new int[toPop.length];
+            for (int i = 0; i < toPop.length; i++) {
+                locals[i] = frameState.computeJavaLocalIndex(frameState.allocateLocal(toPop[i]));
+                emitter.storeLocal(locals[i], WasmTypeConverter.toJavaType(toPop[i]));
+            }
+
+            // Load value and push it
+            frameState.pushOperand(type);
+            emitterFunction.emit();
+
+            // Load the values back
+            for (int i = 0; i < toPop.length; i++) {
+                emitter.loadLocal(locals[i], WasmTypeConverter.toJavaType(toPop[i]));
+                frameState.freeLocal();
+                frameState.pushOperand(toPop[i]);
+            }
+        }
+    }
+
+    /**
+     * Load the value type reference.
+     *
+     * @param frameState the current frame state
+     * @param emitter    the code emitter
+     * @param type       the value type
+     * @throws WasmAssemblerException if the load cannot be generated
+     */
+    public static void loadTypeReference(
+            WasmFrameState frameState,
+            CodeEmitter emitter,
+            ValueType type
+    ) throws WasmAssemblerException {
+        ObjectType fieldOwner = ObjectType.of(type.getClass());
+        String fieldName;
+
+        if (type.equals(NumberType.I32)) {
+            fieldName = "I32";
+        } else if (type.equals(NumberType.I64)) {
+            fieldName = "I64";
+        } else if (type.equals(NumberType.F32)) {
+            fieldName = "F32";
+        } else if (type.equals(NumberType.F64)) {
+            fieldName = "F64";
+        } else if (type.equals(ReferenceType.EXTERNREF)) {
+            fieldName = "EXTERNREF";
+        } else if (type.equals(ReferenceType.FUNCREF)) {
+            fieldName = "FUNCREF";
+        } else if (type.equals(VecType.V128)) {
+            fieldName = "V128";
+        } else {
+            throw new WasmAssemblerException("Unsupported type: " + type);
+        }
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.accessField(
+                fieldOwner,
+                fieldName,
+                fieldOwner,
+                true,
+                false
+        );
+    }
+
+    @FunctionalInterface
+    public interface Emitter {
+        void emit() throws WasmAssemblerException;
     }
 }

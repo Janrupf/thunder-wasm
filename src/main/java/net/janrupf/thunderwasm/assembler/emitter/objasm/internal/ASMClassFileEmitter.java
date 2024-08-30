@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.MethodEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.Visibility;
+import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import org.objectweb.asm.ClassWriter;
@@ -35,7 +36,14 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
     }
 
     @Override
-    public void field(String fieldName, Visibility visibility, boolean isStatic, boolean isFinal, JavaType type) {
+    public void field(
+            String fieldName,
+            Visibility visibility,
+            boolean isStatic,
+            boolean isFinal,
+            JavaType type,
+            SignaturePart signature
+    ) {
         int access = ASMConverter.toAccessModifiers(visibility, isStatic, isFinal);
         Type asmType = ASMConverter.convertType(type);
 
@@ -43,7 +51,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
                 access,
                 fieldName,
                 asmType.getDescriptor(),
-                null,
+                ASMConverter.convertSignature(signature),
                 null
         );
     }
@@ -69,7 +77,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
                 methodName,
                 descriptor,
                 null,
-                ASMConverter.convertTypesToDescriptors(thrownTypes)
+                ASMConverter.convertTypesToNames(thrownTypes)
         );
 
         return new ASMMethodEmitter(mVisitor, isStatic, owner);

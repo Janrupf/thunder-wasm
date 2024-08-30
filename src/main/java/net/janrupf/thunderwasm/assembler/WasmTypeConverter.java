@@ -31,6 +31,7 @@ public final class WasmTypeConverter {
         // Objects
         LOOKUP.put(ReferenceType.EXTERNREF, ObjectType.of(ExternReference.class));
         LOOKUP.put(ReferenceType.FUNCREF, ObjectType.of(FunctionReference.class));
+        LOOKUP.put(ReferenceType.OBJECT, ObjectType.OBJECT);
     }
 
     /**

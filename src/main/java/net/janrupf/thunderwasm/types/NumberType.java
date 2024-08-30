@@ -52,11 +52,6 @@ public final class NumberType extends ValueType {
     }
 
     @Override
-    public String toString() {
-        return getName();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof NumberType)) return false;

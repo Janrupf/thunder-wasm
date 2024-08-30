@@ -10,9 +10,9 @@ import net.janrupf.thunderwasm.module.encoding.LargeArray;
 public final class ImportSection extends WasmSection {
     public static final SectionLocator<ImportSection> LOCATOR = SectionLocator.of(ImportSection.class, (byte) 0x02);
 
-    private final LargeArray<Import> imports;
+    private final LargeArray<Import<?>> imports;
 
-    public ImportSection(byte id, LargeArray<Import> imports) {
+    public ImportSection(byte id, LargeArray<Import<?>> imports) {
         super(id);
         this.imports = imports;
     }
@@ -22,7 +22,7 @@ public final class ImportSection extends WasmSection {
      *
      * @return the imports
      */
-    public LargeArray<Import> getImports() {
+    public LargeArray<Import<?>> getImports() {
         return imports;
     }
 }

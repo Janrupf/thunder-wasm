@@ -37,14 +37,25 @@ public final class GlobalSet extends WasmInstruction<GlobalIndexData> {
                 LargeArrayIndex.fromU32(data.getIndex())
         );
 
-        if (gElement.getElement().getType().getMutability() != GlobalType.Mutability.VAR) {
-            throw new WasmAssemblerException("Cannot set immutable global");
-        }
+        if (gElement.isImport()) {
+            if (gElement.getImport().getDescription().getType().getMutability() != GlobalType.Mutability.VAR) {
+                throw new WasmAssemblerException("Cannot set immutable global");
+            }
 
-        context.getGenerators().getGlobalGenerator().emitGetGlobal(
-                gElement.getIndex(),
-                gElement.getElement(),
-                context
-        );
+            context.getGenerators().getImportGenerator().emitGlobalSet(
+                    gElement.getImport(),
+                    context
+            );
+        } else {
+            if (gElement.getElement().getType().getMutability() != GlobalType.Mutability.VAR) {
+                throw new WasmAssemblerException("Cannot set immutable global");
+            }
+
+            context.getGenerators().getGlobalGenerator().emitSetGlobal(
+                    gElement.getIndex(),
+                    gElement.getElement(),
+                    context
+            );
+        }
     }
 }

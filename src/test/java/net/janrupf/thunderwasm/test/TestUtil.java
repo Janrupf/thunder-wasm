@@ -14,6 +14,7 @@ import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.section.WasmSection;
+import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Assertions;
@@ -99,22 +100,25 @@ public class TestUtil {
     }
 
     public static Object instantiateModule(
-            WasmModule module
+            WasmModule module,
+            RuntimeLinker linker
     ) throws WasmAssemblerException {
         WasmAssembler assembler = TestUtil.makeAssembler(module);
-        return instantiateModule(assembler);
-    }
-
-    public static Object instantiateModule(
-            WasmAssembler assembler
-    ) throws WasmAssemblerException {
-        byte[] result = assembler.assembleToModule();
-        return instantiateModule(assembler, result);
+        return instantiateModule(assembler, linker);
     }
 
     public static Object instantiateModule(
             WasmAssembler assembler,
-            byte[] classData
+            RuntimeLinker linker
+    ) throws WasmAssemblerException {
+        byte[] result = assembler.assembleToModule();
+        return instantiateModule(assembler, result, linker);
+    }
+
+    public static Object instantiateModule(
+            WasmAssembler assembler,
+            byte[] classData,
+            RuntimeLinker linker
     ) throws WasmAssemblerException {
         Class<?> loaded;
         try {
@@ -125,7 +129,7 @@ public class TestUtil {
 
         Object instance;
         try {
-            instance = loaded.getConstructor().newInstance();
+            instance = loaded.getConstructor(RuntimeLinker.class).newInstance(linker);
         } catch (Exception e) {
             throw new WasmAssemblerException("Failed to instantiate generated class", e);
         }

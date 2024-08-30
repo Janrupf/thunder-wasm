@@ -90,7 +90,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
     public void loadConstant(Object value) throws WasmAssemblerException {
         if (value == null) {
             visitor.visitInsn(Opcodes.ACONST_NULL);
-        } else if (value instanceof Byte ||
+        } else if (value instanceof Boolean ||
+                value instanceof Byte ||
                 value instanceof Short ||
                 value instanceof Integer ||
                 value instanceof Long ||
@@ -98,6 +99,16 @@ public final class ASMCodeEmitter implements CodeEmitter {
                 value instanceof Double ||
                 value instanceof String
         ) {
+            if (value instanceof Boolean) {
+                if ((boolean) value) {
+                    visitor.visitInsn(Opcodes.ICONST_1);
+                } else {
+                    visitor.visitInsn(Opcodes.ICONST_0);
+                }
+
+                return;
+            }
+
             if (value instanceof Byte) {
                 if (this.tryPushInstr((byte) value)) {
                     return;
@@ -185,6 +196,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
             }
 
             visitor.visitLdcInsn(value);
+        } else if (value instanceof ObjectType) {
+            visitor.visitLdcInsn(ASMConverter.convertType((ObjectType) value));
         } else {
             throw new WasmAssemblerException("Unsupported constant type: " + value.getClass().getName());
         }
@@ -642,6 +655,11 @@ public final class ASMCodeEmitter implements CodeEmitter {
         }
 
         visitor.visitInsn(opCode);
+    }
+
+    @Override
+    public void checkCast(ObjectType type) {
+        visitor.visitTypeInsn(Opcodes.CHECKCAST, ASMConverter.convertType(type).getInternalName());
     }
 
     @Override

@@ -4,7 +4,7 @@ package net.janrupf.thunderwasm.assembler.emitter.types;
  * Represents a Java object type.
  */
 public class ObjectType extends JavaType {
-    public static ObjectType OBJECT = ObjectType.of(Object.class);
+    public static final ObjectType OBJECT = ObjectType.of(Object.class);
 
     private final String packageName;
     private final String className;

@@ -1,10 +1,14 @@
 package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
 import net.janrupf.thunderwasm.assembler.emitter.Visibility;
+import net.janrupf.thunderwasm.assembler.emitter.signature.ConcreteType;
+import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
+import net.janrupf.thunderwasm.assembler.emitter.signature.TypeVariable;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
-import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.signature.SignatureVisitor;
+import org.objectweb.asm.signature.SignatureWriter;
 
 public final class ASMConverter {
     private ASMConverter() {
@@ -82,16 +86,56 @@ public final class ASMConverter {
     }
 
     /**
-     * Convert an array of JavaTypes to an array of ASM descriptors.
+     * Convert an array of JavaTypes to an array of ASM names.
      *
      * @param types the JavaTypes
      * @return the ASM descriptors
      */
-    public static String[] convertTypesToDescriptors(JavaType[] types) {
+    public static String[] convertTypesToNames(JavaType[] types) {
         String[] result = new String[types.length];
         for (int i = 0; i < types.length; i++) {
-            result[i] = types[i].toJvmDescriptor();
+            result[i] = convertType(types[i]).getInternalName();
         }
         return result;
+    }
+
+    /**
+     * Convert a signature part to a signature string.
+     *
+     * @param part the signature part
+     * @return the signature string
+     */
+    public static String convertSignature(SignaturePart part) {
+        if (part == null) {
+            return null;
+        }
+
+        SignatureWriter writer = new SignatureWriter();
+        convertSignature(writer, part);
+        writer.visitEnd();
+        return writer.toString();
+    }
+
+    private static void convertSignature(SignatureVisitor visitor, SignaturePart part) {
+        if (part == null) {
+            return;
+        }
+
+        if (part instanceof ConcreteType) {
+            ConcreteType concreteType = (ConcreteType) part;
+            visitor.visitClassType(convertType(concreteType.getType()).getInternalName());
+            if (!concreteType.getTypeArguments().isEmpty()) {
+                for (SignaturePart typeArgument : concreteType.getTypeArguments()) {
+                    SignatureVisitor nested = visitor.visitTypeArgument('=');
+                    convertSignature(nested, typeArgument);
+                    nested.visitEnd();
+                }
+            }
+        } else if (part instanceof TypeVariable) {
+            TypeVariable typeVariable = (TypeVariable) part;
+            visitor.visitTypeVariable(typeVariable.getName());
+        } else {
+            throw new IllegalArgumentException("Unknown signature part: " + part);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
+import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
@@ -19,13 +20,15 @@ public interface ClassFileEmitter {
      * @param isStatic   whether the field is static
      * @param isFinal    whether the field is final
      * @param type       the type of the field
+     * @param signature  the generic signature of the field
      */
     void field(
             String fieldName,
             Visibility visibility,
             boolean isStatic,
             boolean isFinal,
-            JavaType type
+            JavaType type,
+            SignaturePart signature
     );
 
     /**
