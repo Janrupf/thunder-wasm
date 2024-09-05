@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
@@ -106,6 +107,14 @@ public interface CodeEmitter {
     ) throws WasmAssemblerException;
 
     /**
+     * Emit a new or anewarray instruction.
+     *
+     * @param type the type of the object to create
+     * @throws WasmAssemblerException if the new instruction is invalid
+     */
+    void doNew(ObjectType type) throws WasmAssemblerException;
+
+    /**
      * Emit a field access instruction.
      *
      * @param type      the type of the object to access the field on
@@ -155,6 +164,22 @@ public interface CodeEmitter {
      * @throws WasmAssemblerException if the value cannot be popped
      */
     void pop(JavaType type) throws WasmAssemblerException;
+
+    /**
+     * Emit an a<type>store instruction.
+     *
+     * @param arrayType the type of the array
+     * @throws WasmAssemblerException if the array element cannot be stored
+     */
+    void storeArrayElement(ArrayType arrayType) throws WasmAssemblerException;
+
+    /**
+     * Emit an a<type>load instruction.
+     *
+     * @param arrayType the type of the array
+     * @throws WasmAssemblerException if the array element cannot be loaded
+     */
+    void loadArrayElement(ArrayType arrayType) throws WasmAssemblerException;
 
     /**
      * Emit a simple operation.

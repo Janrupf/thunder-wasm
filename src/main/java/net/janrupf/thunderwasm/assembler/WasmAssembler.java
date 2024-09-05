@@ -7,7 +7,9 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.part.FunctionAssembler;
 import net.janrupf.thunderwasm.data.Global;
+import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
@@ -17,6 +19,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
+import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -100,7 +103,7 @@ public final class WasmAssembler {
      */
     private void emitConstructor() throws WasmAssemblerException {
         WasmFrameState frameState = new WasmFrameState(
-                new ValueType[] { ReferenceType.OBJECT },
+                new ValueType[]{ReferenceType.OBJECT},
                 Collections.emptyList()
         );
 
@@ -118,20 +121,43 @@ public final class WasmAssembler {
             emitAllGlobalConstructor(globalSection);
         }
 
+        // Create element segments
+        ElementSection elementSection = lookups.findSingleSection(ElementSection.LOCATOR);
+        if (elementSection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(elementSection.getSegments().largeLength()) < 0; i = i.add(1)) {
+                generators.getTableGenerator().addElementSegment(i, elementSection.getSegments().get(i), emitter);
+            }
+        }
+
+        // Create tables
+        TableSection tableSection = lookups.findSingleSection(TableSection.LOCATOR);
+        if (tableSection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(tableSection.getTypes().largeLength()) < 0; i = i.add(1)) {
+                generators.getTableGenerator().addTable(i, tableSection.getTypes().get(i), emitter);
+            }
+        }
+
         MethodEmitter constructor = this.emitter.method(
                 "<init>",
                 Visibility.PUBLIC,
                 false,
                 false,
                 PrimitiveType.VOID,
-                new JavaType[] { generators.getImportGenerator().getLinkerType() },
-                new JavaType[] { ObjectType.of(ThunderWasmException.class) }
+                new JavaType[]{generators.getImportGenerator().getLinkerType()},
+                new JavaType[]{ObjectType.of(ThunderWasmException.class)}
         );
 
         // Emit a call to the super constructor
         CodeEmitter code = constructor.code();
         code.loadThis();
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
+
+        CodeEmitContext emitContext = new CodeEmitContext(
+                new ElementLookups(lookups),
+                code,
+                frameState,
+                generators
+        );
 
         // Initializes imports if any
         if (importSection != null) {
@@ -140,18 +166,46 @@ public final class WasmAssembler {
                 code.loadLocal(0, generators.getImportGenerator().getLinkerType());
                 frameState.pushOperand(ReferenceType.OBJECT);
 
-                generators.getImportGenerator().emitLinkImport(im, new CodeEmitContext(
-                        new ElementLookups(lookups),
-                        code,
-                        frameState,
-                        generators
-                ));
+                generators.getImportGenerator().emitLinkImport(im, emitContext);
             }
         }
 
         // Initializes globals if any
         if (globalSection != null) {
             emitGlobalInitializers(globalSection, code, frameState);
+        }
+
+        // Initializes element segments if any
+        if (elementSection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(elementSection.getSegments().largeLength()) < 0; i = i.add(1)) {
+                ElementSegment segment = elementSection.getSegments().get(i);
+
+                // Evaluate the segment init values
+                Expr[] initExprs = segment.getInit().asFlatArray();
+                if (initExprs == null) {
+                    throw new WasmAssemblerException("Element segment init values are too large");
+                }
+
+                Object[] initValues = new Object[initExprs.length];
+                for (int j = 0; j < initExprs.length; j++) {
+                    EvalContext evalContext = new EvalContext(emitContext.getLookups());
+                    initValues[j] = evalContext.evalSingleValue(initExprs[j], true, segment.getType());
+                }
+
+                generators.getTableGenerator().emitElementSegmentConstructor(
+                        i,
+                        segment,
+                        initValues,
+                        emitContext
+                );
+            }
+        }
+
+        // Initializes tables if any
+        if (tableSection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(tableSection.getTypes().largeLength()) < 0; i = i.add(1)) {
+                generators.getTableGenerator().emitTableConstructor(i, tableSection.getTypes().get(i), emitContext);
+            }
         }
 
         code.doReturn(PrimitiveType.VOID);

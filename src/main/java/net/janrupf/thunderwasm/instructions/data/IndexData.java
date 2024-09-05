@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.instructions.data;
 
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 
 public abstract class IndexData implements WasmInstruction.Data {
     private final int index;
@@ -16,6 +17,15 @@ public abstract class IndexData implements WasmInstruction.Data {
      */
     public final int getIndex() {
         return index;
+    }
+
+    /**
+     * Converts the index to a {@link LargeArrayIndex}.
+     *
+     * @return the converted index
+     */
+    public LargeArrayIndex toArrayIndex() {
+        return LargeArrayIndex.fromU32(index);
     }
 
     @Override

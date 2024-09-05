@@ -8,6 +8,7 @@ import net.janrupf.thunderwasm.instructions.parametric.Select;
 import net.janrupf.thunderwasm.instructions.reference.RefFunc;
 import net.janrupf.thunderwasm.instructions.reference.RefIsNull;
 import net.janrupf.thunderwasm.instructions.reference.RefNull;
+import net.janrupf.thunderwasm.instructions.table.*;
 import net.janrupf.thunderwasm.instructions.variable.*;
 
 import java.util.Collections;
@@ -79,6 +80,15 @@ public final class InstructionSet {
             LocalTee.INSTANCE,
             GlobalSet.INSTANCE,
             GlobalGet.INSTANCE,
+
+            // Table instructions
+            TableGet.INSTANCE,
+            TableSet.INSTANCE,
+            TableInit.INSTANCE,
+            TableGrow.INSTANCE,
+            TableSize.INSTANCE,
+            TableFill.INSTANCE,
+            TableCopy.INSTANCE,
 
             // Numeric instructions
             I32Const.INSTANCE,

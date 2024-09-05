@@ -1,9 +1,11 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
+import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultGlobalGenerator;
 import net.janrupf.thunderwasm.assembler.generator.GlobalGenerator;
 import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultImportGenerator;
+import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultTableGenerator;
 
 /**
  * Holder for all generators used by the {@link net.janrupf.thunderwasm.assembler.WasmAssembler}.
@@ -11,10 +13,12 @@ import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultImportGenerat
 public final class WasmGenerators {
     private GlobalGenerator globalGenerator;
     private ImportGenerator importGenerator;
+    private TableGenerator tableGenerator;
 
     public WasmGenerators() {
         this.globalGenerator = new DefaultGlobalGenerator();
         this.importGenerator = new DefaultImportGenerator();
+        this.tableGenerator = new DefaultTableGenerator();
     }
 
     /**
@@ -40,6 +44,17 @@ public final class WasmGenerators {
     }
 
     /**
+     * Overrides the table generator.
+     *
+     * @param tableGenerator the new table generator
+     * @return this
+     */
+    public WasmGenerators withTableGenerator(TableGenerator tableGenerator) {
+        this.tableGenerator = tableGenerator;
+        return this;
+    }
+
+    /**
      * Retrieves the global generator.
      *
      * @return the global generator
@@ -55,5 +70,14 @@ public final class WasmGenerators {
      */
     public ImportGenerator getImportGenerator() {
         return importGenerator;
+    }
+
+    /**
+     * Retrieves the table generator.
+     *
+     * @return the table generator
+     */
+    public TableGenerator getTableGenerator() {
+        return tableGenerator;
     }
 }

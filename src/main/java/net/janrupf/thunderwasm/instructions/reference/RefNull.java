@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.reference;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -26,6 +27,16 @@ public final class RefNull extends WasmInstruction<RefNull.Data> {
     public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
         context.getEmitter().loadConstant(null);
         context.getFrameState().pushOperand(data.getType());
+    }
+
+    @Override
+    public boolean isConst() {
+        return true;
+    }
+
+    @Override
+    public void eval(EvalContext context, Data data) throws WasmAssemblerException {
+        context.getFrameState().push(data.getType(), null);
     }
 
     public static final class Data implements WasmInstruction.Data {

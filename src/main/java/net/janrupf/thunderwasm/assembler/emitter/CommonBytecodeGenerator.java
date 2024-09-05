@@ -6,6 +6,9 @@ import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.runtime.ElementReference;
+import net.janrupf.thunderwasm.runtime.ExternReference;
+import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -471,7 +474,8 @@ public class CommonBytecodeGenerator {
      * @param emitter         the code emitter
      * @param valuesAbove     the number of values above the value
      * @param type            the type of the value
-     * @param emitterFunction the function to invoke to generate the emitting instructions
+     * @param emitterFunction the function to invoke to generate the emitting instructions,
+     *                        the emitter should not manipulate the frame state
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadBelow(
@@ -514,7 +518,7 @@ public class CommonBytecodeGenerator {
             emitterFunction.emit();
 
             // Load the values back
-            for (int i = 0; i < toPop.length; i++) {
+            for (int i = toPop.length - 1; i >= 0; i--) {
                 emitter.loadLocal(locals[i], WasmTypeConverter.toJavaType(toPop[i]));
                 frameState.freeLocal();
                 frameState.pushOperand(toPop[i]);
@@ -564,6 +568,78 @@ public class CommonBytecodeGenerator {
                 true,
                 false
         );
+    }
+
+    /**
+     * Load a constant value.
+     * <p>
+     * This is mostly equivalent to {@link CodeEmitter#loadConstant(Object)} but also supports
+     * {@link net.janrupf.thunderwasm.runtime.FunctionReference} and
+     * {@link net.janrupf.thunderwasm.runtime.ExternReference} values.
+     *
+     * @param emitter    the code emitter
+     * @param frameState the current frame state
+     * @param type       the type of the value
+     * @param value      the value to load
+     * @throws WasmAssemblerException if the constant type is not supported
+     */
+    public static void loadConstant(
+            CodeEmitter emitter,
+            WasmFrameState frameState,
+            ValueType type,
+            Object value
+    ) throws WasmAssemblerException {
+        if (value instanceof FunctionReference) {
+            if (!type.equals(ReferenceType.FUNCREF)) {
+                throw new WasmAssemblerException("Invalid type for function reference: " + type);
+            }
+
+            ObjectType functionReferenceType = ObjectType.of(FunctionReference.class);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadConstant(((FunctionReference) value).getFunctionIndex());
+
+            emitter.invoke(
+                    functionReferenceType,
+                    "of",
+                    new JavaType[]{PrimitiveType.INT},
+                    functionReferenceType,
+                    InvokeType.STATIC,
+                    false
+            );
+
+            frameState.popOperand(NumberType.I32);
+            frameState.pushOperand(ReferenceType.FUNCREF);
+            return;
+        } else if (value instanceof ExternReference) {
+            if (!type.equals(ReferenceType.EXTERNREF)) {
+                throw new WasmAssemblerException("Invalid type for extern reference: " + type);
+            }
+
+            ObjectType externReferenceType = ObjectType.of(ExternReference.class);
+
+            frameState.pushOperand(ReferenceType.OBJECT);
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.doNew(externReferenceType);
+            emitter.duplicate(externReferenceType);
+            loadConstant(emitter, frameState, type, ((ExternReference) value).getReferent());
+            emitter.invoke(
+                    externReferenceType,
+                    "<init>",
+                    new JavaType[]{ObjectType.OBJECT},
+                    PrimitiveType.VOID,
+                    InvokeType.SPECIAL,
+                    false
+            );
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.pushOperand(ReferenceType.EXTERNREF);
+            return;
+        }
+
+        frameState.pushOperand(type);
+        emitter.loadConstant(value);
     }
 
     @FunctionalInterface

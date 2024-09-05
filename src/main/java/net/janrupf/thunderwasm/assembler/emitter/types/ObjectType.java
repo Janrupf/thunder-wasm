@@ -1,5 +1,7 @@
 package net.janrupf.thunderwasm.assembler.emitter.types;
 
+import java.util.Objects;
+
 /**
  * Represents a Java object type.
  */
@@ -52,6 +54,19 @@ public class ObjectType extends JavaType {
     @Override
     public int getSlotCount() {
         return 1;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ObjectType)) return false;
+        ObjectType that = (ObjectType) o;
+        return Objects.equals(packageName, that.packageName) && Objects.equals(className, that.className);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(packageName, className);
     }
 
     /**

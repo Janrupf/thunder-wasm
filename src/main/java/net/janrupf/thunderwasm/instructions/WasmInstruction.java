@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -87,6 +88,29 @@ public abstract class WasmInstruction<D extends WasmInstruction.Data> {
     ) throws WasmAssemblerException {
         throw new WasmAssemblerException(
                 "Code emitter not implemented for " + getName(),
+                new UnsupportedOperationException("TODO")
+        );
+    }
+
+    /**
+     * Check if this instruction is a constant instruction.
+     *
+     * @return true if this instruction is a constant instruction
+     */
+    public boolean isConst() {
+        return false;
+    }
+
+    /**
+     * Evaluate the instruction.
+     *
+     * @param context the evaluation context
+     * @param data    the instruction data
+     * @throws WasmAssemblerException if the evaluation fails
+     */
+    public void eval(EvalContext context, D data) throws WasmAssemblerException {
+        throw new WasmAssemblerException(
+                "Evaluator not implemented for " + getName(),
                 new UnsupportedOperationException("TODO")
         );
     }

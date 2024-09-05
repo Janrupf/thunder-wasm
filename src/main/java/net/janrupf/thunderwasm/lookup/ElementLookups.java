@@ -5,9 +5,14 @@ import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.imports.ImportDescription;
+import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.ElementSection;
 import net.janrupf.thunderwasm.module.section.GlobalSection;
 import net.janrupf.thunderwasm.module.section.ImportSection;
+import net.janrupf.thunderwasm.module.section.TableSection;
+import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
+import net.janrupf.thunderwasm.types.TableType;
 
 public final class ElementLookups {
     private final ModuleLookups moduleLookups;
@@ -42,6 +47,51 @@ public final class ElementLookups {
                 globalSection.getGlobals().get(globalSectionIndex),
                 globalSectionIndex
         );
+    }
+
+    /**
+     * Require the table at the given index.
+     *
+     * @param i the index of the table
+     * @return the found table
+     * @throws WasmAssemblerException if the table could not be found
+     */
+    public FoundElement<TableType, TableImportDescription> requireTable(LargeArrayIndex i) throws
+            WasmAssemblerException {
+        ImportSearchResult<TableImportDescription> res = findNthImportDescription(TableImportDescription.class, i);
+        if (res.wasFound()) {
+            return FoundElement.ofImport(
+                    res.getImport(),
+                    res.getNewSearchIndex()
+            );
+        }
+
+        LargeArrayIndex tableSectionIndex = res.getNewSearchIndex();
+        TableSection tableSection = moduleLookups.findSingleSection(TableSection.LOCATOR);
+        if (tableSection == null || !tableSection.getTypes().isValid(tableSectionIndex)) {
+            throw new WasmAssemblerException("Table index " + i + " out of bounds");
+        }
+
+        return FoundElement.ofInternal(
+                tableSection.getTypes().get(tableSectionIndex),
+                tableSectionIndex
+        );
+    }
+
+    /**
+     * Require the element segment at the given index.
+     *
+     * @param i the index of the element segment
+     * @return the found element segment
+     * @throws WasmAssemblerException if the element segment could not be found
+     */
+    public ElementSegment requireElementSegment(LargeArrayIndex i) throws WasmAssemblerException {
+        ElementSection elementSection = moduleLookups.findSingleSection(ElementSection.LOCATOR);
+        if (elementSection == null || !elementSection.getSegments().isValid(i)) {
+            throw new WasmAssemblerException("Element segment index " + i + " out of bounds");
+        }
+
+        return elementSection.getSegments().get(i);
     }
 
     /**

@@ -1,8 +1,11 @@
 package net.janrupf.thunderwasm.instructions.reference;
 
+import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
+import net.janrupf.thunderwasm.runtime.FunctionReference;
+import net.janrupf.thunderwasm.types.ReferenceType;
 
 import java.io.IOException;
 
@@ -17,6 +20,16 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
     public Data readData(WasmLoader loader) throws IOException, InvalidModuleException {
         int functionIndex = loader.readU32();
         return new Data(functionIndex);
+    }
+
+    @Override
+    public boolean isConst() {
+        return true;
+    }
+
+    @Override
+    public void eval(EvalContext context, Data data) {
+        context.getFrameState().push(ReferenceType.FUNCREF, FunctionReference.of(data.getFunctionIndex()));
     }
 
     public static final class Data implements WasmInstruction.Data {

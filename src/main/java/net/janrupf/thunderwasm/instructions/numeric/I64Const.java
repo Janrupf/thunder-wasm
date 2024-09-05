@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -25,6 +26,16 @@ public final class I64Const extends WasmInstruction<I64Const.Data> {
     public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
         context.getEmitter().loadConstant(data.value);
         context.getFrameState().pushOperand(NumberType.I64);
+    }
+
+    @Override
+    public boolean isConst() {
+        return true;
+    }
+
+    @Override
+    public void eval(EvalContext context, Data data) {
+        context.getFrameState().push(NumberType.I64, data.getValue());
     }
 
     public static class Data implements WasmInstruction.Data {

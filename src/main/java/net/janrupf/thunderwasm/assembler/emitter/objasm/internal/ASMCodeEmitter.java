@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
@@ -336,6 +337,16 @@ public final class ASMCodeEmitter implements CodeEmitter {
     }
 
     @Override
+    public void doNew(ObjectType type) {
+        if (type instanceof ArrayType) {
+            JavaType elementType = ((ArrayType) type).getElementType();
+            visitor.visitTypeInsn(Opcodes.ANEWARRAY, ASMConverter.convertType(elementType).getInternalName());
+        } else {
+            visitor.visitTypeInsn(Opcodes.NEW, ASMConverter.convertType(type).getInternalName());
+        }
+    }
+
+    @Override
     public void accessField(
             JavaType type,
             String fieldName,
@@ -434,6 +445,56 @@ public final class ASMCodeEmitter implements CodeEmitter {
             }
         } else {
             visitor.visitInsn(Opcodes.POP);
+        }
+    }
+
+    @Override
+    public void storeArrayElement(ArrayType arrayType) {
+        JavaType elementType = arrayType.getElementType();
+
+        if (elementType.equals(PrimitiveType.BOOLEAN)) {
+            visitor.visitInsn(Opcodes.BASTORE);
+        } else if (elementType.equals(PrimitiveType.CHAR)) {
+            visitor.visitInsn(Opcodes.CASTORE);
+        } else if (elementType.equals(PrimitiveType.FLOAT)) {
+            visitor.visitInsn(Opcodes.FASTORE);
+        } else if (elementType.equals(PrimitiveType.DOUBLE)) {
+            visitor.visitInsn(Opcodes.DASTORE);
+        } else if (elementType.equals(PrimitiveType.BYTE)) {
+            visitor.visitInsn(Opcodes.BASTORE);
+        } else if (elementType.equals(PrimitiveType.SHORT)) {
+            visitor.visitInsn(Opcodes.SASTORE);
+        } else if (elementType.equals(PrimitiveType.INT)) {
+            visitor.visitInsn(Opcodes.IASTORE);
+        } else if (elementType.equals(PrimitiveType.LONG)) {
+            visitor.visitInsn(Opcodes.LASTORE);
+        } else {
+            visitor.visitInsn(Opcodes.AASTORE);
+        }
+    }
+
+    @Override
+    public void loadArrayElement(ArrayType arrayType) {
+        JavaType elementType = arrayType.getElementType();
+
+        if (elementType.equals(PrimitiveType.BOOLEAN)) {
+            visitor.visitInsn(Opcodes.BALOAD);
+        } else if (elementType.equals(PrimitiveType.CHAR)) {
+            visitor.visitInsn(Opcodes.CALOAD);
+        } else if (elementType.equals(PrimitiveType.FLOAT)) {
+            visitor.visitInsn(Opcodes.FALOAD);
+        } else if (elementType.equals(PrimitiveType.DOUBLE)) {
+            visitor.visitInsn(Opcodes.DALOAD);
+        } else if (elementType.equals(PrimitiveType.BYTE)) {
+            visitor.visitInsn(Opcodes.BALOAD);
+        } else if (elementType.equals(PrimitiveType.SHORT)) {
+            visitor.visitInsn(Opcodes.SALOAD);
+        } else if (elementType.equals(PrimitiveType.INT)) {
+            visitor.visitInsn(Opcodes.IALOAD);
+        } else if (elementType.equals(PrimitiveType.LONG)) {
+            visitor.visitInsn(Opcodes.LALOAD);
+        } else {
+            visitor.visitInsn(Opcodes.AALOAD);
         }
     }
 
