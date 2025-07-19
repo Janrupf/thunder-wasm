@@ -38,7 +38,7 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
         );
 
         if (gElement.isImport()) {
-            context.getGenerators().getImportGenerator().emitGlobalGet(
+            context.getGenerators().getImportGenerator().emitGetGlobal(
                     gElement.getImport(),
                     context
             );

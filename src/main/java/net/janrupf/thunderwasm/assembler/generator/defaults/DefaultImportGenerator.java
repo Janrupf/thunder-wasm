@@ -94,6 +94,8 @@ public class DefaultImportGenerator implements ImportGenerator {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
+        boolean isConst = im.getDescription().getType().getMutability() == GlobalType.Mutability.CONST;
+
         // Push the arguments for the method invocation, we expect the linker to be on top of the stack already
 
         frameState.pushOperand(ReferenceType.OBJECT);
@@ -105,7 +107,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         CommonBytecodeGenerator.loadTypeReference(frameState, emitter, type);
 
         frameState.pushOperand(NumberType.I32);
-        emitter.loadConstant(im.getDescription().getType().getMutability() == GlobalType.Mutability.CONST);
+        emitter.loadConstant(isConst);
 
         emitter.invoke(
                 RUNTIME_LINKER_TYPE,
@@ -125,7 +127,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         // DEBUG: Check if the return type is correct
         emitter.checkCast(DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
                 type,
-                im.getDescription().getType().getMutability() == GlobalType.Mutability.CONST
+                isConst
         ).getType());
 
         // Pop Arguments from the stack
@@ -141,7 +143,7 @@ public class DefaultImportGenerator implements ImportGenerator {
     }
 
     @Override
-    public void emitGlobalGet(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+    public void emitGetGlobal(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
         // Load the linked global
         accessImportField(im, context, false);
 
@@ -178,7 +180,7 @@ public class DefaultImportGenerator implements ImportGenerator {
     }
 
     @Override
-    public void emitGlobalSet(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+    public void emitSetGlobal(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
         // Load the linked global
         accessImportField(im, context, false);
 

@@ -99,6 +99,11 @@ tasks {
 
             doLast {
                 fileMappingProvider.get().forEach { (inputFile, outputFile) ->
+                    val outputParent = outputFile.get().asFile.parentFile
+                    if (!outputParent.exists()) {
+                        outputParent.mkdirs()
+                    }
+
                     exec {
                         executable(wat2wasm)
                         args(

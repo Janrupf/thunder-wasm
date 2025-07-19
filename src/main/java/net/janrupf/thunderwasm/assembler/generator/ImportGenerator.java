@@ -42,7 +42,7 @@ public interface ImportGenerator {
      * @param context the context to use
      * @throws WasmAssemblerException if an error occurs during assembly
      */
-    void emitGlobalGet(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+    void emitGetGlobal(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
 
     /**
      * Emits the code to set an imported global variable.
@@ -53,5 +53,5 @@ public interface ImportGenerator {
      * @param context the context to use
      * @throws WasmAssemblerException if an error occurs during assembly
      */
-    void emitGlobalSet(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+    void emitSetGlobal(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
 }

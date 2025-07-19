@@ -9,9 +9,7 @@ import net.janrupf.thunderwasm.instructions.data.GlobalIndexData;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
-import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.module.section.GlobalSection;
 import net.janrupf.thunderwasm.types.GlobalType;
 
 import java.io.IOException;
@@ -42,7 +40,7 @@ public final class GlobalSet extends WasmInstruction<GlobalIndexData> {
                 throw new WasmAssemblerException("Cannot set immutable global");
             }
 
-            context.getGenerators().getImportGenerator().emitGlobalSet(
+            context.getGenerators().getImportGenerator().emitSetGlobal(
                     gElement.getImport(),
                     context
             );
