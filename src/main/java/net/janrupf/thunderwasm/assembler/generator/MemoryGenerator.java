@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.MemoryType;
@@ -53,6 +54,28 @@ public interface MemoryGenerator {
             NumberType numberType,
             PlainMemory.Memarg memarg,
             PlainMemoryStore.StoreType storeType,
+            CodeEmitContext context
+    ) throws WasmAssemblerException;
+
+    /**
+     * Emit a load instruction.
+     * <p>
+     * Expects the offset to be on top of the stack.
+     *
+     * @param i          the index of the memory
+     * @param type       the type of the memory
+     * @param numberType the type of value to load
+     * @param memarg     additional memory access information
+     * @param loadType   how to perform the load
+     * @param context    the context to use
+     * @throws WasmAssemblerException if the load could not be emitted
+     */
+    void emitLoad(
+            LargeArrayIndex i,
+            MemoryType type,
+            NumberType numberType,
+            PlainMemory.Memarg memarg,
+            PlainMemoryLoad.LoadType loadType,
             CodeEmitContext context
     ) throws WasmAssemblerException;
 }

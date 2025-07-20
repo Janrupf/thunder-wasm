@@ -41,16 +41,15 @@ public class BasicTest {
         Table<?> table = new Table<>(0, 10);
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table));
-        for (int i = 0; i < 10000; i++) {
-            Object result = TestUtil.callCodeMethod(
-                    moduleInstance,
-                    0,
-                    new Class<?>[] { int.class, int.class, },
-                    new Object[] { 5, 25 }
-            );
-        }
+        Object result = TestUtil.callCodeMethod(
+                moduleInstance,
+                0,
+                new Class<?>[] { int.class, long.class, },
+                new Object[] { 5, 25 }
+        );
 
-        // System.out.println("$code_0() = " + result);
+
+        System.out.println("$code_0() = " + result);
     }
 
     private static final class TestLinker implements RuntimeLinker {

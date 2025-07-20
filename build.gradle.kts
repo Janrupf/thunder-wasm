@@ -128,13 +128,13 @@ tasks {
     test {
         useJUnitPlatform()
 
-        jvmArgs(
-            "-XX:+UnlockDiagnosticVMOptions",
-            "-XX:CompileCommand=compileonly,*TestModule0.*",
-            "-XX:CompileCommand=print,*TestModule0.*",
-            "-Xcomp",
-            "-XX:PrintAssemblyOptions=intel,mpad=10,cpad=10,code"
-        )
+        // jvmArgs(
+        //     "-XX:+UnlockDiagnosticVMOptions",
+        //     "-XX:CompileCommand=compileonly,*TestModule0.*",
+        //     "-XX:CompileCommand=print,*TestModule0.*",
+        //     "-Xcomp",
+        //     "-XX:PrintAssemblyOptions=intel,mpad=10,cpad=10,code"
+        // )
         environment("LD_LIBRARY_PATH" to "/home/janrupf/Downloads")
     }
 }
