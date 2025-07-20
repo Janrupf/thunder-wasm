@@ -1,13 +1,31 @@
 (module
-  (import "module" "table" (table $imported_table 10 20 funcref))
+  (memory 1)
+  (func $load_store_instructions (param $addr i32)
+    ;; Store Instructions
+    (i32.store (local.get $addr) (i32.const 1))
+    (i64.store (local.get $addr) (i64.const 2))
+    (f32.store (local.get $addr) (f32.const 3.0))
+    (f64.store (local.get $addr) (f64.const 4.0))
+    (i32.store8 (local.get $addr) (i32.const 5))
+    (i32.store16 (local.get $addr) (i32.const 6))
+    (i64.store8 (local.get $addr) (i64.const 7))
+    (i64.store16 (local.get $addr) (i64.const 8))
+    (i64.store32 (local.get $addr) (i64.const 9))
 
-  (func (param $index i32) (param $func_ref funcref)
-    ref.null func
-    i32.const 5
-    table.grow $imported_table
-    drop
-    local.get $index
-    local.get $func_ref
-    table.set $imported_table
+    ;; Load Instructions
+    (drop (i32.load (local.get $addr)))
+    (drop (i64.load (local.get $addr)))
+    (drop (f32.load (local.get $addr)))
+    (drop (f64.load (local.get $addr)))
+    (drop (i32.load8_s (local.get $addr)))
+    (drop (i32.load8_u (local.get $addr)))
+    (drop (i32.load16_s (local.get $addr)))
+    (drop (i32.load16_u (local.get $addr)))
+    (drop (i64.load8_s (local.get $addr)))
+    (drop (i64.load8_u (local.get $addr)))
+    (drop (i64.load16_s (local.get $addr)))
+    (drop (i64.load16_u (local.get $addr)))
+    (drop (i64.load32_s (local.get $addr)))
+    (drop (i64.load32_u (local.get $addr)))
   )
 )

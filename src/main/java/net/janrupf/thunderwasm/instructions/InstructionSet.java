@@ -1,7 +1,7 @@
 package net.janrupf.thunderwasm.instructions;
 
 import net.janrupf.thunderwasm.instructions.control.*;
-import net.janrupf.thunderwasm.instructions.memory.DataDrop;
+import net.janrupf.thunderwasm.instructions.memory.*;
 import net.janrupf.thunderwasm.instructions.numeric.*;
 import net.janrupf.thunderwasm.instructions.parametric.Drop;
 import net.janrupf.thunderwasm.instructions.parametric.Select;
@@ -89,6 +89,33 @@ public final class InstructionSet {
             TableSize.INSTANCE,
             TableFill.INSTANCE,
             TableCopy.INSTANCE,
+
+            // Memory instructions
+            I32Load.INSTANCE,
+            I64Load.INSTANCE,
+            F32Load.INSTANCE,
+            F64Load.INSTANCE,
+            I32Load8S.INSTANCE,
+            I32Load8U.INSTANCE,
+            I32Load16S.INSTANCE,
+            I32Load16U.INSTANCE,
+            I64Load8S.INSTANCE,
+            I64Load8U.INSTANCE,
+            I64Load16S.INSTANCE,
+            I64Load16U.INSTANCE,
+            I64Load32S.INSTANCE,
+            I64Load32U.INSTANCE,
+            I32Store.INSTANCE,
+            I64Store.INSTANCE,
+            F32Store.INSTANCE,
+            F64Store.INSTANCE,
+            I32Store8.INSTANCE,
+            I32Store16.INSTANCE,
+            I64Store8.INSTANCE,
+            I64Store16.INSTANCE,
+            I64Store32.INSTANCE,
+
+            DataDrop.INSTANCE,
 
             // Numeric instructions
             I32Const.INSTANCE,
@@ -241,9 +268,6 @@ public final class InstructionSet {
             I64TruncSatF32S.INSTANCE,
             I64TruncSatF32U.INSTANCE,
             I64TruncSatF64S.INSTANCE,
-            I64TruncSatF64U.INSTANCE,
-
-            // Memory instructions
-            DataDrop.INSTANCE
+            I64TruncSatF64U.INSTANCE
     );
 }
