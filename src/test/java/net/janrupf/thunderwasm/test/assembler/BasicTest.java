@@ -2,13 +2,18 @@ package net.janrupf.thunderwasm.test.assembler;
 
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.WasmAssembler;
+import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.module.WasmModule;
+import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.ExternReference;
+import net.janrupf.thunderwasm.runtime.FunctionReference;
+import net.janrupf.thunderwasm.runtime.Table;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
-import net.janrupf.thunderwasm.runtime.linker.global.LinkedIntGlobal;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedObjectGlobal;
+import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.test.TestUtil;
+import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Test;
 
@@ -33,18 +38,25 @@ public class BasicTest {
 
         Files.write(Paths.get("/tmp/playground.class"), classBytes);
 
-        Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker());
+        Table<?> table = new Table<>(0, 10);
+
+        Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table));
         Object result = TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[] { ExternReference.class },
-                new Object[] { new ExternReference("Blub!") }
+                new Class<?>[] { int.class, FunctionReference.class },
+                new Object[] { 5, FunctionReference.of(10) }
         );
 
         System.out.println("$code_0() = " + result);
     }
 
     private static final class TestLinker implements RuntimeLinker {
+        private final Table<?> table;
+
+        public TestLinker(Table<?> table) {
+            this.table = table;
+        }
 
         @Override
         public LinkedGlobal linkGlobal(String moduleName, String importName, ValueType type, boolean readOnly) throws ThunderWasmException {
@@ -53,6 +65,12 @@ public class BasicTest {
             }
 
             throw new ThunderWasmException("No such global " + moduleName + "::" + importName);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T extends ElementReference> LinkedTable<T> linkTable(String moduleName, String importName, ReferenceType type, Limits limits) throws ThunderWasmException {
+            return (LinkedTable<T>) table;
         }
     }
 

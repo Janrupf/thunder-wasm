@@ -6,6 +6,10 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
+import net.janrupf.thunderwasm.types.TableType;
 
 public interface ImportGenerator {
     /**
@@ -54,4 +58,72 @@ public interface ImportGenerator {
      * @throws WasmAssemblerException if an error occurs during assembly
      */
     void emitSetGlobal(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a table get instruction.
+     * <p>
+     * This method expects the index to load to be on top of the stack.
+     *
+     * @param im      the table import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitTableGet(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a table set instruction.
+     * <p>
+     * This method expects the index and then the element to store to be on top of the stack.
+     *
+     * @param im      the table import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitTableSet(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a table grow instruction.
+     *
+     * @param im      the table import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitTableGrow(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a table size instruction.
+     *
+     * @param im      the table import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitTableSize(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a table fill instruction.
+     * <p>
+     * This method expects the start index, value and count to be on top of the stack.
+     *
+     * @param im      the table import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitTableFill(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit the code for loading the internal table reference.
+     *
+     * @param im      the table import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadTableReference(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Retrieves the underlying table type.
+     *
+     * @param im the table import
+     * @return the table type
+     */
+    ObjectType getTableType(Import<TableImportDescription> im);
 }

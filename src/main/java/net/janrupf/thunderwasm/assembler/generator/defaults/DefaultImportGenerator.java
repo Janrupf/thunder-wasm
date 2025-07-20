@@ -10,14 +10,15 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
+import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
-import net.janrupf.thunderwasm.types.GlobalType;
-import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
-import net.janrupf.thunderwasm.types.ValueType;
+import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
+import net.janrupf.thunderwasm.types.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,9 +27,11 @@ public class DefaultImportGenerator implements ImportGenerator {
     private static final ObjectType RUNTIME_LINKER_TYPE = ObjectType.of(RuntimeLinker.class);
 
     private final Map<String, String> identifierNameCache;
+    private final Map<String, DefaultTableGenerator> importedTableGenerators;
 
     public DefaultImportGenerator() {
         this.identifierNameCache = new HashMap<>();
+        this.importedTableGenerators = new HashMap<>();
     }
 
     @Override
@@ -41,6 +44,12 @@ public class DefaultImportGenerator implements ImportGenerator {
         Import<GlobalImportDescription> globalImport = im.tryCast(GlobalImportDescription.class);
         if (globalImport != null) {
             addGlobalImport(globalImport, emitter);
+            return;
+        }
+
+        Import<TableImportDescription> tableImport = im.tryCast(TableImportDescription.class);
+        if (tableImport != null) {
+            addTableImport(tableImport, emitter);
             return;
         }
     }
@@ -75,11 +84,22 @@ public class DefaultImportGenerator implements ImportGenerator {
         );
     }
 
+    private void addTableImport(Import<TableImportDescription> im, ClassFileEmitter emitter)
+            throws WasmAssemblerException {
+        tableGeneratorFor(im).addTable(null, im.getDescription().getType(), emitter);
+    }
+
     @Override
     public void emitLinkImport(Import<?> im, CodeEmitContext context) throws WasmAssemblerException {
         Import<GlobalImportDescription> globalImport = im.tryCast(GlobalImportDescription.class);
         if (globalImport != null) {
             emitLinkGlobalImport(globalImport, context);
+            return;
+        }
+
+        Import<TableImportDescription> tableImport = im.tryCast(TableImportDescription.class);
+        if (tableImport != null) {
+            emitLinkTableImport(tableImport, context);
             return;
         }
 
@@ -140,6 +160,61 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         // Set the field to the result of the method invocation
         accessImportField(im, context, true);
+    }
+
+    private void emitLinkTableImport(Import<TableImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+        ReferenceType type = im.getDescription().getType().getElementType();
+
+        // Push the arguments for the method invocation, we expect the linker to be on top of the stack already
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadConstant(im.getModule());
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadConstant(im.getName());
+
+        CommonBytecodeGenerator.loadTypeReference(frameState, emitter, type);
+        CommonBytecodeGenerator.loadLimits(frameState, emitter, im.getDescription().getType().getLimits());
+
+        emitter.invoke(
+                RUNTIME_LINKER_TYPE,
+                "linkTable",
+                new JavaType[]{
+                        ObjectType.of(String.class),
+                        ObjectType.of(String.class),
+                        ObjectType.of(ReferenceType.class),
+                        ObjectType.of(Limits.class),
+                },
+                ObjectType.of(LinkedTable.class),
+                InvokeType.INTERFACE,
+                true
+        );
+
+        // Pop Arguments from the stack
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
+
+        // Set the field to the result of the method invocation
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+        emitter.op(Op.SWAP);
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                DefaultTableGenerator.LINKED_TABLE_TYPE,
+                false,
+                true
+        );
+
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
@@ -212,6 +287,41 @@ public class DefaultImportGenerator implements ImportGenerator {
         // Pop the global and the value from the stack
         context.getFrameState().popOperand(im.getDescription().getType().getValueType());
         context.getFrameState().popOperand(ReferenceType.OBJECT);
+    }
+
+    @Override
+    public void emitTableGet(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitTableGet(null, im.getDescription().getType(), context);
+    }
+
+    @Override
+    public void emitTableSet(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitTableSet(null, im.getDescription().getType(), context);
+    }
+
+    @Override
+    public void emitTableGrow(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitTableGrow(null, im.getDescription().getType(), context);
+    }
+
+    @Override
+    public void emitTableSize(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitTableSize(null, im.getDescription().getType(), context);
+    }
+
+    @Override
+    public void emitTableFill(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitTableFill(null, im.getDescription().getType(), context);
+    }
+
+    @Override
+    public void emitLoadTableReference(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitLoadTableReference(null, context);
+    }
+
+    @Override
+    public ObjectType getTableType(Import<TableImportDescription> im) {
+        return tableGeneratorFor(im).getTableType(null);
     }
 
     /**
@@ -296,5 +406,13 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         identifierNameCache.put(name, b.toString());
         return b.toString();
+    }
+
+    private DefaultTableGenerator tableGeneratorFor(Import<TableImportDescription> im) {
+        String fieldName = generateImportFieldName(im);
+        return importedTableGenerators.computeIfAbsent(fieldName, (key) -> new DefaultTableGenerator(
+                DefaultTableGenerator.LINKED_TABLE_TYPE,
+                key
+        ));
     }
 }

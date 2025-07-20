@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.runtime.FunctionReference;
@@ -568,6 +569,61 @@ public class CommonBytecodeGenerator {
                 true,
                 false
         );
+    }
+
+    /**
+     * Load the limits.
+     *
+     * @param frameState the current frame state
+     * @param emitter    the code emitter
+     * @param limits     the limits to load
+     * @throws WasmAssemblerException if the load cannot be generated
+     */
+    public static void loadLimits(WasmFrameState frameState, CodeEmitter emitter, Limits limits)
+            throws WasmAssemblerException {
+        frameState.pushOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(ReferenceType.OBJECT);
+
+        // Construct the limits instance
+        emitter.doNew(ObjectType.of(Limits.class));
+        emitter.duplicate(ObjectType.of(Limits.class));
+
+        // Push min (int) and max (Integer)
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadConstant(limits.getMin());
+
+        if (limits.getMax() == null) {
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadConstant(null);
+        } else {
+            // Need to box!
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadConstant(limits.getMax());
+            emitter.invoke(
+                    ObjectType.of(Integer.class),
+                    "valueOf",
+                    new JavaType[]{PrimitiveType.INT},
+                    ObjectType.of(Integer.class),
+                    InvokeType.STATIC,
+                    false
+            );
+
+            frameState.popOperand(NumberType.I32);
+            frameState.pushOperand(ReferenceType.OBJECT);
+        }
+
+        emitter.invoke(
+                ObjectType.of(Limits.class),
+                "<init>",
+                new JavaType[]{PrimitiveType.INT, ObjectType.of(Integer.class)},
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
+
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     /**

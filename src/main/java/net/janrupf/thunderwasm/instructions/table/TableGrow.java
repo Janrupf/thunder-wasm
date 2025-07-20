@@ -37,12 +37,15 @@ public final class TableGrow extends WasmInstruction<TableIndexData> {
         FoundElement<TableType, TableImportDescription> element = context.getLookups().requireTable(index);
 
         if (element.isImport()) {
-            // TODO:
+            context.getGenerators().getImportGenerator().emitTableGrow(
+                    element.getImport(),
+                    context
+            );
         } else {
             context.getGenerators().getTableGenerator().emitTableGrow(
-                element.getIndex(),
-                element.getElement(),
-                context
+                    element.getIndex(),
+                    element.getElement(),
+                    context
             );
         }
     }

@@ -31,12 +31,15 @@ public final class TableSet extends WasmInstruction<TableIndexData> {
         FoundElement<TableType, TableImportDescription> element = context.getLookups().requireTable(index);
 
         if (element.isImport()) {
-            // TODO:
+            context.getGenerators().getImportGenerator().emitTableSet(
+                    element.getImport(),
+                    context
+            );
         } else {
             context.getGenerators().getTableGenerator().emitTableSet(
-                element.getIndex(),
-                element.getElement(),
-                context
+                    element.getIndex(),
+                    element.getElement(),
+                    context
             );
         }
     }

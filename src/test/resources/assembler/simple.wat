@@ -1,17 +1,13 @@
 (module
-    (elem $elem func 0 1 2 3)
+  (import "module" "table" (table $imported_table 10 20 funcref))
 
-    (table $func-table 10 funcref)
-
-    (func $test (param externref) (result i32)
-        (i32.const 3)
-        (i32.const 1)
-        (i32.const 2)
-        (table.init $func-table $elem)
-        (i32.const 0)
-    )
-    (func)
-    (func)
-    (func)
-    (export "test" (func $test))
+  (func (param $index i32) (param $func_ref funcref)
+    ref.null func
+    i32.const 5
+    table.grow $imported_table
+    drop
+    local.get $index
+    local.get $func_ref
+    table.set $imported_table
+  )
 )

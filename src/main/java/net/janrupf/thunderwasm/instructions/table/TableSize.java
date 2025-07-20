@@ -37,12 +37,15 @@ public final class TableSize extends WasmInstruction<TableIndexData> {
         FoundElement<TableType, TableImportDescription> element = context.getLookups().requireTable(index);
 
         if (element.isImport()) {
-            // TODO:
+            context.getGenerators().getImportGenerator().emitTableSize(
+                    element.getImport(),
+                    context
+            );
         } else {
             context.getGenerators().getTableGenerator().emitTableSize(
-                element.getIndex(),
-                element.getElement(),
-                context
+                    element.getIndex(),
+                    element.getElement(),
+                    context
             );
         }
     }

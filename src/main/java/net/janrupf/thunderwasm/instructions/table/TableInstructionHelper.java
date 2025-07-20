@@ -36,8 +36,7 @@ class TableInstructionHelper {
      */
     public ObjectType getJavaTableType() {
         if (element.isImport()) {
-            // TODO
-            throw new AssertionError("Not implemented yet");
+            return emitContext.getGenerators().getImportGenerator().getTableType(element.getImport());
         } else {
             return emitContext.getGenerators().getTableGenerator().getTableType(element.getIndex());
         }
@@ -50,8 +49,10 @@ class TableInstructionHelper {
      */
     public void emitTableSet() throws WasmAssemblerException {
         if (element.isImport()) {
-            // TODO
-            throw new AssertionError("Not implemented yet");
+            emitContext.getGenerators().getImportGenerator().emitTableSet(
+                    element.getImport(),
+                    emitContext
+            );
         } else {
             emitContext.getGenerators().getTableGenerator().emitTableSet(
                     element.getIndex(),
@@ -68,8 +69,10 @@ class TableInstructionHelper {
      */
     public void emitTableGet() throws WasmAssemblerException {
         if (element.isImport()) {
-            // TODO
-            throw new AssertionError("Not implemented yet");
+            emitContext.getGenerators().getImportGenerator().emitTableGet(
+                    element.getImport(),
+                    emitContext
+            );
         } else {
             emitContext.getGenerators().getTableGenerator().emitTableGet(
                     element.getIndex(),
@@ -86,8 +89,10 @@ class TableInstructionHelper {
      */
     public void emitLoadTableReference() throws WasmAssemblerException {
         if (element.isImport()) {
-            // TODO
-            throw new AssertionError("Not implemented yet");
+            emitContext.getGenerators().getImportGenerator().emitLoadTableReference(
+                    element.getImport(),
+                    emitContext
+            );
         } else {
             emitContext.getGenerators().getTableGenerator().emitLoadTableReference(
                     element.getIndex(),

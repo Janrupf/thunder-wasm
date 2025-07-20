@@ -23,8 +23,8 @@ import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.TableType;
 
 public class DefaultTableGenerator implements TableGenerator {
-    private static final ObjectType CONCRETE_TABLE_TYPE = ObjectType.of(Table.class);
-    private static final ObjectType LINKED_TABLE_TYPE = ObjectType.of(LinkedTable.class);
+    public static final ObjectType CONCRETE_TABLE_TYPE = ObjectType.of(Table.class);
+    public static final ObjectType LINKED_TABLE_TYPE = ObjectType.of(LinkedTable.class);
 
     private final ObjectType tableType;
     private final String fieldName;
@@ -188,8 +188,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "get",
                 new JavaType[]{PrimitiveType.INT},
                 ObjectType.of(ElementReference.class),
-                InvokeType.VIRTUAL,
-                false
+                InvokeType.INTERFACE,
+                true
         );
 
         // Pop the index and this
@@ -219,8 +219,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "set",
                 new JavaType[]{PrimitiveType.INT, ObjectType.of(ElementReference.class)},
                 PrimitiveType.VOID,
-                InvokeType.VIRTUAL,
-                false
+                InvokeType.INTERFACE,
+                true
         );
 
         frameState.popOperand(type.getElementType());
@@ -275,8 +275,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "grow",
                 new JavaType[]{ObjectType.of(ElementReference.class), PrimitiveType.INT},
                 PrimitiveType.INT,
-                InvokeType.VIRTUAL,
-                false
+                InvokeType.INTERFACE,
+                true
         );
 
         frameState.popOperand(NumberType.I32);
@@ -303,8 +303,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "size",
                 new JavaType[0],
                 PrimitiveType.INT,
-                InvokeType.VIRTUAL,
-                false
+                InvokeType.INTERFACE,
+                true
         );
 
         frameState.popOperand(ReferenceType.OBJECT);
@@ -329,8 +329,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "fill",
                 new JavaType[]{PrimitiveType.INT, ObjectType.of(ElementReference.class), PrimitiveType.INT},
                 PrimitiveType.VOID,
-                InvokeType.VIRTUAL,
-                false
+                InvokeType.INTERFACE,
+                true
         );
 
         frameState.popOperand(NumberType.I32);
@@ -368,8 +368,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "init",
                 new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, new ArrayType(ObjectType.of(ElementReference.class))},
                 PrimitiveType.VOID,
-                InvokeType.VIRTUAL,
-                false
+                InvokeType.INTERFACE,
+                true
         );
 
         frameState.popOperand(ReferenceType.OBJECT);
