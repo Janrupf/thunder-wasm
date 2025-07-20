@@ -340,7 +340,13 @@ public final class ASMCodeEmitter implements CodeEmitter {
     public void doNew(ObjectType type) {
         if (type instanceof ArrayType) {
             JavaType elementType = ((ArrayType) type).getElementType();
-            visitor.visitTypeInsn(Opcodes.ANEWARRAY, ASMConverter.convertType(elementType).getInternalName());
+
+            if (elementType instanceof PrimitiveType) {
+                PrimitiveType primitiveType = (PrimitiveType) elementType;
+                visitor.visitIntInsn(Opcodes.NEWARRAY, primitiveToJvmT(primitiveType));
+            } else {
+                visitor.visitTypeInsn(Opcodes.ANEWARRAY, ASMConverter.convertType(elementType).getInternalName());
+            }
         } else {
             visitor.visitTypeInsn(Opcodes.NEW, ASMConverter.convertType(type).getInternalName());
         }
@@ -807,5 +813,34 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         visitor.visitMaxs(maxOperands, maxLocals);
         visitor.visitEnd();
+    }
+
+    private int primitiveToJvmT(PrimitiveType type) {
+        if (type == PrimitiveType.BOOLEAN) {
+            return Opcodes.T_BOOLEAN;
+        }
+        if (type == PrimitiveType.BYTE) {
+            return Opcodes.T_BYTE;
+        }
+        if (type == PrimitiveType.CHAR) {
+            return Opcodes.T_CHAR;
+        }
+        if (type == PrimitiveType.SHORT) {
+            return Opcodes.T_SHORT;
+        }
+        if (type == PrimitiveType.INT) {
+            return Opcodes.T_INT;
+        }
+        if (type == PrimitiveType.LONG) {
+            return Opcodes.T_LONG;
+        }
+        if (type == PrimitiveType.FLOAT) {
+            return Opcodes.T_FLOAT;
+        }
+        if (type == PrimitiveType.DOUBLE) {
+            return Opcodes.T_DOUBLE;
+        }
+
+        throw new IllegalArgumentException("The JVM doesn't have an int representation of the primitive type " + type);
     }
 }

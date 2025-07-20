@@ -1,10 +1,12 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
+import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultGlobalGenerator;
 import net.janrupf.thunderwasm.assembler.generator.GlobalGenerator;
 import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultImportGenerator;
+import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultMemoryGenerator;
 import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultTableGenerator;
 
 /**
@@ -13,11 +15,13 @@ import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultTableGenerato
 public final class WasmGenerators {
     private GlobalGenerator globalGenerator;
     private ImportGenerator importGenerator;
+    private MemoryGenerator memoryGenerator;
     private TableGenerator tableGenerator;
 
     public WasmGenerators() {
         this.globalGenerator = new DefaultGlobalGenerator();
         this.importGenerator = new DefaultImportGenerator();
+        this.memoryGenerator = new DefaultMemoryGenerator();
         this.tableGenerator = new DefaultTableGenerator();
     }
 
@@ -40,6 +44,17 @@ public final class WasmGenerators {
      */
     public WasmGenerators withImportGenerator(ImportGenerator importGenerator) {
         this.importGenerator = importGenerator;
+        return this;
+    }
+
+    /**
+     * Overrides the memory generator.
+     *
+     * @param memoryGenerator the new memory generator
+     * @return this
+     */
+    public WasmGenerators withMemoryGenerator(MemoryGenerator memoryGenerator) {
+        this.memoryGenerator = memoryGenerator;
         return this;
     }
 
@@ -70,6 +85,15 @@ public final class WasmGenerators {
      */
     public ImportGenerator getImportGenerator() {
         return importGenerator;
+    }
+
+    /**
+     * Retrieves the memory generator.
+     *
+     * @return the memory generator
+     */
+    public MemoryGenerator getMemoryGenerator() {
+        return memoryGenerator;
     }
 
     /**

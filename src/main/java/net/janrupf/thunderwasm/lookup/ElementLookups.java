@@ -2,16 +2,11 @@ package net.janrupf.thunderwasm.lookup;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.data.Global;
-import net.janrupf.thunderwasm.imports.GlobalImportDescription;
-import net.janrupf.thunderwasm.imports.Import;
-import net.janrupf.thunderwasm.imports.ImportDescription;
-import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.imports.*;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.module.section.ElementSection;
-import net.janrupf.thunderwasm.module.section.GlobalSection;
-import net.janrupf.thunderwasm.module.section.ImportSection;
-import net.janrupf.thunderwasm.module.section.TableSection;
+import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
+import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.TableType;
 
 public final class ElementLookups {
@@ -75,6 +70,35 @@ public final class ElementLookups {
         return FoundElement.ofInternal(
                 tableSection.getTypes().get(tableSectionIndex),
                 tableSectionIndex
+        );
+    }
+
+    /**
+     * Require the memory at the given index.
+     *
+     * @param i the index of the table
+     * @return the found table
+     * @throws WasmAssemblerException if the table could not be found
+     */
+    public FoundElement<MemoryType, MemoryImportDescription> requireMemory(LargeArrayIndex i) throws
+            WasmAssemblerException {
+        ImportSearchResult<MemoryImportDescription> res = findNthImportDescription(MemoryImportDescription.class, i);
+        if (res.wasFound()) {
+            return FoundElement.ofImport(
+                    res.getImport(),
+                    res.getNewSearchIndex()
+            );
+        }
+
+        LargeArrayIndex memorySectionIndex = res.getNewSearchIndex();
+        MemorySection memorySection = moduleLookups.findSingleSection(MemorySection.LOCATOR);
+        if (memorySection == null || !memorySection.getTypes().isValid(memorySectionIndex)) {
+            throw new WasmAssemblerException("Memory index " + i + " out of bounds");
+        }
+
+        return FoundElement.ofInternal(
+                memorySection.getTypes().get(memorySectionIndex),
+                memorySectionIndex
         );
     }
 

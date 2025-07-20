@@ -122,6 +122,9 @@ public class DefaultTableGenerator implements TableGenerator {
                 false,
                 true
         );
+
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override

@@ -506,6 +506,25 @@ public class CommonBytecodeGenerator {
             frameState.pushOperand(toPop[0]);
             emitterFunction.emit();
             emitter.op(Op.SWAP);
+        } else if (
+                toPop.length == 2 &&
+                        firstToPop.getSlotCount() < 2 &&
+                        WasmTypeConverter.toJavaType(toPop[1]).getSlotCount() < 2 &&
+                        toPush.getSlotCount() < 2
+        ) {
+            // Load now
+            frameState.pushOperand(type);
+            frameState.pushOperand(toPop[0]);
+            frameState.pushOperand(toPop[1]);
+            frameState.pushOperand(type);
+            emitterFunction.emit();
+
+            // Use a duplicate down operation
+            emitter.duplicateX2(toPush);
+
+            // And drop the value on top
+            emitter.pop(toPush);
+            frameState.popOperand(type);
         } else {
             // Transfer the values to locals
             int[] locals = new int[toPop.length];

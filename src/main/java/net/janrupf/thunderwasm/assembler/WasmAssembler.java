@@ -21,6 +21,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 
@@ -149,8 +150,10 @@ public final class WasmAssembler {
 
         // Emit a call to the super constructor
         CodeEmitter code = constructor.code();
+        frameState.pushOperand(ReferenceType.OBJECT);
         code.loadThis();
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
+        frameState.popOperand(ReferenceType.OBJECT);
 
         CodeEmitContext emitContext = new CodeEmitContext(
                 new ElementLookups(lookups),
@@ -205,6 +208,14 @@ public final class WasmAssembler {
         if (tableSection != null) {
             for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(tableSection.getTypes().largeLength()) < 0; i = i.add(1)) {
                 generators.getTableGenerator().emitTableConstructor(i, tableSection.getTypes().get(i), emitContext);
+            }
+        }
+
+        // Initialize memories if any
+        MemorySection memorySection = lookups.findSingleSection(MemorySection.LOCATOR);
+        if (memorySection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(memorySection.getTypes().largeLength()) < 0; i = i.add(1)) {
+                generators.getMemoryGenerator().emitMemoryConstructor(i, memorySection.getTypes().get(i), emitContext);
             }
         }
 
@@ -297,6 +308,8 @@ public final class WasmAssembler {
             processGlobalSection((GlobalSection) section);
         } else if (section instanceof CodeSection) {
             processCodeSection((CodeSection) section);
+        } else if (section instanceof MemorySection) {
+            processMemorySection((MemorySection) section);
         }
     }
 
@@ -329,6 +342,16 @@ public final class WasmAssembler {
         LargeArray<Function> functions = section.getFunctions();
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(functions.largeLength()) < 0; i = i.add(1)) {
             processFunction(i, functions.get(i));
+        }
+    }
+
+    private void processMemorySection(MemorySection section) throws WasmAssemblerException {
+        // There can only ever be one memory section
+        markAsProcessed(ProcessedSections.MEMORY);
+
+        LargeArray<MemoryType> memories = section.getTypes();
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(memories.largeLength()) < 0; i = i.add(1)) {
+            generators.getMemoryGenerator().addMemory(i, memories.get(i), emitter);
         }
     }
 

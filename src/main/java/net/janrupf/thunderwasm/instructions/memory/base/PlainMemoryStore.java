@@ -1,5 +1,11 @@
 package net.janrupf.thunderwasm.instructions.memory.base;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.imports.MemoryImportDescription;
+import net.janrupf.thunderwasm.lookup.FoundElement;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
 
 public abstract class PlainMemoryStore extends PlainMemory {
@@ -12,6 +18,24 @@ public abstract class PlainMemoryStore extends PlainMemory {
 
     public final StoreType getStoreType() {
         return storeType;
+    }
+
+    @Override
+    public void emitCode(CodeEmitContext context, Memarg data) throws WasmAssemblerException {
+        FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
+
+        if (memoryElement.isImport()) {
+            throw new WasmAssemblerException("Stores to imported memory are not supported yet");
+        } else {
+            context.getGenerators().getMemoryGenerator().emitStore(
+                    LargeArrayIndex.ZERO,
+                    memoryElement.getElement(),
+                    getNumberType(),
+                    data,
+                    getStoreType(),
+                    context
+            );
+        }
     }
 
     /**

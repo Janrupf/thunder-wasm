@@ -5,5 +5,6 @@ package net.janrupf.thunderwasm.assembler;
  */
 public enum ProcessedSections {
     GLOBAL,
-    CODE
+    CODE,
+    MEMORY,
 }

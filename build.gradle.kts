@@ -128,13 +128,13 @@ tasks {
     test {
         useJUnitPlatform()
 
-        /*jvmArgs(
+        jvmArgs(
             "-XX:+UnlockDiagnosticVMOptions",
             "-XX:CompileCommand=compileonly,*TestModule0.*",
+            "-XX:CompileCommand=print,*TestModule0.*",
             "-Xcomp",
-            "-XX:+PrintAssembly",
             "-XX:PrintAssemblyOptions=intel,mpad=10,cpad=10,code"
         )
-        environment("LD_LIBRARY_PATH" to "/home/janrupf/Downloads")*/
+        environment("LD_LIBRARY_PATH" to "/home/janrupf/Downloads")
     }
 }
