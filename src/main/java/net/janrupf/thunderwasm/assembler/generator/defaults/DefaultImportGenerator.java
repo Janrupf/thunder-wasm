@@ -13,7 +13,11 @@ import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
@@ -27,10 +31,12 @@ public class DefaultImportGenerator implements ImportGenerator {
 
     private final Map<String, String> identifierNameCache;
     private final Map<String, DefaultTableGenerator> importedTableGenerators;
+    private final Map<String, DefaultMemoryGenerator> importedMemoryGenerators;
 
     public DefaultImportGenerator() {
         this.identifierNameCache = new HashMap<>();
         this.importedTableGenerators = new HashMap<>();
+        this.importedMemoryGenerators = new HashMap<>();
     }
 
     @Override
@@ -323,6 +329,40 @@ public class DefaultImportGenerator implements ImportGenerator {
         return tableGeneratorFor(im).getTableType(null);
     }
 
+    @Override
+    public void emitMemoryStore(Import<MemoryImportDescription> im, NumberType numberType, PlainMemory.Memarg memarg, PlainMemoryStore.StoreType storeType, CodeEmitContext context) throws WasmAssemblerException {
+        memoryGeneratorFor(im).emitStore(
+                null,
+                im.getDescription().getType(),
+                numberType,
+                memarg,
+                storeType,
+                context
+        );
+    }
+
+    @Override
+    public void emitMemoryLoad(Import<MemoryImportDescription> im, NumberType numberType, PlainMemory.Memarg memarg, PlainMemoryLoad.LoadType loadType, CodeEmitContext context) throws WasmAssemblerException {
+        memoryGeneratorFor(im).emitLoad(
+                null,
+                im.getDescription().getType(),
+                numberType,
+                memarg,
+                loadType,
+                context
+        );
+    }
+
+    @Override
+    public void emitLoadMemoryReference(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        memoryGeneratorFor(im).emitLoadMemoryReference(null, context);
+    }
+
+    @Override
+    public ObjectType getMemoryType(Import<MemoryImportDescription> im) {
+        return memoryGeneratorFor(im).getMemoryType(null);
+    }
+
     /**
      * Generates a unique field name for an import.
      *
@@ -413,5 +453,10 @@ public class DefaultImportGenerator implements ImportGenerator {
                 DefaultTableGenerator.LINKED_TABLE_TYPE,
                 key
         ));
+    }
+
+    private DefaultMemoryGenerator memoryGeneratorFor(Import<MemoryImportDescription> im) {
+        String fieldName = generateImportFieldName(im);
+        return importedMemoryGenerators.computeIfAbsent(fieldName, DefaultMemoryGenerator::new);
     }
 }

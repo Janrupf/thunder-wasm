@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.imports.*;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.*;
+import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.TableType;
@@ -116,6 +117,22 @@ public final class ElementLookups {
         }
 
         return elementSection.getSegments().get(i);
+    }
+
+    /**
+     * Require the data segment at the given index.
+     *
+     * @param i the index of the data segment
+     * @return the found data segment
+     * @throws WasmAssemblerException if the data segment could not be found
+     */
+    public DataSegment requireDataSegment(LargeArrayIndex i) throws WasmAssemblerException {
+        DataSection dataSection = moduleLookups.findSingleSection(DataSection.LOCATOR);
+        if (dataSection == null || !dataSection.getSegments().isValid(i)) {
+            throw new WasmAssemblerException("Data segment index " + i + " out of bounds");
+        }
+
+        return dataSection.getSegments().get(i);
     }
 
     /**

@@ -115,7 +115,7 @@ public final class InstructionSet {
             I64Store8.INSTANCE,
             I64Store16.INSTANCE,
             I64Store32.INSTANCE,
-
+            MemoryCopy.INSTANCE,
             DataDrop.INSTANCE,
 
             // Numeric instructions

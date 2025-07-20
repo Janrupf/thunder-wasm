@@ -6,10 +6,14 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
+import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
-import net.janrupf.thunderwasm.types.TableType;
+import net.janrupf.thunderwasm.types.MemoryType;
+import net.janrupf.thunderwasm.types.NumberType;
 
 public interface ImportGenerator {
     /**
@@ -126,4 +130,63 @@ public interface ImportGenerator {
      * @return the table type
      */
     ObjectType getTableType(Import<TableImportDescription> im);
+
+
+    /**
+     * Emit a store instruction.
+     * <p>
+     * Expects the value to be on top of the stack followed by the offset.
+     *
+     * @param im         the memory import
+     * @param numberType the type of value on the stack
+     * @param memarg     additional memory access information
+     * @param storeType  how to perform the store
+     * @param context    the context to use
+     * @throws WasmAssemblerException if the store could not be emitted
+     */
+    void emitMemoryStore(
+            Import<MemoryImportDescription> im,
+            NumberType numberType,
+            PlainMemory.Memarg memarg,
+            PlainMemoryStore.StoreType storeType,
+            CodeEmitContext context
+    ) throws WasmAssemblerException;
+
+    /**
+     * Emit a load instruction.
+     * <p>
+     * Expects the offset to be on top of the stack.
+     *
+     * @param im         the memory import
+     * @param numberType the type of value to load
+     * @param memarg     additional memory access information
+     * @param loadType   how to perform the load
+     * @param context    the context to use
+     * @throws WasmAssemblerException if the load could not be emitted
+     */
+    void emitMemoryLoad(
+            Import<MemoryImportDescription> im,
+            NumberType numberType,
+            PlainMemory.Memarg memarg,
+            PlainMemoryLoad.LoadType loadType,
+            CodeEmitContext context
+    ) throws WasmAssemblerException;
+
+
+    /**
+     * Emit the code for loading the internal memory reference.
+     *
+     * @param im      the memory import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadMemoryReference(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Retrieves the underlying memory type.
+     *
+     * @param im the memory import
+     * @return the table type
+     */
+    ObjectType getMemoryType(Import<MemoryImportDescription> im);
 }

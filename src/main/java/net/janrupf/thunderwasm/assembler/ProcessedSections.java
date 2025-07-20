@@ -7,4 +7,5 @@ public enum ProcessedSections {
     GLOBAL,
     CODE,
     MEMORY,
+    DATA,
 }

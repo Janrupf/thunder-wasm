@@ -10,6 +10,7 @@ import net.janrupf.thunderwasm.assembler.part.FunctionAssembler;
 import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
@@ -22,6 +23,8 @@ import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
+import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.module.section.segment.DataSegmentMode;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
 import net.janrupf.thunderwasm.types.*;
@@ -265,6 +268,52 @@ public final class WasmAssembler {
             }
         }
 
+        // Initializes data segments if any
+        DataSection dataSection = lookups.findSingleSection(DataSection.LOCATOR);
+        if (dataSection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(dataSection.getSegments().largeLength()) < 0; i = i.add(1)) {
+                DataSegment segment = dataSection.getSegments().get(i);
+                generators.getMemoryGenerator().emitDataSegmentConstructor(i, segment, emitContext);
+
+                if (segment.getMode() instanceof DataSegmentMode.Active) {
+                    DataSegmentMode.Active activeMode = (DataSegmentMode.Active) segment.getMode();
+
+                    EvalContext evalContext = new EvalContext(emitContext.getLookups());
+
+                    // Evaluate the memory offset expression
+                    int memoryOffset = (int) evalContext.evalSingleValue(
+                            activeMode.getMemoryOffset(),
+                            true,
+                            NumberType.I32
+                    );
+
+                    FoundElement<MemoryType, MemoryImportDescription> memory = elementLookups.requireMemory(
+                            LargeArrayIndex.ZERO.add(activeMode.getMemoryIndex()));
+
+                    frameState.pushOperand(NumberType.I32);
+                    frameState.pushOperand(NumberType.I32);
+                    frameState.pushOperand(NumberType.I32);
+
+                    code.loadConstant(memoryOffset);
+                    code.loadConstant(0);
+                    code.loadConstant((int) segment.getInit().length());
+
+                    if (memory.isImport()) {
+                        // TODO: Import memory initialization is not yet supported
+                        throw new UnsupportedOperationException("TODO");
+                    } else {
+                        generators.getMemoryGenerator().emitMemoryInit(
+                                memory.getIndex(),
+                                memory.getElement(),
+                                i,
+                                segment,
+                                emitContext
+                        );
+                    }
+                }
+            }
+        }
+
         code.doReturn(PrimitiveType.VOID);
         code.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
     }
@@ -356,6 +405,8 @@ public final class WasmAssembler {
             processCodeSection((CodeSection) section);
         } else if (section instanceof MemorySection) {
             processMemorySection((MemorySection) section);
+        } else if (section instanceof DataSection) {
+            processDataSection((DataSection) section);
         }
     }
 
@@ -391,6 +442,12 @@ public final class WasmAssembler {
         }
     }
 
+    /**
+     * Process a memory section.
+     *
+     * @param section the memory section to process
+     * @throws WasmAssemblerException if an error occurs during processing
+     */
     private void processMemorySection(MemorySection section) throws WasmAssemblerException {
         // There can only ever be one memory section
         markAsProcessed(ProcessedSections.MEMORY);
@@ -398,6 +455,17 @@ public final class WasmAssembler {
         LargeArray<MemoryType> memories = section.getTypes();
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(memories.largeLength()) < 0; i = i.add(1)) {
             generators.getMemoryGenerator().addMemory(i, memories.get(i), emitter);
+        }
+    }
+
+    private void processDataSection(DataSection section) throws WasmAssemblerException {
+        // There can only ever be one data section
+        markAsProcessed(ProcessedSections.DATA);
+
+        LargeArray<DataSegment> segments = section.getSegments();
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(segments.largeLength()) < 0; i = i.add(1)) {
+            DataSegment segment = segments.get(i);
+            generators.getMemoryGenerator().addDataSegment(i, segment, emitter);
         }
     }
 

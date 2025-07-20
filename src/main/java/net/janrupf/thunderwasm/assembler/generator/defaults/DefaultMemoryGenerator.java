@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
@@ -13,17 +14,29 @@ import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.types.MemoryType;
-import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
-import net.janrupf.thunderwasm.types.ValueType;
+import net.janrupf.thunderwasm.module.encoding.LargeByteArray;
+import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.types.*;
 
+import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public class DefaultMemoryGenerator implements MemoryGenerator {
+    private static final ArrayType BYTE_ARRAY_TYPE = new ArrayType(PrimitiveType.BYTE);
+    private static final ArrayType DATA_SEGMENT_TYPE = BYTE_ARRAY_TYPE;
     private static final ObjectType MEMORY_TYPE = ObjectType.of(ByteBuffer.class);
     private static final int PAGE_SIZE = 64 * 1024;
+
+    private final String fieldName;
+
+    public DefaultMemoryGenerator() {
+        this.fieldName = null;
+    }
+
+    public DefaultMemoryGenerator(String fieldName) {
+        this.fieldName = fieldName;
+    }
 
     @Override
     public void addMemory(LargeArrayIndex i, MemoryType type, ClassFileEmitter emitter) {
@@ -33,6 +46,18 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 false,
                 true,
                 MEMORY_TYPE,
+                null
+        );
+    }
+
+    @Override
+    public void addDataSegment(LargeArrayIndex i, DataSegment segment, ClassFileEmitter emitter) throws WasmAssemblerException {
+        emitter.field(
+                generateDataSegmentFieldName(i),
+                Visibility.PRIVATE,
+                false,
+                true,
+                DATA_SEGMENT_TYPE,
                 null
         );
     }
@@ -89,6 +114,149 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
         frameState.popOperand(ReferenceType.OBJECT);
         frameState.popOperand(ReferenceType.OBJECT);
+    }
+
+    @Override
+    public void emitDataSegmentConstructor(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+        LargeByteArray data = segment.getInit();
+
+        if (data.length() > Integer.MAX_VALUE) {
+            throw new WasmAssemblerException("Data segment is too large: " + data.length());
+        }
+
+        // Create a new byte array for the data segment
+        frameState.pushOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(ReferenceType.OBJECT);
+
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadConstant((int) data.length());
+        frameState.popOperand(NumberType.I32);
+
+        emitter.doNew(DATA_SEGMENT_TYPE);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(NumberType.I32);
+        frameState.pushOperand(NumberType.I32);
+
+        for (LargeArrayIndex j = LargeArrayIndex.ZERO; j.compareTo(data.largeLength()) < 0; j = j.add(1)) {
+            emitter.duplicate(DATA_SEGMENT_TYPE);
+
+            // Load the byte value from the data segment
+            emitter.loadConstant(j.getElementIndex());
+            emitter.loadConstant(data.get(j));
+            emitter.storeArrayElement(DATA_SEGMENT_TYPE);
+        }
+
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(NumberType.I32);
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+        emitter.op(Op.SWAP);
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateDataSegmentFieldName(i),
+                DATA_SEGMENT_TYPE,
+                false,
+                true
+        );
+
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+    }
+
+    @Override
+    public void emitMemoryInit(
+            LargeArrayIndex memoryIndex,
+            MemoryType type,
+            LargeArrayIndex dataIndex,
+            DataSegment segment,
+            CodeEmitContext context
+    ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        /* This method expects the following stack top:
+         * - count
+         * - source start index
+         * - destination start index
+         */
+
+        int countLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        emitter.storeLocal(countLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        int sourceStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        emitter.storeLocal(sourceStartLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        int destinationStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        emitter.storeLocal(destinationStartLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.duplicate(emitter.getOwner());
+
+        emitter.accessField(
+                emitter.getOwner(),
+                generateMemoryFieldName(memoryIndex),
+                MEMORY_TYPE,
+                false,
+                false
+        );
+
+        emitter.op(Op.SWAP);
+
+        emitter.accessField(
+                emitter.getOwner(),
+                generateDataSegmentFieldName(dataIndex),
+                DATA_SEGMENT_TYPE,
+                false,
+                false
+        );
+
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(ReferenceType.OBJECT);
+        emitter.op(Op.SWAP);
+        frameState.pushOperand(NumberType.I32);
+        frameState.pushOperand(ReferenceType.OBJECT);
+
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadLocal(countLocal, PrimitiveType.INT);
+
+        emitter.invoke(
+                MEMORY_TYPE,
+                "put",
+                new JavaType[]{PrimitiveType.INT, DATA_SEGMENT_TYPE, PrimitiveType.INT, PrimitiveType.INT},
+                MEMORY_TYPE,
+                InvokeType.VIRTUAL,
+                false
+        );
+
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(NumberType.I32);
+
+        emitter.pop(MEMORY_TYPE);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        // Free the locals
+        frameState.freeLocal();
+        frameState.freeLocal();
+        frameState.freeLocal();
     }
 
     @Override
@@ -360,12 +528,203 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
     }
 
+    @Override
+    public void emitMemoryCopy(ObjectType sourceMemoryType, ObjectType targetMemoryType, CodeEmitContext context) throws WasmAssemblerException {
+        /*
+         * - source memory reference
+         * - count
+         * - source start index
+         * - destination start index
+         * - destination memory reference
+         */
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        // Stow everything away in locals
+        int sourceMemoryLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(ReferenceType.OBJECT));
+        emitter.storeLocal(sourceMemoryLocal, sourceMemoryType);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        int countLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        emitter.storeLocal(countLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        int sourceStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        emitter.storeLocal(sourceStartLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        int destinationStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        emitter.storeLocal(destinationStartLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        int destinationMemoryLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(ReferenceType.OBJECT));
+        emitter.storeLocal(destinationMemoryLocal, targetMemoryType);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        if (sourceMemoryType.equals(BYTE_ARRAY_TYPE) && targetMemoryType.equals(BYTE_ARRAY_TYPE)) {
+            // System.arraycopy is the most efficient way to copy byte arrays
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadLocal(sourceMemoryLocal, sourceMemoryType);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadLocal(destinationMemoryLocal, targetMemoryType);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(countLocal, PrimitiveType.INT);
+
+            emitter.invoke(
+                    ObjectType.of(System.class),
+                    "arraycopy",
+                    new JavaType[]{
+                            BYTE_ARRAY_TYPE,
+                            PrimitiveType.INT,
+                            BYTE_ARRAY_TYPE,
+                            PrimitiveType.INT,
+                            PrimitiveType.INT
+                    },
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(ReferenceType.OBJECT);
+        } else if (targetMemoryType.equals(MEMORY_TYPE)) {
+            // Use the ByteBuffer API to copy the memory
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadLocal(destinationMemoryLocal, targetMemoryType);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadLocal(sourceMemoryLocal, sourceMemoryType);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(countLocal, PrimitiveType.INT);
+
+            emitter.invoke(
+                    MEMORY_TYPE,
+                    "put",
+                    new JavaType[]{PrimitiveType.INT, targetMemoryType, PrimitiveType.INT, PrimitiveType.INT},
+                    MEMORY_TYPE,
+                    InvokeType.VIRTUAL,
+                    false
+            );
+
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(ReferenceType.OBJECT);
+        } else if (targetMemoryType.equals(BYTE_ARRAY_TYPE) && sourceMemoryType.equals(MEMORY_TYPE)) {
+            // Use the ByteBuffer API to copy the memory to a byte array
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadLocal(sourceMemoryLocal, sourceMemoryType);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+
+            frameState.pushOperand(ReferenceType.OBJECT);
+            emitter.loadLocal(destinationMemoryLocal, targetMemoryType);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+
+            frameState.pushOperand(NumberType.I32);
+            emitter.loadLocal(countLocal, PrimitiveType.INT);
+
+            emitter.invoke(
+                    MEMORY_TYPE,
+                    "get",
+                    new JavaType[]{PrimitiveType.INT, BYTE_ARRAY_TYPE, PrimitiveType.INT, PrimitiveType.INT},
+                    MEMORY_TYPE,
+                    InvokeType.VIRTUAL,
+                    false
+            );
+
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(ReferenceType.OBJECT);
+        } else {
+            throw new WasmAssemblerException("Memory copy not supported for types " + sourceMemoryType + " and " + targetMemoryType);
+        }
+
+        // Free the locals
+        frameState.freeLocal();
+        frameState.freeLocal();
+        frameState.freeLocal();
+        frameState.freeLocal();
+    }
+
+    @Override
+    public void emitDropData(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) {
+        // This is a no-op in the default implementation, as we don't need to do anything special
+    }
+
+    @Override
+    public void emitLoadMemoryReference(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        // Load the memory reference
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+        emitter.accessField(
+                emitter.getOwner(),
+                generateMemoryFieldName(i),
+                MEMORY_TYPE,
+                false,
+                false
+        );
+    }
+
+    @Override
+    public ObjectType getMemoryType(LargeArrayIndex i) {
+        return MEMORY_TYPE;
+    }
+
+    @Override
+    public boolean canEmitCopyFor(ObjectType from, ObjectType to) {
+        return (from.equals(MEMORY_TYPE) || from.equals(BYTE_ARRAY_TYPE)) && (to.equals(MEMORY_TYPE) || to.equals(BYTE_ARRAY_TYPE));
+    }
+
     protected String generateMemoryFieldName(LargeArrayIndex i) {
+        if (fieldName != null) {
+            if (i != null) {
+                throw new IllegalArgumentException("Memory index must not be specified when a field name is provided");
+            }
+
+            return fieldName;
+        }
+
         if (i == null) {
             throw new IllegalArgumentException("Memory index most be specified");
         }
 
         return "memory_" + i;
+    }
+
+    protected String generateDataSegmentFieldName(LargeArrayIndex i) {
+        if (i == null) {
+            throw new IllegalArgumentException("Memory index most be specified");
+        }
+
+        return "data_" + i;
     }
 
     private void emitCalculateAccessOffset(
