@@ -208,7 +208,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitter.invoke(
                 ObjectType.of(ByteBuffer.class),
                 methodName,
-                new JavaType[] { PrimitiveType.INT, argumentType },
+                new JavaType[]{PrimitiveType.INT, argumentType},
                 ObjectType.of(ByteBuffer.class),
                 InvokeType.VIRTUAL,
                 false
@@ -235,6 +235,73 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         CodeEmitter emitter = context.getEmitter();
         JavaType javaType = WasmTypeConverter.toJavaType(numberType);
 
+        String methodName;
+        JavaType returnType;
+        ValueType wasmReturnType;
+        int bitWidth;
+
+        if (numberType == NumberType.I32 || numberType == NumberType.I64) {
+            switch (loadType) {
+                case SIGNED_8:
+                case UNSIGNED_8:
+                    returnType = PrimitiveType.BYTE;
+                    wasmReturnType = NumberType.I32;
+                    methodName = "get";
+                    bitWidth = 8;
+                    break;
+
+                case SIGNED_16:
+                case UNSIGNED_16:
+                    returnType = PrimitiveType.SHORT;
+                    wasmReturnType = NumberType.I32;
+                    methodName = "getShort";
+                    bitWidth = 16;
+                    break;
+
+                case SIGNED_32:
+                case UNSIGNED_32:
+                    returnType = PrimitiveType.INT;
+                    wasmReturnType = NumberType.I32;
+                    methodName = "getInt";
+                    bitWidth = 32;
+                    break;
+
+                case NATIVE:
+                    returnType = javaType;
+                    wasmReturnType = numberType;
+
+                    if (numberType == NumberType.I32) {
+                        methodName = "getInt";
+                        bitWidth = 32;
+                    } else { // I64
+                        methodName = "getLong";
+                        bitWidth = 64;
+                    }
+
+                    break;
+
+                default:
+                    throw new WasmAssemblerException("Cannot load " + numberType + " with load type " + loadType);
+            }
+        } else {
+            if (loadType != PlainMemoryLoad.LoadType.NATIVE) {
+                throw new WasmAssemblerException("Cannot load " + numberType + " with load type " + loadType);
+            }
+
+            returnType = javaType;
+            wasmReturnType = numberType;
+
+            if (numberType == NumberType.F32) {
+                methodName = "getFloat";
+                bitWidth = 32;
+            } else if (numberType == NumberType.F64) {
+                methodName = "getDouble";
+                bitWidth = 64;
+            } else {
+                throw new WasmAssemblerException("Unsupported number type for memory load " + numberType);
+            }
+        }
+
         emitCalculateAccessOffset(memarg, context);
 
         frameState.pushOperand(ReferenceType.OBJECT);
@@ -250,7 +317,47 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
         frameState.popOperand(ReferenceType.OBJECT);
 
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(NumberType.I32);
+        emitter.op(Op.SWAP); // Swap the memory with the offset
+        frameState.pushOperand(NumberType.I32);
+        frameState.pushOperand(ReferenceType.OBJECT);
 
+        emitter.invoke(
+                ObjectType.of(ByteBuffer.class),
+                methodName,
+                new JavaType[]{PrimitiveType.INT},
+                returnType,
+                InvokeType.VIRTUAL,
+                false
+        );
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(wasmReturnType);
+
+        if (!javaType.equals(returnType)) {
+            // Need to convert the value to the correct type
+            if (javaType.equals(PrimitiveType.LONG)) {
+                // Upcast to long, this is always required when we need to upcast to something larger
+                frameState.popOperand(wasmReturnType);
+                emitter.op(Op.I2L);
+                frameState.pushOperand(NumberType.I64);
+            }
+
+            if (!loadType.isSigned()) {
+                // Unsigned load, we need to mask away the upper bits
+                if (numberType == NumberType.I32) {
+                    frameState.pushOperand(NumberType.I32);
+                    emitter.loadConstant((1 << bitWidth) - 1);
+                    emitter.op(Op.IAND);
+                    frameState.popOperand(NumberType.I32);
+                } else { // I64
+                    frameState.pushOperand(NumberType.I64);
+                    emitter.loadConstant((1L << bitWidth) - 1);
+                    emitter.op(Op.LAND);
+                    frameState.popOperand(NumberType.I64);
+                }
+            }
+        }
     }
 
     protected String generateMemoryFieldName(LargeArrayIndex i) {
@@ -267,14 +374,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     ) throws WasmAssemblerException {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
-
-        // TODO: Should we do this? It doesn't seem to help the JIT by hinting alignment, though
-        //       I only did rough tests. Evaluate more
-        // frameState.pushOperand(NumberType.I32);
-        // // Mask away the lower bits of the base offset
-        // emitter.loadConstant(-(1 << memarg.getAlignment()));
-        // emitter.op(Op.IAND);
-        // frameState.popOperand(NumberType.I32);
 
         if (memarg.getOffset() == 0) {
             // Nothing further to do

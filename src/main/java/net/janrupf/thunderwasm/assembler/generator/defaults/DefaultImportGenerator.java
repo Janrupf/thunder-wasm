@@ -14,7 +14,6 @@ import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
-import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;

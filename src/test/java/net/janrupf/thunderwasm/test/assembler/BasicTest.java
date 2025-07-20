@@ -44,8 +44,8 @@ public class BasicTest {
         Object result = TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[] { int.class, long.class, },
-                new Object[] { 5, 25 }
+                new Class<?>[] { int.class, },
+                new Object[] { 5}
         );
 
 
