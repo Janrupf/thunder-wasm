@@ -29,7 +29,8 @@ public final class U32VariantInstructionDecoder extends InstructionDecoder {
         WasmInstruction<?> instruction = knownInstructions.get(variant);
 
         if (instruction == null) {
-            throw new InvalidModuleException("Unknown instruction variant " + Integer.toUnsignedString(variant));
+            throw new InvalidModuleException("Unknown instruction variant " + Integer.toUnsignedString(variant) + " for opcode 0x" +
+                    Integer.toUnsignedString(((int) opCode) & 0xFF, 16));
         } else if (instruction.getOpCode() != opCode) {
             throw new InvalidModuleException(
                     "Expected opcode 0x" + Integer.toUnsignedString(((int) instruction.getOpCode()) & 0xFF, 16) +

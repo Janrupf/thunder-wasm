@@ -5,14 +5,17 @@ import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.assembler.part.FunctionAssembler;
 import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.lookup.ModuleLookups;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
@@ -20,10 +23,8 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
-import net.janrupf.thunderwasm.types.FunctionType;
-import net.janrupf.thunderwasm.types.MemoryType;
-import net.janrupf.thunderwasm.types.ReferenceType;
-import net.janrupf.thunderwasm.types.ValueType;
+import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
+import net.janrupf.thunderwasm.types.*;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -38,6 +39,7 @@ public final class WasmAssembler {
     private final WasmModule module;
     private final ClassFileEmitter emitter;
     private final ModuleLookups lookups;
+    private final ElementLookups elementLookups;
     private final EnumSet<ProcessedSections> onceProcessedSections;
 
     private final WasmGenerators generators;
@@ -56,6 +58,7 @@ public final class WasmAssembler {
         this.emitter = emitterFactory.createFor(packageName, className);
 
         this.lookups = new ModuleLookups(module);
+        this.elementLookups = new ElementLookups(lookups);
         this.onceProcessedSections = EnumSet.noneOf(ProcessedSections.class);
 
         this.generators = generators;
@@ -156,7 +159,7 @@ public final class WasmAssembler {
         frameState.popOperand(ReferenceType.OBJECT);
 
         CodeEmitContext emitContext = new CodeEmitContext(
-                new ElementLookups(lookups),
+                elementLookups,
                 code,
                 frameState,
                 generators
@@ -176,6 +179,13 @@ public final class WasmAssembler {
         // Initializes globals if any
         if (globalSection != null) {
             emitGlobalInitializers(globalSection, code, frameState);
+        }
+
+        // Initializes tables if any
+        if (tableSection != null) {
+            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(tableSection.getTypes().largeLength()) < 0; i = i.add(1)) {
+                generators.getTableGenerator().emitTableConstructor(i, tableSection.getTypes().get(i), emitContext);
+            }
         }
 
         // Initializes element segments if any
@@ -201,13 +211,49 @@ public final class WasmAssembler {
                         initValues,
                         emitContext
                 );
-            }
-        }
 
-        // Initializes tables if any
-        if (tableSection != null) {
-            for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(tableSection.getTypes().largeLength()) < 0; i = i.add(1)) {
-                generators.getTableGenerator().emitTableConstructor(i, tableSection.getTypes().get(i), emitContext);
+                if (segment.getMode() instanceof ElementSegmentMode.Active) {
+                    ElementSegmentMode.Active activeMode = (ElementSegmentMode.Active) segment.getMode();
+
+                    EvalContext evalContext = new EvalContext(emitContext.getLookups());
+
+                    // Evaluate the table offset expression
+                    int tableOffset = (int) evalContext.evalSingleValue(
+                            activeMode.getTableOffset(),
+                            true,
+                            NumberType.I32
+                    );
+
+                    FoundElement<TableType, TableImportDescription> table = elementLookups.requireTable(
+                            LargeArrayIndex.ZERO.add(activeMode.getTableIndex()));
+
+                    TableType tableType;
+                    if (table.isImport()) {
+                        generators.getImportGenerator().emitLoadTableReference(
+                                table.getImport(),
+                                emitContext
+                        );
+                        tableType = table.getImport().getDescription().getType();
+                    } else {
+                        generators.getTableGenerator().emitLoadTableReference(
+                                table.getIndex(),
+                                emitContext
+                        );
+                        tableType = table.getElement();
+                    }
+
+                    frameState.pushOperand(NumberType.I32);
+                    frameState.pushOperand(NumberType.I32);
+                    frameState.pushOperand(NumberType.I32);
+
+                    code.loadConstant(tableOffset);
+                    code.loadConstant(0);
+                    code.loadConstant((int) segment.getInit().length());
+
+                    TableGenerator tableGenerator = generators.getTableGenerator();
+                    tableGenerator.emitTableInit(tableType, i, segment, emitContext);
+                    tableGenerator.emitDropElement(i, segment, emitContext);
+                }
             }
         }
 
@@ -282,7 +328,7 @@ public final class WasmAssembler {
 
             // Emit the setter
             generators.getGlobalGenerator().emitSetGlobal(i, global, new CodeEmitContext(
-                    new ElementLookups(lookups),
+                    elementLookups,
                     code,
                     frameState,
                     generators

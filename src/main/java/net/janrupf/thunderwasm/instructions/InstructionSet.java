@@ -82,6 +82,7 @@ public final class InstructionSet {
             GlobalGet.INSTANCE,
 
             // Table instructions
+            ElemDrop.INSTANCE,
             TableGet.INSTANCE,
             TableSet.INSTANCE,
             TableInit.INSTANCE,

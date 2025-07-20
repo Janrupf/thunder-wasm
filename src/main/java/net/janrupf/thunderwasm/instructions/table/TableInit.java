@@ -60,7 +60,7 @@ public final class TableInit extends WasmInstruction<DoubleIndexData<ElementInde
 
         TableGenerator generator = context.getGenerators().getTableGenerator();
 
-        if (!generator.canEmitInitFor(helper.getJavaTableType())) {
+        if (generator.canEmitInitFor(helper.getJavaTableType())) {
             CommonBytecodeGenerator.loadBelow(
                     frameState,
                     codeEmitter,
@@ -155,7 +155,6 @@ public final class TableInit extends WasmInstruction<DoubleIndexData<ElementInde
         emitter.jump(JumpCondition.ALWAYS, copyLoopStart);
 
         // Free the locals
-        frameState.freeLocal();
         frameState.freeLocal();
         frameState.freeLocal();
         frameState.freeLocal();

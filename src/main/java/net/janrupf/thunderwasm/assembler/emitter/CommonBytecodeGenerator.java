@@ -514,8 +514,8 @@ public class CommonBytecodeGenerator {
         ) {
             // Load now
             frameState.pushOperand(type);
-            frameState.pushOperand(toPop[0]);
             frameState.pushOperand(toPop[1]);
+            frameState.pushOperand(toPop[0]);
             frameState.pushOperand(type);
             emitterFunction.emit();
 

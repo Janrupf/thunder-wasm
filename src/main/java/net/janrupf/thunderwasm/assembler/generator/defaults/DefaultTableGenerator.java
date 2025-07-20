@@ -191,8 +191,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "get",
                 new JavaType[]{PrimitiveType.INT},
                 ObjectType.of(ElementReference.class),
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         // Pop the index and this
@@ -222,8 +222,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "set",
                 new JavaType[]{PrimitiveType.INT, ObjectType.of(ElementReference.class)},
                 PrimitiveType.VOID,
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         frameState.popOperand(type.getElementType());
@@ -248,8 +248,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "copy",
                 new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, LINKED_TABLE_TYPE},
                 PrimitiveType.VOID,
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         // Clean up the stack
@@ -278,8 +278,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "grow",
                 new JavaType[]{ObjectType.of(ElementReference.class), PrimitiveType.INT},
                 PrimitiveType.INT,
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         frameState.popOperand(NumberType.I32);
@@ -306,8 +306,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "size",
                 new JavaType[0],
                 PrimitiveType.INT,
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         frameState.popOperand(ReferenceType.OBJECT);
@@ -332,8 +332,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "fill",
                 new JavaType[]{PrimitiveType.INT, ObjectType.of(ElementReference.class), PrimitiveType.INT},
                 PrimitiveType.VOID,
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         frameState.popOperand(NumberType.I32);
@@ -371,8 +371,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "init",
                 new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, new ArrayType(ObjectType.of(ElementReference.class))},
                 PrimitiveType.VOID,
-                InvokeType.INTERFACE,
-                true
+                invokeType(),
+                invokeType() == InvokeType.INTERFACE
         );
 
         frameState.popOperand(ReferenceType.OBJECT);
@@ -414,6 +414,11 @@ public class DefaultTableGenerator implements TableGenerator {
         frameState.popOperand(ReferenceType.OBJECT);
 
         frameState.pushOperand(segment.getType());
+    }
+
+    @Override
+    public void emitDropElement(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) {
+        // No-op
     }
 
     /**
@@ -482,6 +487,16 @@ public class DefaultTableGenerator implements TableGenerator {
             return ObjectType.of(FunctionReference.class);
         } else {
             throw new WasmAssemblerException("Unsupported reference type: " + type);
+        }
+    }
+
+    private InvokeType invokeType() {
+        if (tableType.equals(CONCRETE_TABLE_TYPE)) {
+            return InvokeType.VIRTUAL;
+        } else if (tableType.equals(LINKED_TABLE_TYPE)) {
+            return InvokeType.INTERFACE;
+        } else {
+            throw new IllegalStateException("Unsupported table type: " + tableType);
         }
     }
 }
