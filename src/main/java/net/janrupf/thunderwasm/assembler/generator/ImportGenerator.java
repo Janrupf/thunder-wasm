@@ -12,6 +12,7 @@ import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
 
@@ -172,6 +173,26 @@ public interface ImportGenerator {
             CodeEmitContext context
     ) throws WasmAssemblerException;
 
+    /**
+     * Emit a memory init instruction.
+     * <p>
+     * This method expects the following stack top:
+     * - count
+     * - source start index
+     * - destination start index
+     *
+     * @param im        the memory import
+     * @param dataIndex the index of the data segment to use
+     * @param segment   the data segment to use for initialization
+     * @param context   the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitMemoryInit(
+            Import<MemoryImportDescription> im,
+            LargeArrayIndex dataIndex,
+            DataSegment segment,
+            CodeEmitContext context
+    ) throws WasmAssemblerException;
 
     /**
      * Emit the code for loading the internal memory reference.

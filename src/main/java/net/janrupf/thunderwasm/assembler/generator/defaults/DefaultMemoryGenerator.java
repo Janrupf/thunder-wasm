@@ -473,7 +473,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitCalculateAccessOffset(memarg, context);
 
         frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.accessField(
                 emitter.getOwner(),
@@ -484,12 +483,10 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         );
 
         frameState.popOperand(ReferenceType.OBJECT);
-
-        frameState.popOperand(ReferenceType.OBJECT);
         frameState.popOperand(NumberType.I32);
         emitter.op(Op.SWAP); // Swap the memory with the offset
-        frameState.pushOperand(NumberType.I32);
         frameState.pushOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(NumberType.I32);
 
         emitter.invoke(
                 ObjectType.of(ByteBuffer.class),
@@ -499,6 +496,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 InvokeType.VIRTUAL,
                 false
         );
+        frameState.popOperand(NumberType.I32);
         frameState.popOperand(ReferenceType.OBJECT);
         frameState.pushOperand(wasmReturnType);
 
@@ -672,6 +670,34 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     }
 
     @Override
+    public void emitLoadData(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+        WasmFrameState frameState = context.getFrameState();
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateDataSegmentFieldName(i),
+                DATA_SEGMENT_TYPE,
+                false,
+                false
+        );
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(NumberType.I32);
+        emitter.op(Op.SWAP);
+        frameState.pushOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(NumberType.I32);
+
+        emitter.loadArrayElement(DATA_SEGMENT_TYPE);
+
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        frameState.pushOperand(NumberType.I32);
+    }
+
+    @Override
     public void emitDropData(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) {
         // This is a no-op in the default implementation, as we don't need to do anything special
     }
@@ -696,6 +722,11 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     @Override
     public ObjectType getMemoryType(LargeArrayIndex i) {
         return MEMORY_TYPE;
+    }
+
+    @Override
+    public boolean canEmitInitFor(ObjectType memoryType) {
+        return memoryType.equals(MEMORY_TYPE);
     }
 
     @Override

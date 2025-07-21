@@ -299,8 +299,12 @@ public final class WasmAssembler {
                     code.loadConstant((int) segment.getInit().length());
 
                     if (memory.isImport()) {
-                        // TODO: Import memory initialization is not yet supported
-                        throw new UnsupportedOperationException("TODO");
+                        generators.getImportGenerator().emitMemoryInit(
+                                memory.getImport(),
+                                i,
+                                segment,
+                                emitContext
+                        );
                     } else {
                         generators.getMemoryGenerator().emitMemoryInit(
                                 memory.getIndex(),

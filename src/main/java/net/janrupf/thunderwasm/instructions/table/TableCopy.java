@@ -211,7 +211,6 @@ public final class TableCopy extends WasmInstruction<DoubleIndexData<TableIndexD
         frameState.freeLocal();
         frameState.freeLocal();
         frameState.freeLocal();
-        frameState.freeLocal();
 
         emitter.resolveLabel(endLabel, frameState.computeSnapshot());
     }

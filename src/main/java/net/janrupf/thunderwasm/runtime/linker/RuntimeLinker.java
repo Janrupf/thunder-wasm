@@ -8,6 +8,8 @@ import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 
+import java.nio.ByteBuffer;
+
 public interface RuntimeLinker {
     /**
      * Link a global to a global reference.
@@ -45,5 +47,19 @@ public interface RuntimeLinker {
     )
             throws ThunderWasmException {
         throw new ThunderWasmException("Linkage of tables is not implemented in this runtime linker");
+    }
+
+    /**
+     * Link a memory to a memory reference.
+     *
+     * @param moduleName the module name of the import
+     * @param importName the import name of the import
+     * @param limits     the memory limits
+     * @return the linked memory as a {@link ByteBuffer}
+     * @throws ThunderWasmException if the memory could not be linked
+     */
+    default ByteBuffer linkMemory(String moduleName, String importName, Limits limits)
+            throws ThunderWasmException {
+        throw new ThunderWasmException("Linkage of memories is not implemented in this runtime linker");
     }
 }

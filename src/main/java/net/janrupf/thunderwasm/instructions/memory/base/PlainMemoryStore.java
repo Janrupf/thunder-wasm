@@ -25,7 +25,13 @@ public abstract class PlainMemoryStore extends PlainMemory {
         FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
 
         if (memoryElement.isImport()) {
-            throw new WasmAssemblerException("Stores to imported memory are not supported yet");
+            context.getGenerators().getImportGenerator().emitMemoryStore(
+                    memoryElement.getImport(),
+                    getNumberType(),
+                    data,
+                    getStoreType(),
+                    context
+            );
         } else {
             context.getGenerators().getMemoryGenerator().emitStore(
                     LargeArrayIndex.ZERO,

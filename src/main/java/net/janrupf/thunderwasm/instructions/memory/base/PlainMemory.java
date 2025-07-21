@@ -28,7 +28,7 @@ public abstract class PlainMemory extends WasmInstruction<PlainMemory.Memarg> {
         private final int alignment;
         private final int offset;
 
-        private Memarg(int alignment, int offset) {
+        public Memarg(int alignment, int offset) {
             this.alignment = alignment;
             this.offset = offset;
         }

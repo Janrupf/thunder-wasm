@@ -158,6 +158,22 @@ public interface MemoryGenerator {
     }
 
     /**
+     * Emit the code for loading data from a data segment.
+     * <p>
+     * This method expects the index to load to be on top of the stack.
+     *
+     * @param i       the index of the data segment
+     * @param segment the data segment
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadData(
+            LargeArrayIndex i,
+            DataSegment segment,
+            CodeEmitContext context
+    ) throws WasmAssemblerException;
+
+    /**
      * Emit a drop data instruction.
      *
      * @param i       the index of the data segment to drop
@@ -187,6 +203,16 @@ public interface MemoryGenerator {
      * @return the table type
      */
     ObjectType getMemoryType(LargeArrayIndex i);
+
+    /**
+     * Determine whether an optimized init instruction can be emitted for the given type.
+     *
+     * @param memoryType the memory type
+     * @return whether an optimized init instruction can be emitted
+     */
+    default boolean canEmitInitFor(ObjectType memoryType) {
+        return false;
+    }
 
     /**
      * Determine whether an optimized copy instruction can be emitted for the given types.

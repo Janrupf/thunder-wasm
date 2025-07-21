@@ -18,11 +18,14 @@ import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.*;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,6 +58,12 @@ public class DefaultImportGenerator implements ImportGenerator {
         Import<TableImportDescription> tableImport = im.tryCast(TableImportDescription.class);
         if (tableImport != null) {
             addTableImport(tableImport, emitter);
+            return;
+        }
+
+        Import<MemoryImportDescription> memoryImport = im.tryCast(MemoryImportDescription.class);
+        if (memoryImport != null) {
+            addMemoryImport(memoryImport, emitter);
             return;
         }
     }
@@ -94,6 +103,11 @@ public class DefaultImportGenerator implements ImportGenerator {
         tableGeneratorFor(im).addTable(null, im.getDescription().getType(), emitter);
     }
 
+    private void addMemoryImport(Import<MemoryImportDescription> im, ClassFileEmitter emitter)
+            throws WasmAssemblerException {
+        memoryGeneratorFor(im).addMemory(null, im.getDescription().getType(), emitter);
+    }
+
     @Override
     public void emitLinkImport(Import<?> im, CodeEmitContext context) throws WasmAssemblerException {
         Import<GlobalImportDescription> globalImport = im.tryCast(GlobalImportDescription.class);
@@ -105,6 +119,12 @@ public class DefaultImportGenerator implements ImportGenerator {
         Import<TableImportDescription> tableImport = im.tryCast(TableImportDescription.class);
         if (tableImport != null) {
             emitLinkTableImport(tableImport, context);
+            return;
+        }
+
+        Import<MemoryImportDescription> memoryImport = im.tryCast(MemoryImportDescription.class);
+        if (memoryImport != null) {
+            emitLinkMemoryImport(memoryImport, context);
             return;
         }
 
@@ -214,6 +234,56 @@ public class DefaultImportGenerator implements ImportGenerator {
                 emitter.getOwner(),
                 generateImportFieldName(im),
                 DefaultTableGenerator.LINKED_TABLE_TYPE,
+                false,
+                true
+        );
+
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+    }
+
+    private void emitLinkMemoryImport(Import<MemoryImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+        MemoryType type = im.getDescription().getType();
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadConstant(im.getModule());
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadConstant(im.getName());
+
+        CommonBytecodeGenerator.loadLimits(frameState, emitter, type.getLimits());
+
+        emitter.invoke(
+                RUNTIME_LINKER_TYPE,
+                "linkMemory",
+                new JavaType[]{
+                        ObjectType.of(String.class),
+                        ObjectType.of(String.class),
+                        ObjectType.of(Limits.class),
+                },
+                ObjectType.of(ByteBuffer.class),
+                InvokeType.INTERFACE,
+                true
+        );
+
+        // Pop Arguments from the stack
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
+
+        // Set the field to the result of the method invocation
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+        emitter.op(Op.SWAP);
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                ObjectType.of(ByteBuffer.class),
                 false,
                 true
         );
@@ -349,6 +419,17 @@ public class DefaultImportGenerator implements ImportGenerator {
                 numberType,
                 memarg,
                 loadType,
+                context
+        );
+    }
+
+    @Override
+    public void emitMemoryInit(Import<MemoryImportDescription> im, LargeArrayIndex dataIndex, DataSegment segment, CodeEmitContext context) throws WasmAssemblerException {
+        memoryGeneratorFor(im).emitMemoryInit(
+                null,
+                im.getDescription().getType(),
+                dataIndex,
+                segment,
                 context
         );
     }

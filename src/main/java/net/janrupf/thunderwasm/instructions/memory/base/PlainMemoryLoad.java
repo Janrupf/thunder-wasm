@@ -25,7 +25,13 @@ public abstract class PlainMemoryLoad extends PlainMemory {
         FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
 
         if (memoryElement.isImport()) {
-            throw new WasmAssemblerException("Loads from imported memory are not supported yet");
+            context.getGenerators().getImportGenerator().emitMemoryLoad(
+                    memoryElement.getImport(),
+                    getNumberType(),
+                    data,
+                    getLoadType(),
+                    context
+            );
         } else {
             context.getGenerators().getMemoryGenerator().emitLoad(
                     LargeArrayIndex.ZERO,
