@@ -26,6 +26,6 @@ public final class Drop extends WasmInstruction<EmptyInstructionData> {
     @Override
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         ValueType dropped = context.getFrameState().popAnyOperand();
-        context.getEmitter().pop(WasmTypeConverter.toJavaType(dropped));
+        context.getEmitter().pop();
     }
 }

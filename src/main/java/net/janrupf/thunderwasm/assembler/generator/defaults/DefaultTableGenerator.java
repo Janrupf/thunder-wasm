@@ -90,7 +90,7 @@ public class DefaultTableGenerator implements TableGenerator {
         frameState.pushOperand(NumberType.I32);
 
         emitter.doNew(tableType);
-        emitter.duplicate(tableType);
+        emitter.duplicate();
         emitter.loadConstant(limits.getMin());
 
         if (limits.getMax() == null) {
@@ -149,11 +149,11 @@ public class DefaultTableGenerator implements TableGenerator {
             frameState.pushOperand(ReferenceType.OBJECT);
             frameState.pushOperand(NumberType.I32);
 
-            emitter.duplicate(arrayType);
+            emitter.duplicate();
             emitter.loadConstant(j);
 
             CommonBytecodeGenerator.loadConstant(emitter, frameState, segment.getType(), initValues[j]);
-            emitter.storeArrayElement(arrayType);
+            emitter.storeArrayElement();
 
             frameState.popOperand(segment.getType());
             frameState.popOperand(NumberType.I32);
@@ -408,7 +408,7 @@ public class DefaultTableGenerator implements TableGenerator {
         frameState.pushOperand(ReferenceType.OBJECT);
         frameState.pushOperand(NumberType.I32);
 
-        emitter.loadArrayElement(new ArrayType(objectTypeFor(segment.getType())));
+        emitter.loadArrayElement();
 
         frameState.popOperand(NumberType.I32);
         frameState.popOperand(ReferenceType.OBJECT);

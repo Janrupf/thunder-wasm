@@ -34,6 +34,6 @@ public final class LocalSet extends WasmInstruction<LocalIndexData> {
 
         ValueType type = frameState.requireLocal(data.getIndex());
         frameState.popOperand(type);
-        emitter.storeLocal(frameState.computeJavaLocalIndex(data.getIndex()), WasmTypeConverter.toJavaType(type));
+        emitter.storeLocal(emitter.getArgumentLocal(data.getIndex()));
     }
 }

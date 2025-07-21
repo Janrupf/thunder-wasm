@@ -80,7 +80,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
                 ASMConverter.convertTypesToNames(thrownTypes)
         );
 
-        return new ASMMethodEmitter(mVisitor, isStatic, owner);
+        return new ASMMethodEmitter(mVisitor, isStatic, owner, returnType, parameterTypes);
     }
 
     @Override

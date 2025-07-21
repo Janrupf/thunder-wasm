@@ -172,7 +172,7 @@ public final class WasmAssembler {
         if (importSection != null) {
             for (Import<?> im : importSection.getImports()) {
                 // The contract for emitLinkImport says the linker should be on top of the stack
-                code.loadLocal(0, generators.getImportGenerator().getLinkerType());
+                code.loadLocal(code.getArgumentLocal(0));
                 frameState.pushOperand(ReferenceType.OBJECT);
 
                 generators.getImportGenerator().emitLinkImport(im, emitContext);
@@ -318,8 +318,8 @@ public final class WasmAssembler {
             }
         }
 
-        code.doReturn(PrimitiveType.VOID);
-        code.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
+        code.doReturn();
+        code.finish();
     }
 
     private void emitAllGlobalConstructor(GlobalSection section) throws WasmAssemblerException {
@@ -361,9 +361,6 @@ public final class WasmAssembler {
     ) throws WasmAssemblerException {
         LargeArray<Global> globals = section.getGlobals();
 
-        int maxOperands = 0;
-        int maxLocals = 0;
-
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
             Global global = globals.get(i);
 
@@ -386,14 +383,6 @@ public final class WasmAssembler {
                     frameState,
                     generators
             ));
-
-            if (frameState.getMaxOperandSlotCount() > maxOperands) {
-                maxOperands = frameState.getMaxOperandSlotCount();
-            }
-
-            if (frameState.getMaxLocalSlotCount() > maxLocals) {
-                maxLocals = frameState.getMaxLocalSlotCount();
-            }
         }
     }
 

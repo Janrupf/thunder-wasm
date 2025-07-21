@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
@@ -98,8 +99,8 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         emitter.op(Op.SWAP);
 
         // Drop the value on top
-        emitter.resolveLabel(endLabel, frameState.computeSnapshot());
-        emitter.pop(javaTargetType);
+        emitter.resolveLabel(endLabel);
+        emitter.pop();
 
         frameState.popOperand(targetType);
     }
@@ -138,7 +139,7 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         LargeArrayIndex i = types.largeLength().subtract(1);
         while (true) {
             ValueType t = types.get(i);
-            emitter.pop(WasmTypeConverter.toJavaType(t));
+            emitter.pop();
 
             if (i.equals(LargeArrayIndex.ZERO)) {
                 break;
@@ -152,19 +153,19 @@ public final class Select extends WasmInstruction<Select.SelectData> {
 
         // Condition is false, this makes it more annoying
         // we need to drop the true values and keep the false values
-        emitter.resolveLabel(elseLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(elseLabel);
 
         // Allocate locals for the false values
-        LargeIntArray localIndices = new LargeIntArray(types.largeLength());
+        LargeArray<JavaLocal> localIndices = new LargeArray<>(JavaLocal.class, types.largeLength());
 
         i = types.largeLength().subtract(1);
         while (true) {
             ValueType type = types.get(i);
-            int localIndex = frameState.computeJavaLocalIndex(frameState.allocateLocal(type));
+            JavaLocal localIndex = emitter.allocateLocal(WasmTypeConverter.toJavaType(type));
             localIndices.set(i, localIndex);
 
             // And store the value in the local
-            emitter.storeLocal(localIndex, WasmTypeConverter.toJavaType(type));
+            emitter.storeLocal(localIndex);
 
             if (i.equals(LargeArrayIndex.ZERO)) {
                 break;
@@ -177,7 +178,7 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         i = types.largeLength().subtract(1);
         while (true) {
             ValueType t = types.get(i);
-            emitter.pop(WasmTypeConverter.toJavaType(t));
+            emitter.pop();
 
             // We also use this loop as an opportunity to notify the frame state
             // of its final form
@@ -192,14 +193,13 @@ public final class Select extends WasmInstruction<Select.SelectData> {
 
         // Load the false values back
         for (i = LargeArrayIndex.ZERO; i.compareTo(types.largeLength()) < 0; i = i.add(1)) {
-            int localIndex = localIndices.get(i);
-            ValueType type = types.get(i);
-            emitter.loadLocal(localIndex, WasmTypeConverter.toJavaType(type));
-            frameState.freeLocal();
+            JavaLocal local = localIndices.get(i);
+            emitter.loadLocal(local);
+            local.free();
         }
 
         // Done
-        emitter.resolveLabel(endLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(endLabel);
     }
 
     public static class SelectData implements WasmInstruction.Data {

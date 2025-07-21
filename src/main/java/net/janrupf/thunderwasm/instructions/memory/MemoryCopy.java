@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.memory;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
@@ -91,13 +92,13 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         // - d (destination start index)
 
         // Store n, s and d in locals
-        int nLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        int sLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        int dLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        JavaLocal nLocal = emitter.allocateLocal(PrimitiveType.INT);
+        JavaLocal sLocal = emitter.allocateLocal(PrimitiveType.INT);
+        JavaLocal dLocal = emitter.allocateLocal(PrimitiveType.INT);
 
-        emitter.storeLocal(nLocal, PrimitiveType.INT);
-        emitter.storeLocal(sLocal, PrimitiveType.INT);
-        emitter.storeLocal(dLocal, PrimitiveType.INT);
+        emitter.storeLocal(nLocal);
+        emitter.storeLocal(sLocal);
+        emitter.storeLocal(dLocal);
 
         frameState.popOperand(NumberType.I32);
         frameState.popOperand(NumberType.I32);
@@ -106,8 +107,8 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         CodeLabel endLabel = emitter.newLabel();
 
         // Check if d <= s
-        emitter.loadLocal(sLocal, PrimitiveType.INT);
-        emitter.loadLocal(dLocal, PrimitiveType.INT);
+        emitter.loadLocal(sLocal);
+        emitter.loadLocal(dLocal);
 
         // Jump if d > s
         CodeLabel dGreaterThanS = emitter.newLabel();
@@ -115,64 +116,64 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
 
         // If d <= s, copy from the start
         CodeLabel dLessEqLoopStart = emitter.newLabel();
-        emitter.resolveLabel(dLessEqLoopStart, frameState.computeSnapshot());
+        emitter.resolveLabel(dLessEqLoopStart);
 
         // Jump to end if n == 0
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(nLocal);
         emitter.jump(JumpCondition.INT_EQUAL_ZERO, endLabel);
 
         // Copy the value
         frameState.pushOperand(NumberType.I32);
         frameState.pushOperand(NumberType.I32);
 
-        emitter.loadLocal(dLocal, PrimitiveType.INT);
-        emitter.loadLocal(sLocal, PrimitiveType.INT);
+        emitter.loadLocal(dLocal);
+        emitter.loadLocal(sLocal);
         sourceHelper.emitMemoryLoadByte();
         targetHelper.emitMemoryStoreByte();
 
         // Increment and store s
-        emitter.loadLocal(sLocal, PrimitiveType.INT);
+        emitter.loadLocal(sLocal);
         emitter.loadConstant(1);
         emitter.op(Op.IADD);
-        emitter.storeLocal(sLocal, PrimitiveType.INT);
+        emitter.storeLocal(sLocal);
 
         // Increment and store d
-        emitter.loadLocal(dLocal, PrimitiveType.INT);
+        emitter.loadLocal(dLocal);
         emitter.loadConstant(1);
         emitter.op(Op.IADD);
-        emitter.storeLocal(dLocal, PrimitiveType.INT);
+        emitter.storeLocal(dLocal);
 
         // Decrement n
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(nLocal);
         emitter.loadConstant(1);
         emitter.op(Op.ISUB);
-        emitter.storeLocal(nLocal, PrimitiveType.INT);
+        emitter.storeLocal(nLocal);
 
         // Jump to end if zero
         emitter.jump(JumpCondition.ALWAYS, dLessEqLoopStart);
 
         // If d > s, copy from the end
-        emitter.resolveLabel(dGreaterThanS, frameState.computeSnapshot());
+        emitter.resolveLabel(dGreaterThanS);
 
         // Jump to end if n == 0
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(nLocal);
         emitter.jump(JumpCondition.INT_EQUAL_ZERO, endLabel);
 
         CodeLabel dGreaterThanSLoopStart = emitter.newLabel();
-        emitter.resolveLabel(dGreaterThanSLoopStart, frameState.computeSnapshot());
+        emitter.resolveLabel(dGreaterThanSLoopStart);
 
         // Push d + n - 1
         frameState.pushOperand(NumberType.I32);
-        emitter.loadLocal(dLocal, PrimitiveType.INT);
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(dLocal);
+        emitter.loadLocal(nLocal);
         emitter.loadConstant(1);
         emitter.op(Op.ISUB);
         emitter.op(Op.IADD);
 
         // Push s + n - 1
         frameState.pushOperand(NumberType.I32);
-        emitter.loadLocal(sLocal, PrimitiveType.INT);
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(sLocal);
+        emitter.loadLocal(nLocal);
         emitter.loadConstant(1);
         emitter.op(Op.ISUB);
         emitter.op(Op.IADD);
@@ -182,20 +183,20 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         targetHelper.emitMemoryStoreByte();
 
         // Decrement and store n
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(nLocal);
         emitter.loadConstant(1);
         emitter.op(Op.ISUB);
-        emitter.storeLocal(nLocal, PrimitiveType.INT);
+        emitter.storeLocal(nLocal);
 
         // Jump if n > 0
-        emitter.loadLocal(nLocal, PrimitiveType.INT);
+        emitter.loadLocal(nLocal);
         emitter.jump(JumpCondition.INT_GREATER_THAN_ZERO, dGreaterThanSLoopStart);
 
         // Free the locals
-        frameState.freeLocal();
-        frameState.freeLocal();
-        frameState.freeLocal();
+        nLocal.free();
+        sLocal.free();
+        dLocal.free();
 
-        emitter.resolveLabel(endLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(endLabel);
     }
 }

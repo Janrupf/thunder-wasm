@@ -17,7 +17,6 @@ import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Test;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.function.Function;
@@ -33,10 +32,19 @@ public class BasicTest {
 
     @Test
     public void playground() throws Exception {
+        long loadStartTime = System.currentTimeMillis();
         WasmModule module = TestUtil.load("assembler/simple.wasm");
+        long loadEndTime = System.currentTimeMillis();
+
+        System.out.println("Loading took " + (loadEndTime - loadStartTime) + "ms");
+
         WasmAssembler assembler = TestUtil.makeAssembler(module);
 
+        long assemblyStartTime = System.currentTimeMillis();
         byte[] classBytes = assembler.assembleToModule();
+        long assemblyEndTime = System.currentTimeMillis();
+
+        System.out.println("Assembling took " + (assemblyEndTime - assemblyStartTime) + "ms");
 
         Files.write(Paths.get("/tmp/playground.class"), classBytes);
 
@@ -47,8 +55,8 @@ public class BasicTest {
         TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[] {  },
-                new Object[] {  }
+                new Class<?>[]{},
+                new Object[]{}
         );
 
         Function<Integer, Byte> readByte = (address) -> {
@@ -56,8 +64,8 @@ public class BasicTest {
                 return (byte) (int) TestUtil.callCodeMethod(
                         moduleInstance,
                         1,
-                        new Class<?>[] { int.class, },
-                        new Object[] { address }
+                        new Class<?>[]{int.class,},
+                        new Object[]{address}
                 );
             } catch (Throwable e) {
                 throw new RuntimeException(e);

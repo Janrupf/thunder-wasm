@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.signature.ConcreteType;
 import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
@@ -139,7 +140,7 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         // For now just pop the linker if we don't handle the import
         context.getFrameState().popOperand(ReferenceType.OBJECT);
-        context.getEmitter().pop(RUNTIME_LINKER_TYPE);
+        context.getEmitter().pop();
     }
 
     private void emitLinkGlobalImport(Import<GlobalImportDescription> im, CodeEmitContext context)
@@ -292,7 +293,7 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         frameState.pushOperand(ReferenceType.OBJECT);
         frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.duplicate2(LINKED_MEMORY_TYPE, emitter.getOwner());
+        emitter.duplicate(2, 0);
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldNameForAttachment(im, "linked"),
@@ -459,15 +460,15 @@ public class DefaultImportGenerator implements ImportGenerator {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        int temporaryLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        JavaLocal temporaryLocal = emitter.allocateLocal(PrimitiveType.INT);
 
-        emitter.storeLocal(temporaryLocal, PrimitiveType.INT);
+        emitter.storeLocal(temporaryLocal);
         frameState.popOperand(NumberType.I32);
 
         frameState.pushOperand(ReferenceType.ofObject(emitter.getOwner()));
         frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
-        emitter.duplicate(emitter.getOwner());
+        emitter.duplicate();
 
         emitter.accessField(
                 emitter.getOwner(),
@@ -477,10 +478,10 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false
         );
 
-        emitter.duplicate(LINKED_MEMORY_TYPE);
+        emitter.duplicate();
         frameState.pushOperand(ReferenceType.OBJECT);
 
-        emitter.loadLocal(temporaryLocal, PrimitiveType.INT);
+        emitter.loadLocal(temporaryLocal);
         frameState.pushOperand(NumberType.I32);
         emitter.invoke(
                 LINKED_MEMORY_TYPE,
@@ -501,17 +502,17 @@ public class DefaultImportGenerator implements ImportGenerator {
         frameState.popOperand(NumberType.I32);
 
         // Not successful, pop linked memory and this, push -1
-        emitter.pop(LINKED_MEMORY_TYPE);
-        emitter.pop(emitter.getOwner());
+        emitter.pop();
+        emitter.pop();
         emitter.loadConstant(-1);
 
         emitter.jump(JumpCondition.ALWAYS, endLabel);
 
         // Successful, get and stow old memory size
-        emitter.resolveLabel(successLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(successLabel);
 
         emitMemorySize(im, context);
-        emitter.storeLocal(temporaryLocal, PrimitiveType.INT);
+        emitter.storeLocal(temporaryLocal);
         frameState.popOperand(NumberType.I32);
 
         emitter.invoke(
@@ -533,11 +534,11 @@ public class DefaultImportGenerator implements ImportGenerator {
         frameState.popOperand(ReferenceType.ofObject(emitter.getOwner()));
 
         frameState.pushOperand(NumberType.I32);
-        emitter.loadLocal(temporaryLocal, PrimitiveType.INT);
+        emitter.loadLocal(temporaryLocal);
 
-        emitter.resolveLabel(endLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(endLabel);
 
-        frameState.freeLocal();
+        temporaryLocal.free();
     }
 
     @Override

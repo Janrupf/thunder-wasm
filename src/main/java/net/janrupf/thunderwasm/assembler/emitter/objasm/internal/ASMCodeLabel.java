@@ -1,12 +1,17 @@
 package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
+import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import org.objectweb.asm.Label;
 
 public final class ASMCodeLabel implements CodeLabel {
     private final Label inner;
     private boolean resolved;
+
+    private JavaFrameSnapshot knownFrameSnapshot;
 
     public ASMCodeLabel() {
         this.inner = new Label();
@@ -29,6 +34,30 @@ public final class ASMCodeLabel implements CodeLabel {
         if (this.resolved) {
             throw new WasmAssemblerException("Label is already resolved");
         }
+    }
+
+
+    /**
+     * Attach a known frame state snapshot to this label.
+     *
+     * @param snapshot the snapshot to attach
+     * @throws WasmAssemblerException if there is already a snapshot attached and its incompatible
+     */
+    public void attachFrameState(JavaFrameSnapshot snapshot) throws WasmAssemblerException {
+        if (this.knownFrameSnapshot != null) {
+            this.knownFrameSnapshot.checkCompatible(snapshot);
+        } else {
+            this.knownFrameSnapshot = snapshot;
+        }
+    }
+
+    /**
+     * Retrieve the snapshot that is attached to this label.
+     *
+     * @return the snapshot attached to this label, or null, if none yet
+     */
+    public JavaFrameSnapshot getKnownFrameSnapshot() {
+        return knownFrameSnapshot;
     }
 
     /**

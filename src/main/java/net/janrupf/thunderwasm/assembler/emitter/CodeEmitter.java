@@ -2,6 +2,8 @@ package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
@@ -15,11 +17,30 @@ public interface CodeEmitter {
     ObjectType getOwner();
 
     /**
+     * Retrieve the state the stack frame is in.
+     *
+     * @return the stack frame state, or null, if unknown
+     */
+    JavaStackFrameState getStackFrameState();
+
+    /**
      * Creates a new, not yet resolved label.
      *
      * @return the new label
      */
     CodeLabel newLabel();
+
+    /**
+     * Resolves the label to the current position in the code.
+     * <p>
+     * This automatically attaches the current frame state to the lable.
+     *
+     * @param label the label to resolve
+     * @throws WasmAssemblerException if the label is already resolved
+     */
+    default void resolveLabel(CodeLabel label) throws WasmAssemblerException {
+        resolveLabel(label, null);
+    }
 
     /**
      * Resolves the label to the current position in the code.
@@ -43,10 +64,9 @@ public interface CodeEmitter {
     /**
      * Emit a return instruction.
      *
-     * @param type the return type
-     * @throws WasmAssemblerException if the return type is not supported
+     * @throws WasmAssemblerException if a return can not be generated
      */
-    void doReturn(JavaType type) throws WasmAssemblerException;
+    void doReturn() throws WasmAssemblerException;
 
     /**
      * Emit a jump instruction.
@@ -65,26 +85,42 @@ public interface CodeEmitter {
     void loadThis() throws WasmAssemblerException;
 
     /**
+     * Retrieve the local for a specific argument.
+     *
+     * @param index the index of the argument
+     * @return the local for that argument
+     * @throws WasmAssemblerException if the argument doesn't exist
+     */
+    JavaLocal getArgumentLocal(int index) throws WasmAssemblerException;
+
+    /**
+     * Allocate a temporary local.
+     *
+     * @param type the type stored in the local
+     * @return the allocated local
+     * @throws WasmAssemblerException if allocation fails
+     */
+    JavaLocal allocateLocal(JavaType type) throws WasmAssemblerException;
+
+    /**
      * Load a local variable onto the stack.
      * <p>
      * This method automatically adjusts for "this" locals.
      *
-     * @param index the index of the local variable
-     * @param type  the type of the local variable
+     * @param local the local to load
      * @throws WasmAssemblerException if the local variable cannot be loaded
      */
-    void loadLocal(int index, JavaType type) throws WasmAssemblerException;
+    void loadLocal(JavaLocal local) throws WasmAssemblerException;
 
     /**
      * Store a value from the stack into a local variable.
      * <p>
      * This method automatically adjusts for "this" locals.
      *
-     * @param index the index of the local variable
-     * @param type  the type of the local variable
+     * @param local the local to load
      * @throws WasmAssemblerException if the local variable cannot be stored
      */
-    void storeLocal(int index, JavaType type) throws WasmAssemblerException;
+    void storeLocal(JavaLocal local) throws WasmAssemblerException;
 
     /**
      * Emit an invoke instruction.
@@ -133,61 +169,53 @@ public interface CodeEmitter {
     ) throws WasmAssemblerException;
 
     /**
-     * Emit a dup instruction.
+     * Emit a dup/dup2 instruction.
      *
-     * @param type the type of the value to duplicate
-     * @throws WasmAssemblerException if the value cannot be duplicated
+     * @throws WasmAssemblerException if the duplicate instruction is invalid
      */
-    void duplicate(JavaType type) throws WasmAssemblerException;
+    default void duplicate() throws WasmAssemblerException {
+        duplicate(1, 0);
+    }
 
     /**
-     * Emit a dup2 instruction.
+     * Emit an instruction of the dup family.
+     * <p>This method duplicates the top {@code count} values on the stack and inserts
+     * them at a specified {@code depth}.
      *
-     * @param first  the type of the first value to duplicate
-     * @param second the type of the second value to duplicate
-     * @throws WasmAssemblerException if the value cannot be duplicated
+     * <p>For example, with a stack of {@code [..., value3, value2, value1]}, where
+     * {@code value1} is at the top:
+     * <ul>
+     *   <li>{@code duplicate(1, 0)} (dup): results in {@code [..., value3, value2, value1, value1]}</li>
+     *   <li>{@code duplicate(1, 1)} (dup_x1): results in {@code [..., value3, value1, value2, value1]}</li>
+     *   <li>{@code duplicate(1, 2)} (dup_x2): results in {@code [..., value1, value3, value2, value1]}</li>
+     * </ul>
+     *
+     * @param count how many elements to duplicate (1 or 2)
+     * @param depth how many elements to move down before inserting (0 - 2)
+     * @throws WasmAssemblerException if the duplicate instruction is invalid
      */
-    void duplicate2(JavaType first, JavaType second) throws WasmAssemblerException;
+    void duplicate(int count, int depth) throws WasmAssemblerException;
 
     /**
-     * Emit a dup_x1 instruction.
+     * Emit a pop/pop2 instruction.
      *
-     * @param type the type of the value to duplicate
-     * @throws WasmAssemblerException if the value cannot be duplicated
-     */
-    void duplicateX1(JavaType type) throws WasmAssemblerException;
-
-    /**
-     * Emit a dup_x2 instruction.
-     *
-     * @param type the type of the value to duplicate
-     * @throws WasmAssemblerException if the value cannot be duplicated
-     */
-    void duplicateX2(JavaType type) throws WasmAssemblerException;
-
-    /**
-     * Emit a pop instruction.
-     *
-     * @param type the type of the value to pop
      * @throws WasmAssemblerException if the value cannot be popped
      */
-    void pop(JavaType type) throws WasmAssemblerException;
+    void pop() throws WasmAssemblerException;
 
     /**
      * Emit an a<type>store instruction.
      *
-     * @param arrayType the type of the array
      * @throws WasmAssemblerException if the array element cannot be stored
      */
-    void storeArrayElement(ArrayType arrayType) throws WasmAssemblerException;
+    void storeArrayElement() throws WasmAssemblerException;
 
     /**
      * Emit an a<type>load instruction.
      *
-     * @param arrayType the type of the array
      * @throws WasmAssemblerException if the array element cannot be loaded
      */
-    void loadArrayElement(ArrayType arrayType) throws WasmAssemblerException;
+    void loadArrayElement() throws WasmAssemblerException;
 
     /**
      * Emit a simple operation.
@@ -206,12 +234,8 @@ public interface CodeEmitter {
 
     /**
      * Finish the code generation.
-     * <p>
-     * This method automatically adjusts for "this" locals.
      *
-     * @param maxOperands the maximum number of operands on the stack
-     * @param maxLocals   the maximum number of local variables
      * @throws WasmAssemblerException if the code generation fails
      */
-    void finish(int maxOperands, int maxLocals) throws WasmAssemblerException;
+    void finish() throws WasmAssemblerException;
 }

@@ -113,7 +113,7 @@ public final class FunctionAssembler {
             this.processFunctionEpilogue(codeEmitter, frameState, outputs, returnType);
 
             // Finish code generation
-            codeEmitter.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
+            codeEmitter.finish();
             methodEmitter.finish();
         } catch (WasmAssemblerException e) {
             throw new WasmAssemblerException("Failed to generate function " + functionName, e);
@@ -165,7 +165,7 @@ public final class FunctionAssembler {
         if (wasmOutputs.length() > 1) {
             throw new WasmAssemblerException("Only one output is supported for now");
         } else if (wasmOutputs.length() < 1) {
-            codeEmitter.doReturn(PrimitiveType.VOID);
+            codeEmitter.doReturn();
             return;
         }
 
@@ -181,6 +181,6 @@ public final class FunctionAssembler {
             );
         }
 
-        codeEmitter.doReturn(javaOutputType);
+        codeEmitter.doReturn();
     }
 }

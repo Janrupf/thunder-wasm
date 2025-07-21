@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
@@ -112,12 +113,12 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         frameState.pushOperand(NumberType.I32);
 
         for (LargeArrayIndex j = LargeArrayIndex.ZERO; j.compareTo(data.largeLength()) < 0; j = j.add(1)) {
-            emitter.duplicate(DATA_SEGMENT_TYPE);
+            emitter.duplicate();
 
             // Load the byte value from the data segment
             emitter.loadConstant(j.getElementIndex());
             emitter.loadConstant(data.get(j));
-            emitter.storeArrayElement(DATA_SEGMENT_TYPE);
+            emitter.storeArrayElement();
         }
 
         frameState.popOperand(NumberType.I32);
@@ -155,23 +156,23 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
          * - destination start index
          */
 
-        int countLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(countLocal, PrimitiveType.INT);
+        JavaLocal countLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(countLocal);
         frameState.popOperand(NumberType.I32);
 
-        int sourceStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(sourceStartLocal, PrimitiveType.INT);
+        JavaLocal sourceStartLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(sourceStartLocal);
         frameState.popOperand(NumberType.I32);
 
-        int destinationStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(destinationStartLocal, PrimitiveType.INT);
+        JavaLocal destinationStartLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(destinationStartLocal);
         frameState.popOperand(NumberType.I32);
 
         frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
 
         frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.duplicate(emitter.getOwner());
+        emitter.duplicate();
 
         emitter.accessField(
                 emitter.getOwner(),
@@ -192,7 +193,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         );
 
         frameState.pushOperand(NumberType.I32);
-        emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+        emitter.loadLocal(destinationStartLocal);
 
         frameState.popOperand(NumberType.I32);
         frameState.popOperand(ReferenceType.OBJECT);
@@ -201,10 +202,10 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         frameState.pushOperand(ReferenceType.OBJECT);
 
         frameState.pushOperand(NumberType.I32);
-        emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+        emitter.loadLocal(sourceStartLocal);
 
         frameState.pushOperand(NumberType.I32);
-        emitter.loadLocal(countLocal, PrimitiveType.INT);
+        emitter.loadLocal(countLocal);
 
         emitter.invoke(
                 MEMORY_TYPE,
@@ -220,13 +221,13 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         frameState.popOperand(ReferenceType.OBJECT);
         frameState.popOperand(NumberType.I32);
 
-        emitter.pop(MEMORY_TYPE);
+        emitter.pop();
         frameState.popOperand(ReferenceType.OBJECT);
 
         // Free the locals
-        frameState.freeLocal();
-        frameState.freeLocal();
-        frameState.freeLocal();
+        countLocal.free();
+        sourceStartLocal.free();
+        destinationStartLocal.free();
     }
 
     @Override
@@ -312,25 +313,25 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
         // Stow away the value, we don't need it right now
-        int valueLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(wasmArgumentType));
-        emitter.storeLocal(valueLocal, argumentType);
+        JavaLocal valueLocal = emitter.allocateLocal(WasmTypeConverter.toJavaType(wasmArgumentType));
+        emitter.storeLocal(valueLocal);
         frameState.popOperand(numberType);
 
         emitCalculateAccessOffset(memarg, context);
 
-        int offsetLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(offsetLocal, PrimitiveType.INT);
+        JavaLocal offsetLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(offsetLocal);
         frameState.popOperand(NumberType.I32);
 
         frameState.pushOperand(ReferenceType.OBJECT);
         emitAccessMemoryField(i, false, context);
 
-        emitter.loadLocal(offsetLocal, PrimitiveType.INT);
-        frameState.freeLocal();
+        emitter.loadLocal(offsetLocal);
+        offsetLocal.free();
         frameState.pushOperand(NumberType.I32);
 
-        emitter.loadLocal(valueLocal, argumentType);
-        frameState.freeLocal();
+        emitter.loadLocal(valueLocal);
+        valueLocal.free();
         frameState.pushOperand(numberType);
 
         emitter.invoke(
@@ -342,7 +343,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 false
         );
         frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.pop(ObjectType.of(ByteBuffer.class));
+        emitter.pop();
         frameState.popOperand(ReferenceType.OBJECT);
 
         frameState.popOperand(numberType);
@@ -488,7 +489,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         // NOTE: theoretically this would need to be a pop, pop, push, push, push, but since all of the types are I32,
         // this is effectively equivalent to just pushing a new I32
         frameState.pushOperand(NumberType.I32);
-        emitter.duplicateX1(PrimitiveType.INT);
+        emitter.duplicate(1, 1);
 
         // Calculate new page count
         emitter.op(Op.IADD);
@@ -504,7 +505,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
             frameState.pushOperand(NumberType.I32);
             frameState.pushOperand(NumberType.I32);
-            emitter.duplicate(PrimitiveType.INT);
+            emitter.duplicate();
             emitter.loadConstant(maxPageCount);
 
             // Check if new is in bounds - if so, jump to the end
@@ -514,13 +515,13 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
             // Not in bounds, clear the new and old size from the stack,
             // and load -1
-            emitter.pop(PrimitiveType.INT);
-            emitter.pop(PrimitiveType.INT);
+            emitter.pop();
+            emitter.pop();
 
             emitter.loadConstant(-1);
             emitter.jump(JumpCondition.ALWAYS, endLabel);
 
-            emitter.resolveLabel(okLabel, frameState.computeSnapshot());
+            emitter.resolveLabel(okLabel);
         }
 
         // Allocate a new buffer...
@@ -556,7 +557,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
         // Now the old size on top of the stack, as it should be!
         if (endLabel != null) {
-            emitter.resolveLabel(endLabel, frameState.computeSnapshot());
+            emitter.resolveLabel(endLabel);
         }
     }
 
@@ -598,42 +599,42 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         CodeEmitter emitter = context.getEmitter();
 
         // Stow everything away in locals
-        int sourceMemoryLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(ReferenceType.OBJECT));
-        emitter.storeLocal(sourceMemoryLocal, sourceMemoryType);
+        JavaLocal sourceMemoryLocal = emitter.allocateLocal(sourceMemoryType);
+        emitter.storeLocal(sourceMemoryLocal);
         frameState.popOperand(ReferenceType.OBJECT);
 
-        int countLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(countLocal, PrimitiveType.INT);
+        JavaLocal countLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(countLocal);
         frameState.popOperand(NumberType.I32);
 
-        int sourceStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(sourceStartLocal, PrimitiveType.INT);
+        JavaLocal sourceStartLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(sourceStartLocal);
         frameState.popOperand(NumberType.I32);
 
-        int destinationStartLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
-        emitter.storeLocal(destinationStartLocal, PrimitiveType.INT);
+        JavaLocal destinationStartLocal = emitter.allocateLocal(PrimitiveType.INT);
+        emitter.storeLocal(destinationStartLocal);
         frameState.popOperand(NumberType.I32);
 
-        int destinationMemoryLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(ReferenceType.OBJECT));
-        emitter.storeLocal(destinationMemoryLocal, targetMemoryType);
+        JavaLocal destinationMemoryLocal = emitter.allocateLocal(targetMemoryType);
+        emitter.storeLocal(destinationMemoryLocal);
         frameState.popOperand(ReferenceType.OBJECT);
 
         if (sourceMemoryType.equals(BYTE_ARRAY_TYPE) && targetMemoryType.equals(BYTE_ARRAY_TYPE)) {
             // System.arraycopy is the most efficient way to copy byte arrays
             frameState.pushOperand(ReferenceType.OBJECT);
-            emitter.loadLocal(sourceMemoryLocal, sourceMemoryType);
+            emitter.loadLocal(sourceMemoryLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+            emitter.loadLocal(sourceStartLocal);
 
             frameState.pushOperand(ReferenceType.OBJECT);
-            emitter.loadLocal(destinationMemoryLocal, targetMemoryType);
+            emitter.loadLocal(destinationMemoryLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+            emitter.loadLocal(destinationStartLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(countLocal, PrimitiveType.INT);
+            emitter.loadLocal(countLocal);
 
             emitter.invoke(
                     ObjectType.of(System.class),
@@ -658,19 +659,19 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         } else if (targetMemoryType.equals(MEMORY_TYPE)) {
             // Use the ByteBuffer API to copy the memory
             frameState.pushOperand(ReferenceType.OBJECT);
-            emitter.loadLocal(destinationMemoryLocal, targetMemoryType);
+            emitter.loadLocal(destinationMemoryLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+            emitter.loadLocal(destinationStartLocal);
 
             frameState.pushOperand(ReferenceType.OBJECT);
-            emitter.loadLocal(sourceMemoryLocal, sourceMemoryType);
+            emitter.loadLocal(sourceMemoryLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+            emitter.loadLocal(sourceStartLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(countLocal, PrimitiveType.INT);
+            emitter.loadLocal(countLocal);
 
             emitter.invoke(
                     MEMORY_TYPE,
@@ -689,19 +690,19 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         } else if (targetMemoryType.equals(BYTE_ARRAY_TYPE) && sourceMemoryType.equals(MEMORY_TYPE)) {
             // Use the ByteBuffer API to copy the memory to a byte array
             frameState.pushOperand(ReferenceType.OBJECT);
-            emitter.loadLocal(sourceMemoryLocal, sourceMemoryType);
+            emitter.loadLocal(sourceMemoryLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(sourceStartLocal, PrimitiveType.INT);
+            emitter.loadLocal(sourceStartLocal);
 
             frameState.pushOperand(ReferenceType.OBJECT);
-            emitter.loadLocal(destinationMemoryLocal, targetMemoryType);
+            emitter.loadLocal(destinationMemoryLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(destinationStartLocal, PrimitiveType.INT);
+            emitter.loadLocal(destinationStartLocal);
 
             frameState.pushOperand(NumberType.I32);
-            emitter.loadLocal(countLocal, PrimitiveType.INT);
+            emitter.loadLocal(countLocal);
 
             emitter.invoke(
                     MEMORY_TYPE,
@@ -722,10 +723,11 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
         // Free the locals
-        frameState.freeLocal();
-        frameState.freeLocal();
-        frameState.freeLocal();
-        frameState.freeLocal();
+        sourceMemoryLocal.free();
+        sourceStartLocal.free();
+        destinationMemoryLocal.free();
+        destinationStartLocal.free();
+        countLocal.free();
     }
 
     @Override
@@ -748,7 +750,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         frameState.pushOperand(ReferenceType.OBJECT);
         frameState.pushOperand(NumberType.I32);
 
-        emitter.loadArrayElement(DATA_SEGMENT_TYPE);
+        emitter.loadArrayElement();
 
         frameState.popOperand(NumberType.I32);
         frameState.popOperand(ReferenceType.OBJECT);

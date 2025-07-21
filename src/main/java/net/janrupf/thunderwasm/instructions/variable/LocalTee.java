@@ -37,9 +37,9 @@ public final class LocalTee extends WasmInstruction<LocalIndexData> {
         frameState.requireOperand(type);
 
         JavaType javaType = WasmTypeConverter.toJavaType(type);
-        emitter.duplicate(javaType);
+        emitter.duplicate();
         frameState.pushOperand(type);
-        emitter.storeLocal(frameState.computeJavaLocalIndex(data.getIndex()), javaType);
+        emitter.storeLocal(emitter.getArgumentLocal(data.getIndex()));
         frameState.popOperand(type);
     }
 }

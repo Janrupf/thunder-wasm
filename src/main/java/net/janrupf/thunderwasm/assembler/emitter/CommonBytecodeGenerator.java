@@ -3,19 +3,17 @@ package net.janrupf.thunderwasm.assembler.emitter;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.data.Limits;
-import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 import net.janrupf.thunderwasm.types.VecType;
-
-import java.util.function.BiConsumer;
 
 public class CommonBytecodeGenerator {
     private CommonBytecodeGenerator() {
@@ -70,7 +68,7 @@ public class CommonBytecodeGenerator {
             throw new WasmAssemblerException("Unsupported type for unsigned conversion: " + type);
         }
 
-        int localIndex = frameState.computeJavaLocalIndex(frameState.allocateLocal(type));
+        JavaLocal local = emitter.allocateLocal(WasmTypeConverter.toJavaType(type));
 
         // Convert the value on top
         frameState.pushOperand(type);
@@ -78,18 +76,18 @@ public class CommonBytecodeGenerator {
         emitter.op(addOp);
 
         // Store the converted value in a local
-        emitter.storeLocal(localIndex, WasmTypeConverter.toJavaType(type));
+        emitter.storeLocal(local);
 
         // Now convert the value which was below
         emitter.loadConstant(type.getMinValue());
         emitter.op(addOp);
 
         // Load back the local
-        emitter.loadLocal(localIndex, WasmTypeConverter.toJavaType(type));
+        emitter.loadLocal(local);
 
         frameState.popOperand(type);
 
-        frameState.freeLocal();
+        local.free();
     }
 
     /**
@@ -116,12 +114,12 @@ public class CommonBytecodeGenerator {
         emitter.jump(JumpCondition.ALWAYS, finishedLabel);
 
         // Success: condition is met
-        emitter.resolveLabel(successLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(successLabel);
         emitter.loadConstant(1);
 
         // Finished
         frameState.pushOperand(NumberType.I32);
-        emitter.resolveLabel(finishedLabel, frameState.computeSnapshot());
+        emitter.resolveLabel(finishedLabel);
     }
 
     /**
@@ -246,15 +244,15 @@ public class CommonBytecodeGenerator {
         frameState.pushOperand(NumberType.F32);
 
         // Get copies of both floats to check for NaN
-        emitter.duplicate2(PrimitiveType.FLOAT, PrimitiveType.FLOAT);
+        emitter.duplicate(2, 0);
 
         // Check the first float for NaN by duplicating it and comparing it to itself
-        emitter.duplicate(PrimitiveType.FLOAT);
+        emitter.duplicate();
         emitter.op(compareOp);
 
         // Get the second float on top and compare it to itself
         emitter.op(Op.SWAP);
-        emitter.duplicate(PrimitiveType.FLOAT);
+        emitter.duplicate();
         emitter.op(compareOp);
 
         // Combine both results to check if either of the floats is NaN
@@ -290,8 +288,8 @@ public class CommonBytecodeGenerator {
         CommonBytecodeGenerator.eval2FloatsNaN(frameState, emitter, NaNTargetResult.ZERO);
 
         // Move the NaN check result 2 values down and then discard the top copy
-        emitter.duplicateX2(PrimitiveType.INT);
-        emitter.pop(PrimitiveType.INT);
+        emitter.duplicate(1, 2);
+        emitter.pop();
         frameState.popOperand(NumberType.I32);
 
         frameState.popOperand(NumberType.F32);
@@ -340,31 +338,31 @@ public class CommonBytecodeGenerator {
         frameState.pushOperand(NumberType.F64);
         frameState.pushOperand(NumberType.F64);
 
-        int firstLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.F64));
-        int secondLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.F64));
-        int nanStateLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+        JavaLocal firstLocal = emitter.allocateLocal(PrimitiveType.DOUBLE);
+        JavaLocal secondLocal = emitter.allocateLocal(PrimitiveType.DOUBLE);
+        JavaLocal nanStateLocal = emitter.allocateLocal(PrimitiveType.INT);
 
         // Store the original doubles into locals
-        emitter.storeLocal(secondLocal, WasmTypeConverter.toJavaType(NumberType.F64));
-        emitter.storeLocal(firstLocal, WasmTypeConverter.toJavaType(NumberType.F64));
+        emitter.storeLocal(secondLocal);
+        emitter.storeLocal(firstLocal);
 
         // Load the second double and check it for NaN
-        emitter.loadLocal(secondLocal, WasmTypeConverter.toJavaType(NumberType.F64));
-        emitter.duplicate(PrimitiveType.DOUBLE);
+        emitter.loadLocal(secondLocal);
+        emitter.duplicate();
 
         // Check for NaN and store the result
         emitter.op(compareOp);
-        emitter.storeLocal(nanStateLocal, WasmTypeConverter.toJavaType(NumberType.I32));
+        emitter.storeLocal(nanStateLocal);
 
         // Load the first double and check it for NaN
-        emitter.loadLocal(firstLocal, WasmTypeConverter.toJavaType(NumberType.F64));
-        emitter.duplicate(PrimitiveType.DOUBLE);
+        emitter.loadLocal(firstLocal);
+        emitter.duplicate();
 
         // Check for NaN
         emitter.op(compareOp);
 
         // Load the previous result
-        emitter.loadLocal(nanStateLocal, WasmTypeConverter.toJavaType(NumberType.I32));
+        emitter.loadLocal(nanStateLocal);
 
         // Combine both results to check if either of the doubles is NaN
         emitter.op(Op.IOR);
@@ -376,13 +374,13 @@ public class CommonBytecodeGenerator {
         }
 
         // Get back the doubles
-        emitter.loadLocal(firstLocal, WasmTypeConverter.toJavaType(NumberType.F64));
-        emitter.loadLocal(secondLocal, WasmTypeConverter.toJavaType(NumberType.F64));
+        emitter.loadLocal(firstLocal);
+        emitter.loadLocal(secondLocal);
 
         // Free the locals
-        frameState.freeLocal();
-        frameState.freeLocal();
-        frameState.freeLocal();
+        firstLocal.free();
+        secondLocal.free();
+        nanStateLocal.free();
     }
 
     /**
@@ -435,17 +433,17 @@ public class CommonBytecodeGenerator {
             emitter.op(Op.SWAP);
         } else {
             // Swap using locals
-            int topLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(top));
-            int belowLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(below));
+            JavaLocal topLocal = emitter.allocateLocal(WasmTypeConverter.toJavaType(top));
+            JavaLocal belowLocal = emitter.allocateLocal(WasmTypeConverter.toJavaType(below));
 
-            emitter.storeLocal(topLocal, topType);
-            emitter.storeLocal(belowLocal, belowType);
+            emitter.storeLocal(topLocal);
+            emitter.storeLocal(belowLocal);
 
-            emitter.loadLocal(topLocal, topType);
-            emitter.loadLocal(belowLocal, belowType);
+            emitter.loadLocal(topLocal);
+            emitter.loadLocal(belowLocal);
 
-            frameState.freeLocal();
-            frameState.freeLocal();
+            topLocal.free();
+            belowLocal.free();
         }
 
         frameState.pushOperand(top);
@@ -520,17 +518,17 @@ public class CommonBytecodeGenerator {
             emitterFunction.emit();
 
             // Use a duplicate down operation
-            emitter.duplicateX2(toPush);
+            emitter.duplicate(1, 2);
 
             // And drop the value on top
-            emitter.pop(toPush);
+            emitter.pop();
             frameState.popOperand(type);
         } else {
             // Transfer the values to locals
-            int[] locals = new int[toPop.length];
+            JavaLocal[] locals = new JavaLocal[toPop.length];
             for (int i = 0; i < toPop.length; i++) {
-                locals[i] = frameState.computeJavaLocalIndex(frameState.allocateLocal(toPop[i]));
-                emitter.storeLocal(locals[i], WasmTypeConverter.toJavaType(toPop[i]));
+                locals[i] = emitter.allocateLocal(WasmTypeConverter.toJavaType(toPop[i]));
+                emitter.storeLocal(locals[i]);
             }
 
             // Load value and push it
@@ -539,8 +537,8 @@ public class CommonBytecodeGenerator {
 
             // Load the values back
             for (int i = toPop.length - 1; i >= 0; i--) {
-                emitter.loadLocal(locals[i], WasmTypeConverter.toJavaType(toPop[i]));
-                frameState.freeLocal();
+                emitter.loadLocal(locals[i]);
+                locals[i].free();
                 frameState.pushOperand(toPop[i]);
             }
         }
@@ -605,7 +603,7 @@ public class CommonBytecodeGenerator {
 
         // Construct the limits instance
         emitter.doNew(ObjectType.of(Limits.class));
-        emitter.duplicate(ObjectType.of(Limits.class));
+        emitter.duplicate();
 
         // Push min (int) and max (Integer)
         frameState.pushOperand(NumberType.I32);
@@ -696,7 +694,7 @@ public class CommonBytecodeGenerator {
             frameState.pushOperand(ReferenceType.OBJECT);
             frameState.pushOperand(ReferenceType.OBJECT);
             emitter.doNew(externReferenceType);
-            emitter.duplicate(externReferenceType);
+            emitter.duplicate();
             loadConstant(emitter, frameState, type, ((ExternReference) value).getReferent());
             emitter.invoke(
                     externReferenceType,

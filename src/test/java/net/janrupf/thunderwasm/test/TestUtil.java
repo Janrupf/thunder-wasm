@@ -111,7 +111,13 @@ public class TestUtil {
             WasmAssembler assembler,
             RuntimeLinker linker
     ) throws WasmAssemblerException {
+        long startTime = System.currentTimeMillis();
         byte[] result = assembler.assembleToModule();
+        long endTime = System.currentTimeMillis();
+
+        long duration = endTime - startTime;
+        System.out.println("Assembling took " + duration + "ms");
+
         return instantiateModule(assembler, result, linker);
     }
 
