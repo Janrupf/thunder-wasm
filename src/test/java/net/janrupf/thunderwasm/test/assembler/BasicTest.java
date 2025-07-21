@@ -10,6 +10,7 @@ import net.janrupf.thunderwasm.runtime.Table;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedObjectGlobal;
+import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.test.TestUtil;
 import net.janrupf.thunderwasm.types.ReferenceType;
@@ -40,7 +41,7 @@ public class BasicTest {
         Files.write(Paths.get("/tmp/playground.class"), classBytes);
 
         Table<?> table = new Table<>(0, 10);
-        ByteBuffer memory = ByteBuffer.allocate(1024);
+        LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 20));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
         TestUtil.callCodeMethod(
@@ -75,9 +76,9 @@ public class BasicTest {
 
     private static final class TestLinker implements RuntimeLinker {
         private final Table<?> table;
-        private final ByteBuffer memory;
+        private final LinkedMemory memory;
 
-        public TestLinker(Table<?> table, ByteBuffer memory) {
+        public TestLinker(Table<?> table, LinkedMemory memory) {
             this.table = table;
             this.memory = memory;
         }
@@ -98,7 +99,7 @@ public class BasicTest {
         }
 
         @Override
-        public ByteBuffer linkMemory(String moduleName, String importName, Limits limits) throws ThunderWasmException {
+        public LinkedMemory linkMemory(String moduleName, String importName, Limits limits) throws ThunderWasmException {
             return memory;
         }
     }

@@ -136,6 +136,28 @@ public interface MemoryGenerator {
     ) throws WasmAssemblerException;
 
     /**
+     * Emit a grow instruction.
+     * <p>
+     * Expects the amount of pages to grow by to be on top of the stack.
+     *
+     * @param i       the index of the memory
+     * @param type    the type of the memory
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitMemoryGrow(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a size instruction.
+     *
+     * @param i       the index of the memory
+     * @param type    the type of the memory
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitMemorySize(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
      * Emit a memory copy instruction.
      * <p>
      * This method will only be called if {@link #canEmitCopyFor(ObjectType, ObjectType)} returns true.

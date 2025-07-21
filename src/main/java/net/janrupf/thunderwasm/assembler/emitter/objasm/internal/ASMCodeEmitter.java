@@ -408,6 +408,15 @@ public final class ASMCodeEmitter implements CodeEmitter {
         visitor.visitInsn(Opcodes.DUP2);
     }
 
+    @Override
+    public void duplicateX1(JavaType type) throws WasmAssemblerException {
+        if (type.getSlotCount() > 1) {
+            throw new WasmAssemblerException("Unsupported type: "+ type);
+        }
+
+        visitor.visitInsn(Opcodes.DUP_X1);
+    }
+
     public void duplicateX2(JavaType type) throws WasmAssemblerException {
         if (type instanceof PrimitiveType) {
             if (

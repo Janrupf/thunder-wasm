@@ -115,9 +115,11 @@ public final class InstructionSet {
             I64Store8.INSTANCE,
             I64Store16.INSTANCE,
             I64Store32.INSTANCE,
-            MemoryCopy.INSTANCE,
+            MemorySize.INSTANCE,
+            MemoryGrow.INSTANCE,
             MemoryInit.INSTANCE,
             DataDrop.INSTANCE,
+            MemoryCopy.INSTANCE,
 
             // Numeric instructions
             I32Const.INSTANCE,

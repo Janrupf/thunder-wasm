@@ -18,7 +18,6 @@ import net.janrupf.thunderwasm.module.encoding.LargeByteArray;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.types.*;
 
-import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -44,14 +43,14 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 generateMemoryFieldName(i),
                 Visibility.PRIVATE,
                 false,
-                true,
+                false,
                 MEMORY_TYPE,
                 null
         );
     }
 
     @Override
-    public void addDataSegment(LargeArrayIndex i, DataSegment segment, ClassFileEmitter emitter) throws WasmAssemblerException {
+    public void addDataSegment(LargeArrayIndex i, DataSegment segment, ClassFileEmitter emitter) {
         emitter.field(
                 generateDataSegmentFieldName(i),
                 Visibility.PRIVATE,
@@ -83,37 +82,8 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         frameState.popOperand(NumberType.I32);
         frameState.pushOperand(ReferenceType.OBJECT);
 
-        frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.accessField(
-                ObjectType.of(ByteOrder.class),
-                "LITTLE_ENDIAN",
-                ObjectType.of(ByteOrder.class),
-                true,
-                false
-        );
-        emitter.invoke(
-                MEMORY_TYPE,
-                "order",
-                new JavaType[]{ObjectType.of(ByteOrder.class)},
-                MEMORY_TYPE,
-                InvokeType.VIRTUAL,
-                false
-        );
-        frameState.popOperand(ReferenceType.OBJECT);
-
-        frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.loadThis();
-        emitter.op(Op.SWAP);
-        emitter.accessField(
-                context.getEmitter().getOwner(),
-                generateMemoryFieldName(i),
-                MEMORY_TYPE,
-                false,
-                true
-        );
-
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
+        emitEnforceByteOrder(context);
+        emitAccessMemoryField(i, true, context);
     }
 
     @Override
@@ -353,17 +323,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         frameState.popOperand(NumberType.I32);
 
         frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.loadThis();
-        emitter.accessField(
-                emitter.getOwner(),
-                generateMemoryFieldName(i),
-                ObjectType.of(ByteBuffer.class),
-                false,
-                false
-        );
-
-        frameState.popOperand(ReferenceType.OBJECT);
+        emitAccessMemoryField(i, false, context);
 
         emitter.loadLocal(offsetLocal, PrimitiveType.INT);
         frameState.freeLocal();
@@ -471,16 +431,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
         emitCalculateAccessOffset(memarg, context);
-
-        frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.loadThis();
-        emitter.accessField(
-                emitter.getOwner(),
-                generateMemoryFieldName(i),
-                ObjectType.of(ByteBuffer.class),
-                false,
-                false
-        );
+        emitAccessMemoryField(i, false, context);
 
         frameState.popOperand(ReferenceType.OBJECT);
         frameState.popOperand(NumberType.I32);
@@ -524,6 +475,114 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 }
             }
         }
+    }
+
+    @Override
+    public void emitMemoryGrow(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        emitMemorySize(i, type, context);
+
+        // Duplicate the old size 2 slots down
+        // NOTE: theoretically this would need to be a pop, pop, push, push, push, but since all of the types are I32,
+        // this is effectively equivalent to just pushing a new I32
+        frameState.pushOperand(NumberType.I32);
+        emitter.duplicateX1(PrimitiveType.INT);
+
+        // Calculate new page count
+        emitter.op(Op.IADD);
+        frameState.popOperand(NumberType.I32);
+
+        Integer maxPageCount = type.getLimits().getMax();
+        CodeLabel endLabel = null;
+
+        if (maxPageCount != null) {
+            // And test if valid, returning -1 if not
+            CodeLabel okLabel = emitter.newLabel();
+            endLabel = emitter.newLabel();
+
+            frameState.pushOperand(NumberType.I32);
+            frameState.pushOperand(NumberType.I32);
+            emitter.duplicate(PrimitiveType.INT);
+            emitter.loadConstant(maxPageCount);
+
+            // Check if new is in bounds - if so, jump to the end
+            emitter.jump(JumpCondition.INT_LESS_THAN_OR_EQUAL, okLabel);
+            frameState.popOperand(NumberType.I32);
+            frameState.popOperand(NumberType.I32);
+
+            // Not in bounds, clear the new and old size from the stack,
+            // and load -1
+            emitter.pop(PrimitiveType.INT);
+            emitter.pop(PrimitiveType.INT);
+
+            emitter.loadConstant(-1);
+            emitter.jump(JumpCondition.ALWAYS, endLabel);
+
+            emitter.resolveLabel(okLabel, frameState.computeSnapshot());
+        }
+
+        // Allocate a new buffer...
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadConstant(PAGE_SIZE);
+        emitter.op(Op.IMUL);
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(NumberType.I32);
+        emitter.invoke(
+                MEMORY_TYPE,
+                "allocateDirect",
+                new JavaType[]{ PrimitiveType.INT },
+                MEMORY_TYPE,
+                InvokeType.STATIC,
+                false
+        );
+        frameState.pushOperand(ReferenceType.OBJECT);
+
+        // Ensure order is correct, load the other buffer into it and replace
+        emitEnforceByteOrder(context);
+        emitAccessMemoryField(i, false, context);
+        emitter.invoke(
+                MEMORY_TYPE,
+                "put",
+                new JavaType[] { MEMORY_TYPE },
+                MEMORY_TYPE,
+                InvokeType.VIRTUAL,
+                false
+        );
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        emitAccessMemoryField(i, true, context);
+
+        // Now the old size on top of the stack, as it should be!
+        if (endLabel != null) {
+            emitter.resolveLabel(endLabel, frameState.computeSnapshot());
+        }
+    }
+
+    @Override
+    public void emitMemorySize(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        emitLoadMemoryReference(i, context);
+
+        emitter.invoke(
+                MEMORY_TYPE,
+                "limit",
+                new JavaType[0],
+                PrimitiveType.INT,
+                InvokeType.VIRTUAL,
+                false
+        );
+
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(NumberType.I32);
+
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadConstant(PAGE_SIZE);
+        emitter.op(Op.IDIV);
+        frameState.popOperand(NumberType.I32);
     }
 
     @Override
@@ -704,19 +763,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
     @Override
     public void emitLoadMemoryReference(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
-
-        // Load the memory reference
-        frameState.pushOperand(ReferenceType.OBJECT);
-        emitter.loadThis();
-        emitter.accessField(
-                emitter.getOwner(),
-                generateMemoryFieldName(i),
-                MEMORY_TYPE,
-                false,
-                false
-        );
+        emitAccessMemoryField(i, false, context);
     }
 
     @Override
@@ -752,7 +799,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
     protected String generateDataSegmentFieldName(LargeArrayIndex i) {
         if (i == null) {
-            throw new IllegalArgumentException("Memory index most be specified");
+            throw new IllegalArgumentException("Memory index must be specified");
         }
 
         return "data_" + i;
@@ -770,10 +817,69 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
             return;
         }
 
-
         frameState.pushOperand(NumberType.I32);
         emitter.loadConstant(memarg.getOffset());
         emitter.op(Op.IADD);
         frameState.popOperand(NumberType.I32);
+    }
+
+    private void emitAccessMemoryField(
+            LargeArrayIndex i,
+            boolean isSet,
+            CodeEmitContext context
+    ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+
+        if (isSet) {
+            // Make sure to get the value to set to the top
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(ReferenceType.OBJECT);
+            emitter.op(Op.SWAP);
+            frameState.pushOperand(ReferenceType.OBJECT);
+            frameState.pushOperand(ReferenceType.OBJECT);
+        }
+
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateMemoryFieldName(i),
+                MEMORY_TYPE,
+                false,
+                isSet
+        );
+
+        if (isSet) {
+            // Setting consumes both the this reference and the object to set
+            frameState.popOperand(ReferenceType.OBJECT);
+            frameState.popOperand(ReferenceType.OBJECT);
+        }
+    }
+
+    private void emitEnforceByteOrder(
+            CodeEmitContext context
+    ) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.accessField(
+                ObjectType.of(ByteOrder.class),
+                "LITTLE_ENDIAN",
+                ObjectType.of(ByteOrder.class),
+                true,
+                false
+        );
+        emitter.invoke(
+                MEMORY_TYPE,
+                "order",
+                new JavaType[]{ObjectType.of(ByteOrder.class)},
+                MEMORY_TYPE,
+                InvokeType.VIRTUAL,
+                false
+        );
+        frameState.popOperand(ReferenceType.OBJECT);
     }
 }

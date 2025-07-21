@@ -47,73 +47,77 @@ public final class FunctionAssembler {
             LargeArray<ValueType> outputs,
             boolean isStatic
     ) throws WasmAssemblerException  {
-        if (Long.compareUnsigned(inputs.length(), 255) > 0) {
-            throw new WasmAssemblerException(
-                    "Function has too many inputs, maximum is 255"
-            );
-        }
-
-        // Somewhat arbitrary limit, but we need to limit the number of outputs...
-        // besides that, if you need more than 255 outputs, you're doing something wrong
-        if (Long.compareUnsigned(outputs.length(), 255) > 0) {
-            throw new WasmAssemblerException(
-                    "Function has too many outputs, maximum is 255"
-            );
-        }
-
-        if (Long.compareUnsigned(outputs.length(), 1) > 0) {
-            throw new WasmAssemblerException(
-                    "Function has too many outputs, currently only 1 is supported"
-            );
-        }
-
-        JavaType returnType;
-        if (outputs.length() != 0) {
-            // 1 output
-            returnType = WasmTypeConverter.toJavaType(outputs.get(LargeArrayIndex.ZERO));
-        } else {
-            // 0 outputs
-            returnType = PrimitiveType.VOID;
-        }
-
-        MethodEmitter methodEmitter = classEmitter.method(
-                functionName,
-                // TODO: Exports...
-                Visibility.PUBLIC,
-                isStatic,
-                false,
-                returnType,
-                WasmTypeConverter.toJavaTypes(inputs.asFlatArray()),
-                new JavaType[0]
-        );
-
-        CodeEmitter codeEmitter = methodEmitter.code();
-
-        // Expand locals
-        List<ValueType> expandedLocals = new ArrayList<>();
-        for (Local local : locals.asFlatArray()) {
-            if (expandedLocals.size() + local.getCount() > 65535) {
+        try {
+            if (Long.compareUnsigned(inputs.length(), 255) > 0) {
                 throw new WasmAssemblerException(
-                        "Function has too many locals, maximum is 65535"
+                        "Function has too many inputs, maximum is 255"
                 );
             }
 
-            for (int i = 0; i < local.getCount(); i++) {
-                expandedLocals.add(local.getType());
+            // Somewhat arbitrary limit, but we need to limit the number of outputs...
+            // besides that, if you need more than 255 outputs, you're doing something wrong
+            if (Long.compareUnsigned(outputs.length(), 255) > 0) {
+                throw new WasmAssemblerException(
+                        "Function has too many outputs, maximum is 255"
+                );
             }
+
+            if (Long.compareUnsigned(outputs.length(), 1) > 0) {
+                throw new WasmAssemblerException(
+                        "Function has too many outputs, currently only 1 is supported"
+                );
+            }
+
+            JavaType returnType;
+            if (outputs.length() != 0) {
+                // 1 output
+                returnType = WasmTypeConverter.toJavaType(outputs.get(LargeArrayIndex.ZERO));
+            } else {
+                // 0 outputs
+                returnType = PrimitiveType.VOID;
+            }
+
+            MethodEmitter methodEmitter = classEmitter.method(
+                    functionName,
+                    // TODO: Exports...
+                    Visibility.PUBLIC,
+                    isStatic,
+                    false,
+                    returnType,
+                    WasmTypeConverter.toJavaTypes(inputs.asFlatArray()),
+                    new JavaType[0]
+            );
+
+            CodeEmitter codeEmitter = methodEmitter.code();
+
+            // Expand locals
+            List<ValueType> expandedLocals = new ArrayList<>();
+            for (Local local : locals.asFlatArray()) {
+                if (expandedLocals.size() + local.getCount() > 65535) {
+                    throw new WasmAssemblerException(
+                            "Function has too many locals, maximum is 65535"
+                    );
+                }
+
+                for (int i = 0; i < local.getCount(); i++) {
+                    expandedLocals.add(local.getType());
+                }
+            }
+
+            WasmFrameState frameState = new WasmFrameState(inputs.asFlatArray(), expandedLocals);
+
+            for (InstructionInstance instruction : expr.getInstructions()) {
+                this.processInstruction(instruction, codeEmitter, frameState);
+            }
+
+            this.processFunctionEpilogue(codeEmitter, frameState, outputs, returnType);
+
+            // Finish code generation
+            codeEmitter.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
+            methodEmitter.finish();
+        } catch (WasmAssemblerException e) {
+            throw new WasmAssemblerException("Failed to generate function " + functionName, e);
         }
-
-        WasmFrameState frameState = new WasmFrameState(inputs.asFlatArray(), expandedLocals);
-
-        for (InstructionInstance instruction : expr.getInstructions()) {
-            this.processInstruction(instruction, codeEmitter, frameState);
-        }
-
-        this.processFunctionEpilogue(codeEmitter, frameState, outputs, returnType);
-
-        // Finish code generation
-        codeEmitter.finish(frameState.getMaxOperandSlotCount(), frameState.getMaxLocalSlotCount());
-        methodEmitter.finish();
     }
 
     private void processInstruction(
@@ -137,10 +141,14 @@ public final class FunctionAssembler {
             WasmFrameState frameState
     ) throws WasmAssemblerException {
         D data = (D) instructionData;
-        instruction.emitCode(
-                new CodeEmitContext(new ElementLookups(lookups), codeEmitter, frameState, generators),
-                data
-        );
+        try {
+            instruction.emitCode(
+                    new CodeEmitContext(new ElementLookups(lookups), codeEmitter, frameState, generators),
+                    data
+            );
+        } catch (WasmAssemblerException e) {
+            throw new WasmAssemblerException("Could not process instruction " + instruction.getName(), e);
+        }
     }
 
     private void processFunctionEpilogue(

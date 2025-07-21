@@ -174,6 +174,26 @@ public interface ImportGenerator {
     ) throws WasmAssemblerException;
 
     /**
+     * Emit a grow instruction.
+     * <p>
+     * Expects the amount of pages to grow by to be on top of the stack.
+     *
+     * @param im      the memory import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitMemoryGrow(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit a size instruction.
+     *
+     * @param im      the memory import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitMemorySize(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
      * Emit a memory init instruction.
      * <p>
      * This method expects the following stack top:

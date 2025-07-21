@@ -150,6 +150,14 @@ public interface CodeEmitter {
     void duplicate2(JavaType first, JavaType second) throws WasmAssemblerException;
 
     /**
+     * Emit a dup_x1 instruction.
+     *
+     * @param type the type of the value to duplicate
+     * @throws WasmAssemblerException if the value cannot be duplicated
+     */
+    void duplicateX1(JavaType type) throws WasmAssemblerException;
+
+    /**
      * Emit a dup_x2 instruction.
      *
      * @param type the type of the value to duplicate

@@ -260,4 +260,9 @@ public enum Op {
      * Convert double to long.
      */
     D2L,
+
+    /**
+     * Throw the object on top of the stack.
+     */
+    THROW,
 }

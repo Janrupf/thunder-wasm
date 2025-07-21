@@ -22,15 +22,16 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
+import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.*;
 
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
 public class DefaultImportGenerator implements ImportGenerator {
     private static final ObjectType RUNTIME_LINKER_TYPE = ObjectType.of(RuntimeLinker.class);
+    private static final ObjectType LINKED_MEMORY_TYPE = ObjectType.of(LinkedMemory.class);
 
     private final Map<String, String> identifierNameCache;
     private final Map<String, DefaultTableGenerator> importedTableGenerators;
@@ -103,9 +104,17 @@ public class DefaultImportGenerator implements ImportGenerator {
         tableGeneratorFor(im).addTable(null, im.getDescription().getType(), emitter);
     }
 
-    private void addMemoryImport(Import<MemoryImportDescription> im, ClassFileEmitter emitter)
-            throws WasmAssemblerException {
+    private void addMemoryImport(Import<MemoryImportDescription> im, ClassFileEmitter emitter) {
         memoryGeneratorFor(im).addMemory(null, im.getDescription().getType(), emitter);
+
+        emitter.field(
+                generateImportFieldNameForAttachment(im, "linked"),
+                Visibility.PRIVATE,
+                false,
+                true,
+                LINKED_MEMORY_TYPE,
+                null
+        );
     }
 
     @Override
@@ -264,7 +273,7 @@ public class DefaultImportGenerator implements ImportGenerator {
                         ObjectType.of(String.class),
                         ObjectType.of(Limits.class),
                 },
-                ObjectType.of(ByteBuffer.class),
+                LINKED_MEMORY_TYPE,
                 InvokeType.INTERFACE,
                 true
         );
@@ -280,10 +289,32 @@ public class DefaultImportGenerator implements ImportGenerator {
         frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.op(Op.SWAP);
+
+        frameState.pushOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.duplicate2(LINKED_MEMORY_TYPE, emitter.getOwner());
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldNameForAttachment(im, "linked"),
+                LINKED_MEMORY_TYPE,
+                false,
+                true
+        );
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.OBJECT);
+
+        emitter.invoke(
+                LINKED_MEMORY_TYPE,
+                "asInternal",
+                new JavaType[0],
+                memoryGeneratorFor(im).getMemoryType(null),
+                InvokeType.INTERFACE,
+                true
+        );
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldName(im),
-                ObjectType.of(ByteBuffer.class),
+                memoryGeneratorFor(im).getMemoryType(null),
                 false,
                 true
         );
@@ -424,6 +455,101 @@ public class DefaultImportGenerator implements ImportGenerator {
     }
 
     @Override
+    public void emitMemoryGrow(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+
+        int temporaryLocal = frameState.computeJavaLocalIndex(frameState.allocateLocal(NumberType.I32));
+
+        emitter.storeLocal(temporaryLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        frameState.pushOperand(ReferenceType.ofObject(emitter.getOwner()));
+        frameState.pushOperand(ReferenceType.OBJECT);
+        emitter.loadThis();
+        emitter.duplicate(emitter.getOwner());
+
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldNameForAttachment(im, "linked"),
+                LINKED_MEMORY_TYPE,
+                false,
+                false
+        );
+
+        emitter.duplicate(LINKED_MEMORY_TYPE);
+        frameState.pushOperand(ReferenceType.OBJECT);
+
+        emitter.loadLocal(temporaryLocal, PrimitiveType.INT);
+        frameState.pushOperand(NumberType.I32);
+        emitter.invoke(
+                LINKED_MEMORY_TYPE,
+                "grow",
+                new JavaType[] { PrimitiveType.INT },
+                PrimitiveType.BOOLEAN,
+                InvokeType.INTERFACE,
+                true
+        );
+        frameState.popOperand(NumberType.I32);
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.pushOperand(NumberType.I32);
+
+        // Check if growing was successful
+        CodeLabel endLabel = emitter.newLabel();
+        CodeLabel successLabel = emitter.newLabel();
+        emitter.jump(JumpCondition.INT_NOT_EQUAL_ZERO, successLabel);
+        frameState.popOperand(NumberType.I32);
+
+        // Not successful, pop linked memory and this, push -1
+        emitter.pop(LINKED_MEMORY_TYPE);
+        emitter.pop(emitter.getOwner());
+        emitter.loadConstant(-1);
+
+        emitter.jump(JumpCondition.ALWAYS, endLabel);
+
+        // Successful, get and stow old memory size
+        emitter.resolveLabel(successLabel, frameState.computeSnapshot());
+
+        emitMemorySize(im, context);
+        emitter.storeLocal(temporaryLocal, PrimitiveType.INT);
+        frameState.popOperand(NumberType.I32);
+
+        emitter.invoke(
+                LINKED_MEMORY_TYPE,
+                "asInternal",
+                new JavaType[0],
+                memoryGeneratorFor(im).getMemoryType(null),
+                InvokeType.INTERFACE,
+                true
+        );
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                memoryGeneratorFor(im).getMemoryType(null),
+                false,
+                true
+        );
+        frameState.popOperand(ReferenceType.OBJECT);
+        frameState.popOperand(ReferenceType.ofObject(emitter.getOwner()));
+
+        frameState.pushOperand(NumberType.I32);
+        emitter.loadLocal(temporaryLocal, PrimitiveType.INT);
+
+        emitter.resolveLabel(endLabel, frameState.computeSnapshot());
+
+        frameState.freeLocal();
+    }
+
+    @Override
+    public void emitMemorySize(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        memoryGeneratorFor(im).emitMemorySize(
+                null,
+                im.getDescription().getType(),
+                context
+        );
+    }
+
+    @Override
     public void emitMemoryInit(Import<MemoryImportDescription> im, LargeArrayIndex dataIndex, DataSegment segment, CodeEmitContext context) throws WasmAssemblerException {
         memoryGeneratorFor(im).emitMemoryInit(
                 null,
@@ -452,6 +578,17 @@ public class DefaultImportGenerator implements ImportGenerator {
      */
     private String generateImportFieldName(Import<?> im) {
         return "import$" + makeJavaIdentifier(im.getModule()) + "$" + makeJavaIdentifier(im.getName());
+    }
+
+    /**
+     * Generates a unique field name for an import attachment.
+     *
+     * @param im the import to generate a field name for
+     * @param attachmentName the name of the attachment
+     * @return the generated field name
+     */
+    private String generateImportFieldNameForAttachment(Import<?> im, String attachmentName) {
+        return generateImportFieldName(im) + "$" + attachmentName;
     }
 
     /**

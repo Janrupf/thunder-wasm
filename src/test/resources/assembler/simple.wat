@@ -1,6 +1,6 @@
 (module
   ;; Define 1 page (64KB) of memory
-  (import "test" "memory" (memory 1))
+  (import "test" "memory" (memory 1 5))
 
   ;; Data segment with test data "WASM" at data segment offset 0
   (data (i32.const 0) "WASM")
@@ -30,5 +30,14 @@
   (func (export "read_i32") (param $addr i32) (result i32)
     local.get $addr
     i32.load
+  )
+
+  (func (export "size") (result i32)
+    memory.size
+  )
+
+  (func (export "grow") (param $page_count i32) (result i32)
+    local.get $page_count
+    memory.grow
   )
 )

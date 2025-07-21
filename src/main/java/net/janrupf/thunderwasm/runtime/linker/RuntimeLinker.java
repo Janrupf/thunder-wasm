@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.linker.global.*;
+import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -55,10 +56,10 @@ public interface RuntimeLinker {
      * @param moduleName the module name of the import
      * @param importName the import name of the import
      * @param limits     the memory limits
-     * @return the linked memory as a {@link ByteBuffer}
+     * @return the linked memory
      * @throws ThunderWasmException if the memory could not be linked
      */
-    default ByteBuffer linkMemory(String moduleName, String importName, Limits limits)
+    default LinkedMemory linkMemory(String moduleName, String importName, Limits limits)
             throws ThunderWasmException {
         throw new ThunderWasmException("Linkage of memories is not implemented in this runtime linker");
     }
