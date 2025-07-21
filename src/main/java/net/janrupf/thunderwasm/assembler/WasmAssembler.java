@@ -110,7 +110,7 @@ public final class WasmAssembler {
      */
     private void emitConstructor() throws WasmAssemblerException {
         WasmFrameState frameState = new WasmFrameState(
-                new ValueType[]{ReferenceType.OBJECT},
+                new ValueType[]{},
                 Collections.emptyList()
         );
 
@@ -156,10 +156,8 @@ public final class WasmAssembler {
 
         // Emit a call to the super constructor
         CodeEmitter code = constructor.code();
-        frameState.pushOperand(ReferenceType.OBJECT);
         code.loadThis();
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
-        frameState.popOperand(ReferenceType.OBJECT);
 
         CodeEmitContext emitContext = new CodeEmitContext(
                 elementLookups,
@@ -173,7 +171,6 @@ public final class WasmAssembler {
             for (Import<?> im : importSection.getImports()) {
                 // The contract for emitLinkImport says the linker should be on top of the stack
                 code.loadLocal(code.getArgumentLocal(0));
-                frameState.pushOperand(ReferenceType.OBJECT);
 
                 generators.getImportGenerator().emitLinkImport(im, emitContext);
             }
@@ -245,9 +242,6 @@ public final class WasmAssembler {
                         tableType = table.getElement();
                     }
 
-                    frameState.pushOperand(NumberType.I32);
-                    frameState.pushOperand(NumberType.I32);
-                    frameState.pushOperand(NumberType.I32);
 
                     code.loadConstant(tableOffset);
                     code.loadConstant(0);
@@ -290,9 +284,6 @@ public final class WasmAssembler {
                     FoundElement<MemoryType, MemoryImportDescription> memory = elementLookups.requireMemory(
                             LargeArrayIndex.ZERO.add(activeMode.getMemoryIndex()));
 
-                    frameState.pushOperand(NumberType.I32);
-                    frameState.pushOperand(NumberType.I32);
-                    frameState.pushOperand(NumberType.I32);
 
                     code.loadConstant(memoryOffset);
                     code.loadConstant(0);
@@ -374,7 +365,6 @@ public final class WasmAssembler {
                     false
             );
 
-            frameState.pushOperand(global.getType().getValueType());
 
             // Emit the setter
             generators.getGlobalGenerator().emitSetGlobal(i, global, new CodeEmitContext(

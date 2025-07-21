@@ -31,8 +31,6 @@ public class CommonBytecodeGenerator {
             CodeEmitter emitter
     ) throws WasmAssemblerException {
         // Notify the state that we will push and pop an additional i32
-        frameState.pushOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
 
         // We need to add Integer.MIN_VALUE to the operands to convert them to unsigned integers
         // which can be compared using the signed comparison instruction
@@ -71,7 +69,6 @@ public class CommonBytecodeGenerator {
         JavaLocal local = emitter.allocateLocal(WasmTypeConverter.toJavaType(type));
 
         // Convert the value on top
-        frameState.pushOperand(type);
         emitter.loadConstant(type.getMinValue());
         emitter.op(addOp);
 
@@ -85,7 +82,6 @@ public class CommonBytecodeGenerator {
         // Load back the local
         emitter.loadLocal(local);
 
-        frameState.popOperand(type);
 
         local.free();
     }
@@ -118,7 +114,6 @@ public class CommonBytecodeGenerator {
         emitter.loadConstant(1);
 
         // Finished
-        frameState.pushOperand(NumberType.I32);
         emitter.resolveLabel(finishedLabel);
     }
 
@@ -138,16 +133,13 @@ public class CommonBytecodeGenerator {
     ) throws WasmAssemblerException {
         switch (targetResult) {
             case LESS_THAN:
-                frameState.pushOperand(NumberType.I32);
 
                 // Shift amount to the right by 31 bits, this only leaves -1 to be 1
                 emitter.loadConstant(31);
                 emitter.op(Op.IUSHR);
 
-                frameState.popOperand(NumberType.I32);
                 break;
             case GREATER_THAN:
-                frameState.pushOperand(NumberType.I32);
 
                 // Add 1 to get 1 or 2
                 emitter.loadConstant(1);
@@ -157,10 +149,8 @@ public class CommonBytecodeGenerator {
                 emitter.loadConstant(1);
                 emitter.op(Op.IUSHR);
 
-                frameState.popOperand(NumberType.I32);
                 break;
             case EQUAL:
-                frameState.pushOperand(NumberType.I32);
 
                 // Xor the value with -1 to invert all bits
                 emitter.loadConstant(-1);
@@ -170,10 +160,8 @@ public class CommonBytecodeGenerator {
                 emitter.loadConstant(1);
                 emitter.op(Op.IAND);
 
-                frameState.popOperand(NumberType.I32);
                 break;
             case LESS_THAN_OR_EQUAL:
-                frameState.pushOperand(NumberType.I32);
 
                 // Subtract 1 from the value
                 emitter.loadConstant(1);
@@ -183,10 +171,8 @@ public class CommonBytecodeGenerator {
                 emitter.loadConstant(31);
                 emitter.op(Op.IUSHR);
 
-                frameState.popOperand(NumberType.I32);
                 break;
             case GREATER_THAN_OR_EQUAL:
-                frameState.pushOperand(NumberType.I32);
 
                 // Add 2 to get 2 or 3
                 emitter.loadConstant(2);
@@ -196,16 +182,13 @@ public class CommonBytecodeGenerator {
                 emitter.loadConstant(1);
                 emitter.op(Op.IUSHR);
 
-                frameState.popOperand(NumberType.I32);
                 break;
             case NOT_EQUAL:
-                frameState.pushOperand(NumberType.I32);
 
                 // And with 1 to get 1 if the value was -1 or 1
                 emitter.loadConstant(1);
                 emitter.op(Op.IAND);
 
-                frameState.popOperand(NumberType.I32);
                 break;
         }
     }
@@ -239,9 +222,6 @@ public class CommonBytecodeGenerator {
                 throw new WasmAssemblerException("Unsupported NaN target result: " + target);
         }
 
-        frameState.pushOperand(NumberType.F32);
-        frameState.pushOperand(NumberType.F32);
-        frameState.pushOperand(NumberType.F32);
 
         // Get copies of both floats to check for NaN
         emitter.duplicate(2, 0);
@@ -264,11 +244,7 @@ public class CommonBytecodeGenerator {
             emitter.op(Op.IXOR);
         }
 
-        frameState.popOperand(NumberType.F32);
-        frameState.popOperand(NumberType.F32);
-        frameState.popOperand(NumberType.F32);
 
-        frameState.pushOperand(NumberType.I32);
     }
 
     /**
@@ -290,12 +266,8 @@ public class CommonBytecodeGenerator {
         // Move the NaN check result 2 values down and then discard the top copy
         emitter.duplicate(1, 2);
         emitter.pop();
-        frameState.popOperand(NumberType.I32);
 
-        frameState.popOperand(NumberType.F32);
-        frameState.popOperand(NumberType.F32);
         emitter.op(Op.FCMPG);
-        frameState.pushOperand(NumberType.I32);
 
         CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, targetResult);
 
@@ -332,11 +304,6 @@ public class CommonBytecodeGenerator {
                 throw new WasmAssemblerException("Unsupported NaN target result: " + target);
         }
 
-        frameState.popOperand(NumberType.F64);
-        frameState.popOperand(NumberType.F64);
-        frameState.pushOperand(NumberType.I32);
-        frameState.pushOperand(NumberType.F64);
-        frameState.pushOperand(NumberType.F64);
 
         JavaLocal firstLocal = emitter.allocateLocal(PrimitiveType.DOUBLE);
         JavaLocal secondLocal = emitter.allocateLocal(PrimitiveType.DOUBLE);
@@ -399,42 +366,33 @@ public class CommonBytecodeGenerator {
         // Check for NaN, pushing 0 if NaN is detected, -1 otherwise
         CommonBytecodeGenerator.eval2DoublesNaN(frameState, emitter, NaNTargetResult.ZERO);
 
-        frameState.popOperand(NumberType.F64);
-        frameState.popOperand(NumberType.F64);
         emitter.op(Op.DCMPG);
-        frameState.pushOperand(NumberType.I32);
 
         CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, targetResult);
 
         // AND the two results
         emitter.op(Op.IAND);
-        frameState.popOperand(NumberType.I32);
     }
 
     /**
      * Swap the top two values on the stack.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @throws WasmAssemblerException if the swap cannot be generated
      */
     public static void swap(
-            WasmFrameState frameState,
             CodeEmitter emitter
     ) throws WasmAssemblerException {
-        ValueType top = frameState.popAnyOperand();
-        ValueType below = frameState.popAnyOperand();
-
-        JavaType topType = WasmTypeConverter.toJavaType(top);
-        JavaType belowType = WasmTypeConverter.toJavaType(below);
+        JavaType topType = emitter.getStackFrameState().requireOperand(0);
+        JavaType belowType = emitter.getStackFrameState().requireOperand(1);
 
         if (topType.getSlotCount() < 2 && belowType.getSlotCount() < 2) {
             // Simple swap
             emitter.op(Op.SWAP);
         } else {
             // Swap using locals
-            JavaLocal topLocal = emitter.allocateLocal(WasmTypeConverter.toJavaType(top));
-            JavaLocal belowLocal = emitter.allocateLocal(WasmTypeConverter.toJavaType(below));
+            JavaLocal topLocal = emitter.allocateLocal(topType);
+            JavaLocal belowLocal = emitter.allocateLocal(belowType);
 
             emitter.storeLocal(topLocal);
             emitter.storeLocal(belowLocal);
@@ -445,31 +403,25 @@ public class CommonBytecodeGenerator {
             topLocal.free();
             belowLocal.free();
         }
-
-        frameState.pushOperand(top);
-        frameState.pushOperand(below);
     }
 
     /**
      * Load the value of "this" and move it below n values.
      *
-     * @param frameState      the current frame state
      * @param emitter         the code emitter
      * @param valuesAboveThis the number of values above "this"
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadThisBelow(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             int valuesAboveThis
     ) throws WasmAssemblerException {
-        loadBelow(frameState, emitter, valuesAboveThis, ReferenceType.OBJECT, emitter::loadThis);
+        loadBelow(emitter, valuesAboveThis, ObjectType.OBJECT, emitter::loadThis);
     }
 
     /**
      * Load a value and move it below n values.
      *
-     * @param frameState      the current frame state
      * @param emitter         the code emitter
      * @param valuesAbove     the number of values above the value
      * @param type            the type of the value
@@ -478,43 +430,33 @@ public class CommonBytecodeGenerator {
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadBelow(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             int valuesAbove,
-            ValueType type,
+            JavaType type,
             Emitter emitterFunction
     ) throws WasmAssemblerException {
         if (valuesAbove == 0) {
             emitterFunction.emit();
-            frameState.pushOperand(type);
             return;
         }
 
         // Remove all values above
-        ValueType[] toPop = new ValueType[valuesAbove];
+        JavaType[] toPop = new JavaType[valuesAbove];
         for (int i = 0; i < valuesAbove; i++) {
-            toPop[i] = frameState.popAnyOperand();
+            toPop[i] = emitter.getStackFrameState().requireOperand(valuesAbove - 1 - i);
         }
 
-        JavaType firstToPop = WasmTypeConverter.toJavaType(toPop[0]);
-        JavaType toPush = WasmTypeConverter.toJavaType(type);
-        if (toPop.length == 1 && firstToPop.getSlotCount() < 2 && toPush.getSlotCount() < 2) {
+        if (toPop.length == 1 && toPop[0].getSlotCount() < 2 && type.getSlotCount() < 2) {
             // Simple swap
-            frameState.pushOperand(type);
-            frameState.pushOperand(toPop[0]);
             emitterFunction.emit();
             emitter.op(Op.SWAP);
         } else if (
                 toPop.length == 2 &&
-                        firstToPop.getSlotCount() < 2 &&
-                        WasmTypeConverter.toJavaType(toPop[1]).getSlotCount() < 2 &&
-                        toPush.getSlotCount() < 2
+                        toPop[0].getSlotCount() < 2 &&
+                        toPop[1].getSlotCount() < 2 &&
+                        type.getSlotCount() < 2
         ) {
             // Load now
-            frameState.pushOperand(type);
-            frameState.pushOperand(toPop[1]);
-            frameState.pushOperand(toPop[0]);
-            frameState.pushOperand(type);
             emitterFunction.emit();
 
             // Use a duplicate down operation
@@ -522,24 +464,21 @@ public class CommonBytecodeGenerator {
 
             // And drop the value on top
             emitter.pop();
-            frameState.popOperand(type);
         } else {
             // Transfer the values to locals
             JavaLocal[] locals = new JavaLocal[toPop.length];
             for (int i = 0; i < toPop.length; i++) {
-                locals[i] = emitter.allocateLocal(WasmTypeConverter.toJavaType(toPop[i]));
+                locals[i] = emitter.allocateLocal(toPop[i]);
                 emitter.storeLocal(locals[i]);
             }
 
             // Load value and push it
-            frameState.pushOperand(type);
             emitterFunction.emit();
 
             // Load the values back
             for (int i = toPop.length - 1; i >= 0; i--) {
                 emitter.loadLocal(locals[i]);
                 locals[i].free();
-                frameState.pushOperand(toPop[i]);
             }
         }
     }
@@ -547,13 +486,11 @@ public class CommonBytecodeGenerator {
     /**
      * Load the value type reference.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @param type       the value type
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadTypeReference(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             ValueType type
     ) throws WasmAssemblerException {
@@ -578,7 +515,6 @@ public class CommonBytecodeGenerator {
             throw new WasmAssemblerException("Unsupported type: " + type);
         }
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.accessField(
                 fieldOwner,
                 fieldName,
@@ -591,30 +527,24 @@ public class CommonBytecodeGenerator {
     /**
      * Load the limits.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @param limits     the limits to load
      * @throws WasmAssemblerException if the load cannot be generated
      */
-    public static void loadLimits(WasmFrameState frameState, CodeEmitter emitter, Limits limits)
+    public static void loadLimits(CodeEmitter emitter, Limits limits)
             throws WasmAssemblerException {
-        frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(ReferenceType.OBJECT);
 
         // Construct the limits instance
         emitter.doNew(ObjectType.of(Limits.class));
         emitter.duplicate();
 
         // Push min (int) and max (Integer)
-        frameState.pushOperand(NumberType.I32);
         emitter.loadConstant(limits.getMin());
 
         if (limits.getMax() == null) {
-            frameState.pushOperand(ReferenceType.OBJECT);
             emitter.loadConstant(null);
         } else {
             // Need to box!
-            frameState.pushOperand(NumberType.I32);
             emitter.loadConstant(limits.getMax());
             emitter.invoke(
                     ObjectType.of(Integer.class),
@@ -625,8 +555,6 @@ public class CommonBytecodeGenerator {
                     false
             );
 
-            frameState.popOperand(NumberType.I32);
-            frameState.pushOperand(ReferenceType.OBJECT);
         }
 
         emitter.invoke(
@@ -638,9 +566,6 @@ public class CommonBytecodeGenerator {
                 false
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     /**
@@ -651,14 +576,12 @@ public class CommonBytecodeGenerator {
      * {@link net.janrupf.thunderwasm.runtime.ExternReference} values.
      *
      * @param emitter    the code emitter
-     * @param frameState the current frame state
      * @param type       the type of the value
      * @param value      the value to load
      * @throws WasmAssemblerException if the constant type is not supported
      */
     public static void loadConstant(
             CodeEmitter emitter,
-            WasmFrameState frameState,
             ValueType type,
             Object value
     ) throws WasmAssemblerException {
@@ -669,7 +592,6 @@ public class CommonBytecodeGenerator {
 
             ObjectType functionReferenceType = ObjectType.of(FunctionReference.class);
 
-            frameState.pushOperand(NumberType.I32);
             emitter.loadConstant(((FunctionReference) value).getFunctionIndex());
 
             emitter.invoke(
@@ -681,8 +603,6 @@ public class CommonBytecodeGenerator {
                     false
             );
 
-            frameState.popOperand(NumberType.I32);
-            frameState.pushOperand(ReferenceType.FUNCREF);
             return;
         } else if (value instanceof ExternReference) {
             if (!type.equals(ReferenceType.EXTERNREF)) {
@@ -691,11 +611,9 @@ public class CommonBytecodeGenerator {
 
             ObjectType externReferenceType = ObjectType.of(ExternReference.class);
 
-            frameState.pushOperand(ReferenceType.OBJECT);
-            frameState.pushOperand(ReferenceType.OBJECT);
             emitter.doNew(externReferenceType);
             emitter.duplicate();
-            loadConstant(emitter, frameState, type, ((ExternReference) value).getReferent());
+            loadConstant(emitter, type, ((ExternReference) value).getReferent());
             emitter.invoke(
                     externReferenceType,
                     "<init>",
@@ -704,14 +622,9 @@ public class CommonBytecodeGenerator {
                     InvokeType.SPECIAL,
                     false
             );
-            frameState.popOperand(ReferenceType.OBJECT);
-            frameState.popOperand(ReferenceType.OBJECT);
-            frameState.popOperand(ReferenceType.OBJECT);
-            frameState.pushOperand(ReferenceType.EXTERNREF);
             return;
         }
 
-        frameState.pushOperand(type);
         emitter.loadConstant(value);
     }
 

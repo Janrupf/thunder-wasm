@@ -63,14 +63,11 @@ public final class TableInit extends WasmInstruction<DoubleIndexData<ElementInde
 
         if (generator.canEmitInitFor(helper.getJavaTableType())) {
             CommonBytecodeGenerator.loadBelow(
-                    frameState,
                     codeEmitter,
                     3,
-                    ReferenceType.OBJECT,
+                    helper.getJavaTableType(),
                     () -> {
                         generator.emitLoadTableReference(table.toArrayIndex(), context);
-                        // Will be pushed correctly by the generator
-                        frameState.popOperand(ReferenceType.OBJECT);
                     }
             );
             generator.emitTableInit(

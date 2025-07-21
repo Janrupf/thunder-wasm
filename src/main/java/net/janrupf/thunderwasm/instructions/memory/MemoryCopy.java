@@ -16,7 +16,6 @@ import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
 
 import java.io.IOException;
 
@@ -54,18 +53,13 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
 
         // If the internal generator can emit a copy for the given types, use it
         if (memoryGenerator.canEmitCopyFor(sourceHelper.getJavaMemoryType(), targetHelper.getJavaMemoryType())) {
-            WasmFrameState frameState = context.getFrameState();
             CodeEmitter emitter = context.getEmitter();
 
             CommonBytecodeGenerator.loadBelow(
-                    frameState,
                     emitter,
                     3,
-                    ReferenceType.OBJECT,
-                    () -> {
-                        targetHelper.emitLoadMemoryReference();
-                        frameState.popOperand(ReferenceType.OBJECT);
-                    }
+                    targetHelper.getJavaMemoryType(),
+                    targetHelper::emitLoadMemoryReference
             );
 
             sourceHelper.emitLoadMemoryReference();

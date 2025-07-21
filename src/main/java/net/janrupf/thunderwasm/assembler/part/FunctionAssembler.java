@@ -173,7 +173,6 @@ public final class FunctionAssembler {
         JavaType javaOutputType = WasmTypeConverter.toJavaType(output);
 
         // We expect the output to be on the stack
-        frameState.popOperand(output);
 
         if (!javaOutputType.equals(javaOutput)) {
             throw new WasmAssemblerException(

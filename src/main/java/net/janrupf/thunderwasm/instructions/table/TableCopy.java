@@ -62,20 +62,13 @@ public final class TableCopy extends WasmInstruction<DoubleIndexData<TableIndexD
 
         // If the internal generate can emit a copy for the given types, use it
         if (internalTableGenerator.canEmitCopyFor(sourceHelper.getJavaTableType(), targetHelper.getJavaTableType())) {
-            WasmFrameState frameState = context.getFrameState();
             CodeEmitter emitter = context.getEmitter();
 
             CommonBytecodeGenerator.loadBelow(
-                    frameState,
                     emitter,
                     3,
-                    ReferenceType.OBJECT,
-                    () -> {
-                        targetHelper.emitLoadTableReference();
-
-                        // The appropriate push will be done by the generator
-                        frameState.popOperand(ReferenceType.OBJECT);
-                    }
+                    targetHelper.getJavaTableType(),
+                    targetHelper::emitLoadTableReference
             );
 
             sourceHelper.emitLoadTableReference();

@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
@@ -18,7 +19,6 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
 
 import java.io.IOException;
 
@@ -56,25 +56,10 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
 
         if (internalGenerator.canEmitInitFor(helper.getJavaMemoryType())) {
             CommonBytecodeGenerator.loadBelow(
-                    frameState,
                     codeEmitter,
                     3,
-                    ReferenceType.OBJECT,
-                    () -> {
-                        if (memoryElement.isImport()) {
-                            context.getGenerators().getImportGenerator().emitLoadMemoryReference(
-                                    memoryElement.getImport(),
-                                    context
-                            );
-                        } else {
-                            internalGenerator.emitLoadMemoryReference(
-                                    memory.toArrayIndex(),
-                                    context
-                            );
-                        }
-
-                        frameState.popOperand(ReferenceType.OBJECT);
-                    }
+                    helper.getJavaMemoryType(),
+                    helper::emitLoadMemoryReference
             );
 
             if (memoryElement.isImport()) {

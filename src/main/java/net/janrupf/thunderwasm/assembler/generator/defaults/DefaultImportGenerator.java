@@ -139,29 +139,24 @@ public class DefaultImportGenerator implements ImportGenerator {
         }
 
         // For now just pop the linker if we don't handle the import
-        context.getFrameState().popOperand(ReferenceType.OBJECT);
         context.getEmitter().pop();
     }
 
     private void emitLinkGlobalImport(Import<GlobalImportDescription> im, CodeEmitContext context)
             throws WasmAssemblerException {
         ValueType type = im.getDescription().getType().getValueType();
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
         boolean isConst = im.getDescription().getType().getMutability() == GlobalType.Mutability.CONST;
 
         // Push the arguments for the method invocation, we expect the linker to be on top of the stack already
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(im.getModule());
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(im.getName());
 
-        CommonBytecodeGenerator.loadTypeReference(frameState, emitter, type);
+        CommonBytecodeGenerator.loadTypeReference(emitter, type);
 
-        frameState.pushOperand(NumberType.I32);
         emitter.loadConstant(isConst);
 
         emitter.invoke(
@@ -186,10 +181,6 @@ public class DefaultImportGenerator implements ImportGenerator {
         ).getType());
 
         // Pop Arguments from the stack
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
 
         // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
 
@@ -199,20 +190,17 @@ public class DefaultImportGenerator implements ImportGenerator {
 
     private void emitLinkTableImport(Import<TableImportDescription> im, CodeEmitContext context)
             throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
         ReferenceType type = im.getDescription().getType().getElementType();
 
         // Push the arguments for the method invocation, we expect the linker to be on top of the stack already
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(im.getModule());
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(im.getName());
 
-        CommonBytecodeGenerator.loadTypeReference(frameState, emitter, type);
-        CommonBytecodeGenerator.loadLimits(frameState, emitter, im.getDescription().getType().getLimits());
+        CommonBytecodeGenerator.loadTypeReference(emitter, type);
+        CommonBytecodeGenerator.loadLimits(emitter, im.getDescription().getType().getLimits());
 
         emitter.invoke(
                 RUNTIME_LINKER_TYPE,
@@ -229,15 +217,10 @@ public class DefaultImportGenerator implements ImportGenerator {
         );
 
         // Pop Arguments from the stack
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
 
         // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
 
         // Set the field to the result of the method invocation
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.op(Op.SWAP);
         emitter.accessField(
@@ -248,23 +231,18 @@ public class DefaultImportGenerator implements ImportGenerator {
                 true
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     private void emitLinkMemoryImport(Import<MemoryImportDescription> im, CodeEmitContext context)
             throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
         MemoryType type = im.getDescription().getType();
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(im.getModule());
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(im.getName());
 
-        CommonBytecodeGenerator.loadLimits(frameState, emitter, type.getLimits());
+        CommonBytecodeGenerator.loadLimits(emitter, type.getLimits());
 
         emitter.invoke(
                 RUNTIME_LINKER_TYPE,
@@ -280,19 +258,13 @@ public class DefaultImportGenerator implements ImportGenerator {
         );
 
         // Pop Arguments from the stack
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
 
         // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
 
         // Set the field to the result of the method invocation
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.op(Op.SWAP);
 
-        frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.duplicate(2, 0);
         emitter.accessField(
                 emitter.getOwner(),
@@ -301,8 +273,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false,
                 true
         );
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
 
         emitter.invoke(
                 LINKED_MEMORY_TYPE,
@@ -320,8 +290,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 true
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
@@ -356,9 +324,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                     (ObjectType) WasmTypeConverter.toJavaType(im.getDescription().getType().getValueType())
             );
         }
-
-        context.getFrameState().popOperand(ReferenceType.OBJECT);
-        context.getFrameState().pushOperand(im.getDescription().getType().getValueType());
     }
 
     @Override
@@ -367,7 +332,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         accessImportField(im, context, false);
 
         // We now have the global on the stack, swap it with the value
-        CommonBytecodeGenerator.swap(context.getFrameState(), context.getEmitter());
+        CommonBytecodeGenerator.swap(context.getEmitter());
 
         DefaultFieldTypeLookup.Selected selectedStorage = DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
                 im.getDescription().getType().getValueType(),
@@ -390,10 +355,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 InvokeType.INTERFACE,
                 true
         );
-
-        // Pop the global and the value from the stack
-        context.getFrameState().popOperand(im.getDescription().getType().getValueType());
-        context.getFrameState().popOperand(ReferenceType.OBJECT);
     }
 
     @Override
@@ -457,16 +418,12 @@ public class DefaultImportGenerator implements ImportGenerator {
 
     @Override
     public void emitMemoryGrow(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
         JavaLocal temporaryLocal = emitter.allocateLocal(PrimitiveType.INT);
 
         emitter.storeLocal(temporaryLocal);
-        frameState.popOperand(NumberType.I32);
 
-        frameState.pushOperand(ReferenceType.ofObject(emitter.getOwner()));
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.duplicate();
 
@@ -479,10 +436,8 @@ public class DefaultImportGenerator implements ImportGenerator {
         );
 
         emitter.duplicate();
-        frameState.pushOperand(ReferenceType.OBJECT);
 
         emitter.loadLocal(temporaryLocal);
-        frameState.pushOperand(NumberType.I32);
         emitter.invoke(
                 LINKED_MEMORY_TYPE,
                 "grow",
@@ -491,15 +446,11 @@ public class DefaultImportGenerator implements ImportGenerator {
                 InvokeType.INTERFACE,
                 true
         );
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(NumberType.I32);
 
         // Check if growing was successful
         CodeLabel endLabel = emitter.newLabel();
         CodeLabel successLabel = emitter.newLabel();
         emitter.jump(JumpCondition.INT_NOT_EQUAL_ZERO, successLabel);
-        frameState.popOperand(NumberType.I32);
 
         // Not successful, pop linked memory and this, push -1
         emitter.pop();
@@ -513,7 +464,6 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         emitMemorySize(im, context);
         emitter.storeLocal(temporaryLocal);
-        frameState.popOperand(NumberType.I32);
 
         emitter.invoke(
                 LINKED_MEMORY_TYPE,
@@ -530,10 +480,7 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false,
                 true
         );
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.ofObject(emitter.getOwner()));
 
-        frameState.pushOperand(NumberType.I32);
         emitter.loadLocal(temporaryLocal);
 
         emitter.resolveLabel(endLabel);
@@ -605,10 +552,9 @@ public class DefaultImportGenerator implements ImportGenerator {
             CodeEmitContext context,
             boolean isSet
     ) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        CommonBytecodeGenerator.loadThisBelow(frameState, emitter, isSet ? 1 : 0);
+        CommonBytecodeGenerator.loadThisBelow(emitter, isSet ? 1 : 0);
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldName(im),
@@ -619,12 +565,9 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false,
                 isSet
         );
-        frameState.popOperand(ReferenceType.OBJECT);
 
         if (isSet) {
-            frameState.popOperand(ReferenceType.OBJECT);
         } else {
-            frameState.pushOperand(ReferenceType.OBJECT);
         }
     }
 

@@ -80,14 +80,9 @@ public class DefaultTableGenerator implements TableGenerator {
     @Override
     public void emitTableConstructor(LargeArrayIndex i, TableType type, CodeEmitContext context)
             throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
         Limits limits = type.getLimits();
 
-        frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(NumberType.I32);
-        frameState.pushOperand(NumberType.I32);
 
         emitter.doNew(tableType);
         emitter.duplicate();
@@ -108,11 +103,7 @@ public class DefaultTableGenerator implements TableGenerator {
                 false
         );
 
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.op(Op.SWAP);
         emitter.accessField(
@@ -123,8 +114,6 @@ public class DefaultTableGenerator implements TableGenerator {
                 true
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
@@ -135,32 +124,25 @@ public class DefaultTableGenerator implements TableGenerator {
             CodeEmitContext context
     ) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         ObjectType arrayElementType = objectTypeFor(segment.getType());
         ArrayType arrayType = new ArrayType(arrayElementType);
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadConstant(initValues.length);
         emitter.doNew(arrayType);
 
 
         for (int j = 0; j < initValues.length; j++) {
-            frameState.pushOperand(ReferenceType.OBJECT);
-            frameState.pushOperand(NumberType.I32);
 
             emitter.duplicate();
             emitter.loadConstant(j);
 
-            CommonBytecodeGenerator.loadConstant(emitter, frameState, segment.getType(), initValues[j]);
+            CommonBytecodeGenerator.loadConstant(emitter, segment.getType(), initValues[j]);
             emitter.storeArrayElement();
 
-            frameState.popOperand(segment.getType());
-            frameState.popOperand(NumberType.I32);
-            frameState.popOperand(ReferenceType.OBJECT);
         }
 
-        CommonBytecodeGenerator.loadThisBelow(context.getFrameState(), context.getEmitter(), 1);
+        CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), 1);
         emitter.accessField(
                 context.getEmitter().getOwner(),
                 generateElementSegmentFieldName(i),
@@ -169,20 +151,16 @@ public class DefaultTableGenerator implements TableGenerator {
                 true
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
     public void emitTableGet(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         CommonBytecodeGenerator.loadBelow(
-                context.getFrameState(),
                 context.getEmitter(),
                 1,
-                ReferenceType.OBJECT,
+                tableType,
                 () -> emitLoadTableReferenceInternal(i, context)
         );
 
@@ -196,24 +174,19 @@ public class DefaultTableGenerator implements TableGenerator {
         );
 
         // Pop the index and this
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
 
         // Push the element reference
-        frameState.pushOperand(type.getElementType());
         emitter.checkCast((ObjectType) WasmTypeConverter.toJavaType(type.getElementType()));
     }
 
     @Override
     public void emitTableSet(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         CommonBytecodeGenerator.loadBelow(
-                context.getFrameState(),
                 context.getEmitter(),
                 2,
-                ReferenceType.OBJECT,
+                tableType,
                 () -> emitLoadTableReferenceInternal(i, context)
         );
 
@@ -226,9 +199,6 @@ public class DefaultTableGenerator implements TableGenerator {
                 invokeType() == InvokeType.INTERFACE
         );
 
-        frameState.popOperand(type.getElementType());
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
@@ -241,7 +211,6 @@ public class DefaultTableGenerator implements TableGenerator {
         // This method is somewhat special, because it always operates on the LinkedTable interface
         // and the required references are already on top of the stack
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         emitter.invoke(
                 LINKED_TABLE_TYPE,
@@ -253,23 +222,16 @@ public class DefaultTableGenerator implements TableGenerator {
         );
 
         // Clean up the stack
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
     public void emitTableGrow(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         CommonBytecodeGenerator.loadBelow(
-                context.getFrameState(),
                 context.getEmitter(),
                 2,
-                ReferenceType.OBJECT,
+                tableType,
                 () -> emitLoadTableReferenceInternal(i, context)
         );
 
@@ -282,22 +244,16 @@ public class DefaultTableGenerator implements TableGenerator {
                 invokeType() == InvokeType.INTERFACE
         );
 
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(type.getElementType());
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(NumberType.I32);
     }
 
     @Override
     public void emitTableSize(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         CommonBytecodeGenerator.loadBelow(
-                context.getFrameState(),
                 context.getEmitter(),
                 0,
-                ReferenceType.OBJECT,
+                tableType,
                 () -> emitLoadTableReferenceInternal(i, context)
         );
 
@@ -310,20 +266,16 @@ public class DefaultTableGenerator implements TableGenerator {
                 invokeType() == InvokeType.INTERFACE
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(NumberType.I32);
     }
 
     @Override
     public void emitTableFill(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
         CommonBytecodeGenerator.loadBelow(
-                frameState,
                 emitter,
                 3,
-                ReferenceType.OBJECT,
+                tableType,
                 () -> emitLoadTableReferenceInternal(i, context)
         );
 
@@ -336,10 +288,6 @@ public class DefaultTableGenerator implements TableGenerator {
                 invokeType() == InvokeType.INTERFACE
         );
 
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(type.getElementType());
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
@@ -353,10 +301,8 @@ public class DefaultTableGenerator implements TableGenerator {
             throw new WasmAssemblerException("Cannot initialize table with element segment of different type");
         }
 
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.accessField(
                 context.getEmitter().getOwner(),
@@ -375,25 +321,17 @@ public class DefaultTableGenerator implements TableGenerator {
                 invokeType() == InvokeType.INTERFACE
         );
 
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     @Override
     public void emitLoadTableReference(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException {
         emitLoadTableReferenceInternal(i, context);
-        context.getFrameState().pushOperand(ReferenceType.OBJECT);
     }
 
     @Override
     public void emitLoadElement(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
-        frameState.pushOperand(ReferenceType.OBJECT);
         emitter.loadThis();
         emitter.accessField(
                 context.getEmitter().getOwner(),
@@ -402,18 +340,11 @@ public class DefaultTableGenerator implements TableGenerator {
                 false,
                 false
         );
-        frameState.popOperand(ReferenceType.OBJECT);
-        frameState.popOperand(NumberType.I32);
         emitter.op(Op.SWAP);
-        frameState.pushOperand(ReferenceType.OBJECT);
-        frameState.pushOperand(NumberType.I32);
 
         emitter.loadArrayElement();
 
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(ReferenceType.OBJECT);
 
-        frameState.pushOperand(segment.getType());
     }
 
     @Override

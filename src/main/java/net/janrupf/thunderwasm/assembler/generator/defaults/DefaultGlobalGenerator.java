@@ -30,7 +30,7 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
 
     @Override
     public void emitGetGlobal(LargeArrayIndex index, Global global, CodeEmitContext context) throws WasmAssemblerException {
-        CommonBytecodeGenerator.loadThisBelow(context.getFrameState(), context.getEmitter(), 0);
+        CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), 0);
         context.getEmitter().accessField(
                 context.getEmitter().getOwner(),
                 getGlobalFieldName(index),
@@ -38,19 +38,15 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
                 false,
                 false
         );
-        // Pop this and push the value of the global onto the stack
-        context.getFrameState().popOperand(ReferenceType.OBJECT);
-        context.getFrameState().pushOperand(global.getType().getValueType());
     }
 
     @Override
     public void emitSetGlobal(LargeArrayIndex index, Global global, CodeEmitContext context) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
         ValueType globalType = global.getType().getValueType();
 
-        CommonBytecodeGenerator.loadThisBelow(frameState, emitter, 1);
+        CommonBytecodeGenerator.loadThisBelow(emitter, 1);
 
         // And store the value
         context.getEmitter().accessField(
@@ -62,8 +58,6 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
         );
 
         // Pop this and the global
-        frameState.popOperand(globalType);
-        frameState.popOperand(ReferenceType.OBJECT);
     }
 
     protected String getGlobalFieldName(LargeArrayIndex index) {
