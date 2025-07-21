@@ -5,13 +5,11 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ValueType;
 import net.janrupf.thunderwasm.types.VecType;
@@ -50,7 +48,6 @@ public final class Select extends WasmInstruction<Select.SelectData> {
     @Override
     public void emitCode(CodeEmitContext context, SelectData data) throws WasmAssemblerException {
         WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
         LargeArray<ValueType> types = data.getTypes();
 
         frameState.popOperand(NumberType.I32);
@@ -88,7 +85,6 @@ public final class Select extends WasmInstruction<Select.SelectData> {
     ) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
         WasmFrameState frameState = context.getFrameState();
-        JavaType javaTargetType = WasmTypeConverter.toJavaType(targetType);
 
         CodeLabel endLabel = emitter.newLabel();
 
@@ -138,7 +134,6 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         // Drop all the false values on top
         LargeArrayIndex i = types.largeLength().subtract(1);
         while (true) {
-            ValueType t = types.get(i);
             emitter.pop();
 
             if (i.equals(LargeArrayIndex.ZERO)) {

@@ -18,10 +18,8 @@ public final class I64ExtendI32U extends PlainNumeric {
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
         context.getEmitter().op(Op.I2L);
-        context.getFrameState().pushOperand(NumberType.I64);
-        context.getFrameState().pushOperand(NumberType.I64);
         context.getEmitter().loadConstant(0x00000000FFFFFFFFL);
         context.getEmitter().op(Op.LAND);
-        context.getFrameState().popOperand(NumberType.I64);
+        context.getFrameState().pushOperand(NumberType.I64);
     }
 }

@@ -1,5 +1,8 @@
 package net.janrupf.thunderwasm.instructions.reference;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
@@ -20,6 +23,12 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
     public Data readData(WasmLoader loader) throws IOException, InvalidModuleException {
         int functionIndex = loader.readU32();
         return new Data(functionIndex);
+    }
+
+    @Override
+    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(ReferenceType.FUNCREF);
+        CommonBytecodeGenerator.loadConstant(context.getEmitter(), ReferenceType.FUNCREF, FunctionReference.of(data.getFunctionIndex()));
     }
 
     @Override

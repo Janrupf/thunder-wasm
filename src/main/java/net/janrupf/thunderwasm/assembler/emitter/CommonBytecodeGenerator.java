@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
@@ -22,12 +21,10 @@ public class CommonBytecodeGenerator {
     /**
      * Convert the top i32 from unsigned to signed, swapping them in the process.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @throws WasmAssemblerException if the conversion is invalid
      */
     public static void swapConvertUnsignedI32(
-            WasmFrameState frameState,
             CodeEmitter emitter
     ) throws WasmAssemblerException {
         // Notify the state that we will push and pop an additional i32
@@ -48,13 +45,11 @@ public class CommonBytecodeGenerator {
     /**
      * Convert the top 2 values from unsigned to signed.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @param type       the type of the values to convert
      * @throws WasmAssemblerException if the conversion is invalid
      */
     public static void convertTop2Unsigned(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             NumberType type
     ) throws WasmAssemblerException {
@@ -89,13 +84,11 @@ public class CommonBytecodeGenerator {
     /**
      * Helper function to generate a conditional jump that pushes 0 or 1 on the stack.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @param condition  the condition to evaluate
      * @throws WasmAssemblerException if the condition is invalid
      */
     public static void evalConditionZeroOrOne(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             JumpCondition condition
     ) throws WasmAssemblerException {
@@ -121,13 +114,11 @@ public class CommonBytecodeGenerator {
      * Helper function to evaluate a comparison result and push 0 or 1 on the stack
      * depending on whether the result matches the target result.
      *
-     * @param frameState   the current frame state
      * @param emitter      the code emitter
      * @param targetResult the target result to compare against
      * @throws WasmAssemblerException if the comparison cannot be generated
      */
     public static void evalCompResultZeroOrOne(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             ComparisonResult targetResult
     ) throws WasmAssemblerException {
@@ -196,13 +187,11 @@ public class CommonBytecodeGenerator {
     /**
      * Evaluate if any of 2 floats on top of the stack is NaN.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @param target     the target result to generate
      * @throws WasmAssemblerException if the evaluation cannot be generated
      */
     public static void eval2FloatsNaN(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             NaNTargetResult target
     ) throws WasmAssemblerException {
@@ -250,18 +239,16 @@ public class CommonBytecodeGenerator {
     /**
      * Generate a float comparison that always returns 0 if NaN is detected.
      *
-     * @param frameState   the current frame state
      * @param emitter      the code emitter
      * @param targetResult the target result to generate
      * @throws WasmAssemblerException if the evaluation cannot be generated
      */
     public static void evalFloatCompNaNZero(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             ComparisonResult targetResult
     ) throws WasmAssemblerException {
         // Check for NaN, pushing 0 if NaN is detected, -1 otherwise
-        CommonBytecodeGenerator.eval2FloatsNaN(frameState, emitter, NaNTargetResult.ZERO);
+        CommonBytecodeGenerator.eval2FloatsNaN(emitter, NaNTargetResult.ZERO);
 
         // Move the NaN check result 2 values down and then discard the top copy
         emitter.duplicate(1, 2);
@@ -269,7 +256,7 @@ public class CommonBytecodeGenerator {
 
         emitter.op(Op.FCMPG);
 
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, targetResult);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, targetResult);
 
         // AND the two results
         emitter.op(Op.IAND);
@@ -278,13 +265,11 @@ public class CommonBytecodeGenerator {
     /**
      * Evaluate if any of 2 doubles on top of the stack is NaN.
      *
-     * @param frameState the current frame state
      * @param emitter    the code emitter
      * @param target     the target result to generate
      * @throws WasmAssemblerException if the evaluation cannot be generated
      */
     public static void eval2DoublesNaN(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             NaNTargetResult target
     ) throws WasmAssemblerException {
@@ -353,22 +338,20 @@ public class CommonBytecodeGenerator {
     /**
      * Generate a double comparison that always returns 0 if NaN is detected.
      *
-     * @param frameState   the current frame state
      * @param emitter      the code emitter
      * @param targetResult the target result to generate
      * @throws WasmAssemblerException if the evaluation cannot be generated
      */
     public static void evalDoubleCompNaNZero(
-            WasmFrameState frameState,
             CodeEmitter emitter,
             ComparisonResult targetResult
     ) throws WasmAssemblerException {
         // Check for NaN, pushing 0 if NaN is detected, -1 otherwise
-        CommonBytecodeGenerator.eval2DoublesNaN(frameState, emitter, NaNTargetResult.ZERO);
+        CommonBytecodeGenerator.eval2DoublesNaN(emitter, NaNTargetResult.ZERO);
 
         emitter.op(Op.DCMPG);
 
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, targetResult);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, targetResult);
 
         // AND the two results
         emitter.op(Op.IAND);

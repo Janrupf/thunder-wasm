@@ -42,12 +42,14 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
                     gElement.getImport(),
                     context
             );
+            context.getFrameState().pushOperand(gElement.getImport().getDescription().getType().getValueType());
         } else {
             context.getGenerators().getGlobalGenerator().emitGetGlobal(
                     gElement.getIndex(),
                     gElement.getElement(),
                     context
             );
+            context.getFrameState().pushOperand(gElement.getElement().getType().getValueType());
         }
     }
 

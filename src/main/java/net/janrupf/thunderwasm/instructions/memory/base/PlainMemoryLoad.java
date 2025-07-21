@@ -7,6 +7,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.ValueType;
 
 public abstract class PlainMemoryLoad extends PlainMemory {
     private final LoadType loadType;
@@ -22,6 +23,8 @@ public abstract class PlainMemoryLoad extends PlainMemory {
 
     @Override
     public void emitCode(CodeEmitContext context, Memarg data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+
         FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
 
         if (memoryElement.isImport()) {
@@ -42,6 +45,8 @@ public abstract class PlainMemoryLoad extends PlainMemory {
                     context
             );
         }
+
+        context.getFrameState().pushOperand(getNumberType());
     }
 
     /**

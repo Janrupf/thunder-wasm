@@ -24,12 +24,12 @@ public final class I32GeU extends PlainNumeric {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        CommonBytecodeGenerator.swapConvertUnsignedI32(frameState, emitter);
+        CommonBytecodeGenerator.swapConvertUnsignedI32(emitter);
 
         // Operands are now ready for comparison, but backwards - instead of swapping them again,
         // we reverse the comparison condition
         frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalConditionZeroOrOne(frameState, emitter, JumpCondition.INT_LESS_THAN_OR_EQUAL);
+        frameState.requireOperand(NumberType.I32);
+        CommonBytecodeGenerator.evalConditionZeroOrOne(emitter, JumpCondition.INT_LESS_THAN_OR_EQUAL);
     }
 }

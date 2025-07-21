@@ -19,9 +19,8 @@ public final class I32Eqz extends PlainNumeric {
     public void emitCode(
             CodeEmitContext context, EmptyInstructionData data
     ) throws WasmAssemblerException {
-        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().requireOperand(NumberType.I32);
         CommonBytecodeGenerator.evalConditionZeroOrOne(
-                context.getFrameState(),
                 context.getEmitter(),
                 JumpCondition.INT_EQUAL_ZERO
         );

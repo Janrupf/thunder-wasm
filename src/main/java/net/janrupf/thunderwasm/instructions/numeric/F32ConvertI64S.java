@@ -21,7 +21,7 @@ public final class F32ConvertI64S extends PlainNumeric {
 
     @Override
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        context.getFrameState().requireOperand(NumberType.I64);
+        context.getFrameState().popOperand(NumberType.I64);
         context.getEmitter().op(Op.L2F);
         context.getFrameState().pushOperand(NumberType.F32);
     }

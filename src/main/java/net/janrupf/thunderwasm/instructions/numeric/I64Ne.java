@@ -22,8 +22,9 @@ public final class I64Ne extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.I64);
+        frameState.popOperand(NumberType.I64);
         emitter.op(Op.LCMP);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.NOT_EQUAL);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.NOT_EQUAL);
     }
 }

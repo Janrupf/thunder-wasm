@@ -48,7 +48,10 @@ public final class TableInit extends WasmInstruction<DoubleIndexData<ElementInde
     @Override
     public void emitCode(CodeEmitContext context, DoubleIndexData<ElementIndexData, TableIndexData> data)
             throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+
         CodeEmitter codeEmitter = context.getEmitter();
 
         ElementIndexData element = data.getFirst();

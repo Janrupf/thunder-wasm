@@ -44,6 +44,7 @@ public final class GlobalSet extends WasmInstruction<GlobalIndexData> {
                     gElement.getImport(),
                     context
             );
+            context.getFrameState().popOperand(gElement.getImport().getDescription().getType().getValueType());
         } else {
             if (gElement.getElement().getType().getMutability() != GlobalType.Mutability.VAR) {
                 throw new WasmAssemblerException("Cannot set immutable global");
@@ -54,6 +55,7 @@ public final class GlobalSet extends WasmInstruction<GlobalIndexData> {
                     gElement.getElement(),
                     context
             );
+            context.getFrameState().popOperand(gElement.getElement().getType().getValueType());
         }
     }
 }

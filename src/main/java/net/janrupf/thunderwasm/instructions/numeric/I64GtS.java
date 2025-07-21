@@ -22,8 +22,9 @@ public final class I64GtS extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.I64);
+        frameState.popOperand(NumberType.I64);
         emitter.op(Op.LCMP);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.GREATER_THAN);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.GREATER_THAN);
     }
 }

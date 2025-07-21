@@ -22,6 +22,9 @@ public abstract class PlainMemoryStore extends PlainMemory {
 
     @Override
     public void emitCode(CodeEmitContext context, Memarg data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(getNumberType());
+        context.getFrameState().popOperand(NumberType.I32);
+
         FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
 
         if (memoryElement.isImport()) {

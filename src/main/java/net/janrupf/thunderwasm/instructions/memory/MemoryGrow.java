@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.MemoryType;
+import net.janrupf.thunderwasm.types.NumberType;
 
 import java.io.IOException;
 
@@ -26,6 +27,8 @@ public final class MemoryGrow extends WasmInstruction<MemoryIndexData> {
 
     @Override
     public void emitCode(CodeEmitContext context, MemoryIndexData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+
         FoundElement<MemoryType, MemoryImportDescription> memory = context.getLookups().requireMemory(data.toArrayIndex());
 
         if (memory.isImport()) {
@@ -40,5 +43,7 @@ public final class MemoryGrow extends WasmInstruction<MemoryIndexData> {
                     context
             );
         }
+
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

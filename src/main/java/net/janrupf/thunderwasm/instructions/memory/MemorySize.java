@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.MemoryType;
+import net.janrupf.thunderwasm.types.NumberType;
 
 import java.io.IOException;
 
@@ -40,5 +41,7 @@ public final class MemorySize extends WasmInstruction<MemoryIndexData> {
                     context
             );
         }
+
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

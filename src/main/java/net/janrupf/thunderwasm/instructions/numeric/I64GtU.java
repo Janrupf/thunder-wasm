@@ -21,11 +21,12 @@ public final class I64GtU extends PlainNumeric {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        CommonBytecodeGenerator.convertTop2Unsigned(frameState, emitter, NumberType.I64);
+        CommonBytecodeGenerator.convertTop2Unsigned(emitter, NumberType.I64);
 
+        frameState.popOperand(NumberType.I64);
         frameState.popOperand(NumberType.I64);
         emitter.op(Op.LCMP);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.GREATER_THAN);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.GREATER_THAN);
     }
 }

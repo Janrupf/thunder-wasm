@@ -1,10 +1,8 @@
 package net.janrupf.thunderwasm.instructions.memory;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
-import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
@@ -41,7 +39,10 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
     @Override
     public void emitCode(CodeEmitContext context, DoubleIndexData<DataIndexData, MemoryIndexData> data)
             throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+
         CodeEmitter codeEmitter = context.getEmitter();
 
         DataIndexData dataSegment = data.getFirst();
@@ -90,7 +91,6 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
             LargeArrayIndex dataSegmentIndex,
             CodeEmitContext context
     ) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
         // Stack top:
@@ -107,10 +107,6 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
         emitter.storeLocal(sLocal);
         emitter.storeLocal(dLocal);
 
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-
         CodeLabel endLabel = emitter.newLabel();
 
         CodeLabel copyLoopStart = emitter.newLabel();
@@ -121,9 +117,6 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
         emitter.jump(JumpCondition.INT_EQUAL_ZERO, endLabel);
 
         // Copy the byte: load from data segment, store to memory
-        frameState.pushOperand(NumberType.I32);
-        frameState.pushOperand(NumberType.I32);
-
         // Load destination offset
         emitter.loadLocal(dLocal);
 

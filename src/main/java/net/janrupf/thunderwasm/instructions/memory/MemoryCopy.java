@@ -36,6 +36,10 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
 
     @Override
     public void emitCode(CodeEmitContext context, DoubleIndexData<MemoryIndexData, MemoryIndexData> data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+
         MemoryIndexData target = data.getFirst();
         MemoryIndexData source = data.getSecond();
 
@@ -77,7 +81,6 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
             MemoryInstructionHelper targetHelper,
             CodeEmitContext context
     ) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
         // Stack top:
@@ -93,10 +96,6 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         emitter.storeLocal(nLocal);
         emitter.storeLocal(sLocal);
         emitter.storeLocal(dLocal);
-
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
 
         CodeLabel endLabel = emitter.newLabel();
 
@@ -115,10 +114,6 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         // Jump to end if n == 0
         emitter.loadLocal(nLocal);
         emitter.jump(JumpCondition.INT_EQUAL_ZERO, endLabel);
-
-        // Copy the value
-        frameState.pushOperand(NumberType.I32);
-        frameState.pushOperand(NumberType.I32);
 
         emitter.loadLocal(dLocal);
         emitter.loadLocal(sLocal);
@@ -157,7 +152,6 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         emitter.resolveLabel(dGreaterThanSLoopStart);
 
         // Push d + n - 1
-        frameState.pushOperand(NumberType.I32);
         emitter.loadLocal(dLocal);
         emitter.loadLocal(nLocal);
         emitter.loadConstant(1);
@@ -165,7 +159,6 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         emitter.op(Op.IADD);
 
         // Push s + n - 1
-        frameState.pushOperand(NumberType.I32);
         emitter.loadLocal(sLocal);
         emitter.loadLocal(nLocal);
         emitter.loadConstant(1);

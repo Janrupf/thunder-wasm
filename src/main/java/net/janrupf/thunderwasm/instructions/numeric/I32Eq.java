@@ -25,9 +25,8 @@ public final class I32Eq extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
+        frameState.requireOperand(NumberType.I32);
         CommonBytecodeGenerator.evalConditionZeroOrOne(
-                frameState,
                 emitter,
                 JumpCondition.INT_EQUAL
         );

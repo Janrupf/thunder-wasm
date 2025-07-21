@@ -25,6 +25,6 @@ public final class F64Ne extends PlainNumeric {
         frameState.popOperand(NumberType.F64);
         emitter.op(Op.DCMPG);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.NOT_EQUAL);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.NOT_EQUAL);
     }
 }

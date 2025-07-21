@@ -35,12 +35,14 @@ public final class TableSet extends WasmInstruction<TableIndexData> {
                     element.getImport(),
                     context
             );
+            context.getFrameState().popOperand(element.getImport().getDescription().getType().getElementType());
         } else {
             context.getGenerators().getTableGenerator().emitTableSet(
                     element.getIndex(),
                     element.getElement(),
                     context
             );
+            context.getFrameState().popOperand(element.getElement().getElementType());
         }
     }
 }

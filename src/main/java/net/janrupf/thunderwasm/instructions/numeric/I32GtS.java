@@ -25,7 +25,7 @@ public final class I32GtS extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalConditionZeroOrOne(frameState, emitter, JumpCondition.INT_GREATER_THAN);
+        frameState.requireOperand(NumberType.I32);
+        CommonBytecodeGenerator.evalConditionZeroOrOne(emitter, JumpCondition.INT_GREATER_THAN);
     }
 }

@@ -100,12 +100,4 @@ class TableInstructionHelper {
             );
         }
     }
-
-    /**
-     * Bound emitter for a specific table operation.
-     */
-    @FunctionalInterface
-    public interface TableOpEmitter {
-        void emit() throws WasmAssemblerException;
-    }
 }

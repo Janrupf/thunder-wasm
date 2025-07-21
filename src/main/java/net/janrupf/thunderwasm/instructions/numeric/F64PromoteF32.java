@@ -16,7 +16,7 @@ public final class F64PromoteF32 extends PlainNumeric {
 
     @Override
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        context.getFrameState().requireOperand(NumberType.F32);
+        context.getFrameState().popOperand(NumberType.F32);
         context.getEmitter().op(Op.F2D);
         context.getFrameState().pushOperand(NumberType.F64);
     }

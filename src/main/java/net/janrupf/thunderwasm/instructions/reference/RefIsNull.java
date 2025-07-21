@@ -28,7 +28,6 @@ public final class RefIsNull extends WasmInstruction<EmptyInstructionData> {
         }
 
         CommonBytecodeGenerator.evalConditionZeroOrOne(
-                context.getFrameState(),
                 context.getEmitter(),
                 JumpCondition.IS_NULL
         );

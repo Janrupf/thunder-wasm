@@ -24,6 +24,6 @@ public final class I64Eq extends PlainNumeric {
         frameState.popOperand(NumberType.I64);
         emitter.op(Op.LCMP);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.EQUAL);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.EQUAL);
     }
 }

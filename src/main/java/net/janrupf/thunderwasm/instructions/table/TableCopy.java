@@ -16,7 +16,6 @@ import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.TableType;
 
 import java.io.IOException;
@@ -45,6 +44,10 @@ public final class TableCopy extends WasmInstruction<DoubleIndexData<TableIndexD
     @Override
     public void emitCode(CodeEmitContext context, DoubleIndexData<TableIndexData, TableIndexData> data)
             throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32);
+
         TableIndexData target = data.getFirst();
         TableIndexData source = data.getSecond();
 
@@ -108,10 +111,6 @@ public final class TableCopy extends WasmInstruction<DoubleIndexData<TableIndexD
         emitter.storeLocal(nLocal);
         emitter.storeLocal(sLocal);
         emitter.storeLocal(dLocal);
-
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
 
         CodeLabel endLabel = emitter.newLabel();
 

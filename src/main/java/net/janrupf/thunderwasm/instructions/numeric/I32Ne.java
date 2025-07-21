@@ -25,7 +25,7 @@ public final class I32Ne extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.I32);
-        frameState.popOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalConditionZeroOrOne(frameState, emitter, JumpCondition.INT_NOT_EQUAL);
+        frameState.requireOperand(NumberType.I32);
+        CommonBytecodeGenerator.evalConditionZeroOrOne(emitter, JumpCondition.INT_NOT_EQUAL);
     }
 }

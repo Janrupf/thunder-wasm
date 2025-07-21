@@ -26,8 +26,8 @@ public final class F32Sqrt extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.F32);
+
         emitter.op(Op.F2D);
-        frameState.pushOperand(NumberType.F64);
         emitter.invoke(
                 ObjectType.of(Math.class),
                 "sqrt",
@@ -36,8 +36,8 @@ public final class F32Sqrt extends PlainNumeric {
                 InvokeType.STATIC,
                 false
         );
-        frameState.popOperand(NumberType.F64);
         emitter.op(Op.D2F);
+
         frameState.pushOperand(NumberType.F32);
     }
 }

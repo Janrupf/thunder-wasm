@@ -21,7 +21,7 @@ public final class F64ConvertI64U extends PlainNumeric {
 
     @Override
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        context.getFrameState().requireOperand(NumberType.I64);
+        context.getFrameState().popOperand(NumberType.I64);
         context.getEmitter().invoke(
                 ObjectType.of(WasmMath.class),
                 "u64ToF64",

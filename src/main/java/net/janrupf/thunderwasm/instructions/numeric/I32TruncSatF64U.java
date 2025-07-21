@@ -28,9 +28,7 @@ public final class I32TruncSatF64U extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.F64);
-        frameState.pushOperand(NumberType.I64);
         emitter.op(Op.D2L);
-        frameState.popOperand(NumberType.I64);
         emitter.op(Op.L2I);
         frameState.pushOperand(NumberType.I32);
     }

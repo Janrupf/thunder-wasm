@@ -21,12 +21,11 @@ public final class I64Eqz extends PlainNumeric {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        frameState.pushOperand(NumberType.I64);
+        frameState.popOperand(NumberType.I64);
         emitter.loadConstant(0L);
-        frameState.popOperand(NumberType.I64);
-        frameState.popOperand(NumberType.I64);
         emitter.op(Op.LCMP);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.EQUAL);
+
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.EQUAL);
     }
 }

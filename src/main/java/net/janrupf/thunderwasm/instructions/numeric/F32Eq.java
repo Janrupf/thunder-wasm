@@ -25,6 +25,6 @@ public final class F32Eq extends PlainNumeric {
         frameState.popOperand(NumberType.F32);
         emitter.op(Op.FCMPG);
         frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(frameState, emitter, ComparisonResult.EQUAL);
+        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.EQUAL);
     }
 }
