@@ -11,6 +11,7 @@
       drop
       i32.const 4
       i32.const 5
+      br 0
     )
 
     drop

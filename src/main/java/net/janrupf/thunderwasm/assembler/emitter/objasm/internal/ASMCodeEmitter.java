@@ -13,6 +13,11 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+
 public final class ASMCodeEmitter implements CodeEmitter {
     private final MethodVisitor visitor;
 
@@ -54,8 +59,42 @@ public final class ASMCodeEmitter implements CodeEmitter {
         return owner;
     }
 
+    @Override
     public JavaStackFrameState getStackFrameState() {
         return stackFrameState;
+    }
+
+    @Override
+    public JavaFrameSnapshot fixupInferredFrame(JavaFrameSnapshot snapshot) throws WasmAssemblerException {
+        // We need to re-order the arguments and `this` - the first N locals of the snapshot always need to
+        // be the arguments and this. Additional locals may have been allocated later and are not re-ordered
+        // by this emitter.
+        List<JavaType> newLocals = new ArrayList<>(snapshot.getLocals());
+
+        List<JavaLocal> specialLocals = new ArrayList<>();
+        if (thisLocal != null) {
+            specialLocals.add(thisLocal);
+        }
+        specialLocals.addAll(Arrays.asList(argumentLocals));
+
+        if (newLocals.size() < argumentLocals.length) {
+            // This shouldn't happen unless someone freed the argument locals
+            throw new WasmAssemblerException("Argument locals have disappeared from frame state");
+        }
+
+        // Sort by slot index and overwrite the re-ordered locals
+        specialLocals.sort(Comparator.comparingInt(JavaLocal::getSlot));
+
+        // Make room for the additional this local
+        if (thisLocal != null) {
+            newLocals.add(0, ObjectType.OBJECT);
+        }
+        for (int i = 0; i < specialLocals.size(); i++) {
+            newLocals.set(i, specialLocals.get(i).getType());
+        }
+
+        // The emitter doesn't do anything special with the stack, just use it as is
+        return new JavaFrameSnapshot(snapshot.getStack(), newLocals);
     }
 
     @Override

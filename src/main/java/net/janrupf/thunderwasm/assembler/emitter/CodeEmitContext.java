@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 
@@ -14,7 +15,7 @@ public final class CodeEmitContext {
     private final ElementLookups lookups;
     private final CodeEmitter emitter;
     private final List<WasmFrameState> frameStates;
-    private final List<CodeLabel> blockJumpLabels;
+    private final List<WasmPushedLabel> blockJumpLabels;
     private final WasmGenerators generators;
 
     public CodeEmitContext(
@@ -63,8 +64,18 @@ public final class CodeEmitContext {
      *
      * @return the block jump label, or null, if inside the top level block
      */
-    public CodeLabel getBlockJumpLabel() {
-        if (blockJumpLabels.isEmpty()) {
+    public WasmPushedLabel getBlockJumpLabel() {
+        return getBlockJumpLabel(0);
+    }
+
+    /**
+     * Retrieves the block jump label of the context.
+     *
+     * @param depth how many labels to go up
+     * @return the block jump label, or null, if no label exists at the given depth
+     */
+    public WasmPushedLabel getBlockJumpLabel(int depth) {
+        if (blockJumpLabels.size() <= depth) {
             return null;
         }
 
@@ -84,9 +95,9 @@ public final class CodeEmitContext {
      * Push a new block.
      *
      * @param frameState    the new frame state
-     * @param blockEndLabel the label to which the block jumps at the end
+     * @param blockEndLabel the label to which branches to the block jump
      */
-    public void pushBlock(WasmFrameState frameState, CodeLabel blockEndLabel) {
+    public void pushBlock(WasmFrameState frameState, WasmPushedLabel blockEndLabel) {
         frameStates.add(frameState);
         blockJumpLabels.add(blockEndLabel);
     }

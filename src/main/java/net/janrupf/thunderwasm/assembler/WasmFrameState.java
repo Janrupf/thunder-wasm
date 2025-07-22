@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.assembler;
 
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.FunctionType;
@@ -231,5 +232,28 @@ public final class WasmFrameState {
         }
 
         return newFrameState;
+    }
+
+    /**
+     * Infer a snapshot of the java frame state from the current WASM frame state.
+     * <p>
+     * Note that this only takes into account WASM state and may skip Java
+     * specific locals or operands.
+     *
+     * @return the inferred snapshot
+     * @throws WasmAssemblerException if the snapshot can not be inferred
+     */
+    public JavaFrameSnapshot inferJavaFrameSnapshot() throws WasmAssemblerException {
+        List<JavaType> javaLocals = new ArrayList<>(locals.size());
+        for (ValueType local : locals) {
+            javaLocals.add(WasmTypeConverter.toJavaType(local));
+        }
+
+        List<JavaType> javaOperands = new ArrayList<>(operandStack.size());
+        for (ValueType operand : operandStack) {
+            javaOperands.add(WasmTypeConverter.toJavaType(operand));
+        }
+
+        return new JavaFrameSnapshot(javaOperands, javaLocals);
     }
 }

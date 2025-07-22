@@ -24,6 +24,25 @@ public interface CodeEmitter {
     JavaStackFrameState getStackFrameState();
 
     /**
+     * Fix up a frame which was inferred from WASM state.
+     * <p>
+     * The way the code emitter organizes locals is not necessarily
+     * the same that WASM does it. For example, WASM doesn't have a
+     * concept of a "this" local. Moreover, the emitter may decide
+     * to re-order locals.
+     * <p>
+     * There are cases where frame state needs to be inferred from
+     * WASM state (mainly when dealing with WASM code that is unreachable).
+     * This inferred frame state can not accommodate for emitter specific
+     * intricacies.
+     *
+     * @param snapshot the snapshot to fix up
+     * @return the fixed up snapshot with emitter intricacies applied
+     * @throws WasmAssemblerException if the emitter can not fix up the frame
+     */
+    JavaFrameSnapshot fixupInferredFrame(JavaFrameSnapshot snapshot) throws WasmAssemblerException;
+
+    /**
      * Creates a new, not yet resolved label.
      *
      * @return the new label

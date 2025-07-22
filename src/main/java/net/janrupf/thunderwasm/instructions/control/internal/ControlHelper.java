@@ -1,9 +1,12 @@
 package net.janrupf.thunderwasm.instructions.control.internal;
 
-import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
+import net.janrupf.thunderwasm.assembler.*;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
+import net.janrupf.thunderwasm.assembler.emitter.Op;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
@@ -69,12 +72,16 @@ public final class ControlHelper {
         FunctionType functionType = expandBlockType(context, blockType);
         CodeLabel label = context.getEmitter().newLabel();
 
+        WasmPushedLabel pushedLabel;
         if (resolveLabel) {
             context.getEmitter().resolveLabel(label);
+            pushedLabel = new WasmPushedLabel(label, functionType.getInputs());
+        } else {
+            pushedLabel = new WasmPushedLabel(label, functionType.getOutputs());
         }
 
         WasmFrameState newFrameState = context.getFrameState().executeBlock(functionType);
-        context.pushBlock(newFrameState, label);
+        context.pushBlock(newFrameState, pushedLabel);
     }
 
     /**
@@ -99,17 +106,105 @@ public final class ControlHelper {
             emitBlockExit(context);
         }
 
-        CodeLabel blockEndLabel = context.getBlockJumpLabel();
+        WasmPushedLabel blockJumpLabel = context.getBlockJumpLabel();
+        if (blockJumpLabel == null) {
+            throw new WasmAssemblerException("Attempted to emit code for popping a block outside of a block");
+        }
+
         context.popBlock();
 
-        if (resolveLabel) {
-            // TODO: This could fail if the block end is not reachable for some reason.
-            //       The emitter will not know the frame state and subsequently not know
-            //       how to resolve the label. This could probably be fixed by re-computing
-            //       the Java frame state from the WASM frame stat
-            context.getFrameState().markReachable();
-            context.getEmitter().resolveLabel(blockEndLabel);
+        JavaFrameSnapshot fixed = null;
+        if (context.getEmitter().getStackFrameState() == null) {
+            // This probably requires a bit of explanation...
+            //
+            // If we get here the emitter has lost track of what the state of the frame
+            // currently is. This happens when the WASM code is unreachable after a block
+            // as the emitter has no reference what the current Java stack frame should
+            // look like (after all, nothing jumped there, so the state may be whatever).
+            //
+            // We need to fix this situation by taking the WASM state and transforming it
+            // back into Java state. Easier said than done - the emitter may decide to
+            // inject, re-order and otherwise mangle with the locals and operands. So
+            // we infer a "pure" view of Java state from the WASM state ("pure" as in
+            // doesn't account for emitter specific changes) and then ask the emitter
+            // to re-do its changes on the stack frame.
+            JavaFrameSnapshot inferred = context.getFrameState().inferJavaFrameSnapshot();
+            fixed = context.getEmitter().fixupInferredFrame(inferred);
         }
+
+        if (resolveLabel) {
+            context.getFrameState().markReachable();
+            context.getEmitter().resolveLabel(blockJumpLabel.getCodeLabel(), fixed);
+        } else if(fixed != null) { // See comment from above for why we inject a label here
+            CodeLabel fixupLabel = context.getEmitter().newLabel();
+            context.getEmitter().resolveLabel(fixupLabel, fixed);
+        }
+    }
+
+    /**
+     * Emit the instructions required to clean the stack before jumping to a label.
+     *
+     * @param context the context to use
+     * @param depth how many labels to go up
+     * @throws WasmAssemblerException if the instructions can not be emitted
+     * @return the label to jump to
+     */
+    public static CodeLabel emitCleanStackForBlockLabel(CodeEmitContext context, int depth) throws WasmAssemblerException {
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter emitter = context.getEmitter();
+        WasmPushedLabel blockJumpLabel = context.getBlockJumpLabel();
+
+        if (blockJumpLabel == null) {
+            throw new WasmAssemblerException("Not enough labels on the stack to pop " + depth + " labels");
+        }
+
+        List<ValueType> operandStack = frameState.getOperandStack();
+        LargeArray<ValueType> blockReturnTypes = blockJumpLabel.getStackOperands();
+
+        int returnCount = (int) blockReturnTypes.length();
+        int discardCount = operandStack.size() - returnCount;
+
+        if (discardCount < 1) {
+            // No need to emit java instructions, the stack is already in the correct state
+            // (or underflown, but then popOperand below will throw)
+            for (ValueType returnType : blockReturnTypes) {
+                frameState.popOperand(returnType);
+            }
+
+            return blockJumpLabel.getCodeLabel();
+        } else if (discardCount == 1 && returnCount == 1) {
+            // Check if we can go a fast path where we only need to swap and then drop the top value
+
+            JavaType javaReturnType = WasmTypeConverter.toJavaType(blockReturnTypes.get(LargeArrayIndex.ZERO));
+            JavaType javaDiscardType = WasmTypeConverter.toJavaType(operandStack.get(operandStack.size() - 2));
+            if (javaReturnType.getSlotCount() < 2 && javaDiscardType.getSlotCount() < 2) {
+                // Single slot value which needs to be discarded, swap and drop
+                frameState.popOperand(blockReturnTypes.get(LargeArrayIndex.ZERO));
+
+                emitter.op(Op.SWAP);
+                emitter.pop();
+                return blockJumpLabel.getCodeLabel();
+            }
+        }
+
+        // (maybe) slow path: Back up the values from the top of the stack into locals, discard, and push back
+        JavaLocal[] locals = new JavaLocal[returnCount];
+        for (int i = returnCount - 1; i >= 0; i--) {
+            locals[i] = emitter.allocateLocal(WasmTypeConverter.toJavaType(blockReturnTypes.get(LargeArrayIndex.ZERO.add(i))));
+            emitter.storeLocal(locals[i]);
+        }
+
+        for (int i = 0; i < discardCount; i++) {
+            emitter.pop();
+        }
+
+        // Restore stack
+        for (JavaLocal local : locals) {
+            emitter.loadLocal(local);
+            local.free();
+        }
+
+        return blockJumpLabel.getCodeLabel();
     }
 
     /**

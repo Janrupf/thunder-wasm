@@ -269,9 +269,7 @@ public final class JavaStackFrameState {
         }
 
         return new JavaFrameSnapshot(
-                currentStackSize,
                 operands,
-                this.locals.size(),
                 locals
         );
     }

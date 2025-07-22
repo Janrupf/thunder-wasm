@@ -9,30 +9,15 @@ import java.util.Objects;
  * Represents a frozen state of the current java stack.
  */
 public final class JavaFrameSnapshot {
-    private final int stackSlotSize;
     private final List<JavaType> stack;
-    private final int localsSlotSize;
     private final List<JavaType> locals;
 
     public JavaFrameSnapshot(
-            int stackSlotSize,
             List<JavaType> stack,
-            int localsSlotSize,
             List<JavaType> locals
     ) {
-        this.stackSlotSize = stackSlotSize;
         this.stack = stack;
-        this.localsSlotSize = localsSlotSize;
         this.locals = locals;
-    }
-
-    /**
-     * Retrieve the size of the stack in slots.
-     *
-     * @return the size of the stack in slots
-     */
-    public int getStackSlotSize() {
-        return stackSlotSize;
     }
 
     /**
@@ -42,15 +27,6 @@ public final class JavaFrameSnapshot {
      */
     public List<JavaType> getStack() {
         return stack;
-    }
-
-    /**
-     * Retrieve the size of the locals in slots.
-     *
-     * @return the size of the locals in slots
-     */
-    public int getLocalsSlotSize() {
-        return localsSlotSize;
     }
 
     /**
@@ -66,12 +42,12 @@ public final class JavaFrameSnapshot {
     public boolean equals(Object o) {
         if (!(o instanceof JavaFrameSnapshot)) return false;
         JavaFrameSnapshot that = (JavaFrameSnapshot) o;
-        return stackSlotSize == that.stackSlotSize && localsSlotSize == that.localsSlotSize && Objects.equals(stack, that.stack) && Objects.equals(locals, that.locals);
+        return Objects.equals(stack, that.stack) && Objects.equals(locals, that.locals);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(stackSlotSize, stack, localsSlotSize, locals);
+        return Objects.hash(stack, locals);
     }
 
     /**
