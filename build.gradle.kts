@@ -1,11 +1,14 @@
+import de.undercouch.gradle.tasks.download.Download
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.*
 import kotlin.NoSuchElementException
 
 plugins {
     id("java-library")
+    id("de.undercouch.download") version("5.6.0")
 }
 
 group = "net.janrupf"
@@ -29,14 +32,14 @@ fun findProgram(name: String, env: String?): Path? {
         localPrograms.inputStream().use { properties.load(it) }
 
         if (properties.containsKey(env)) {
-            return Path.of(properties.getProperty(env))
+            return Paths.get(properties.getProperty(env))
         }
     }
 
     val sysEnv = System.getenv()
 
     if (env != null && sysEnv.containsKey(env)) {
-        return Path.of(sysEnv[env])
+        return Paths.get(sysEnv[env])
     }
 
     val sysPath = sysEnv["PATH"]
@@ -45,7 +48,7 @@ fun findProgram(name: String, env: String?): Path? {
     if (sysPath != null) {
         for (dir in sysPath.split(File.pathSeparator)) {
             for (ext in pathExt) {
-                val file = Path.of(dir, "$name$ext")
+                val file = Paths.get(dir, "$name$ext")
                 if (Files.exists(file)) {
                     return file
                 }
@@ -61,15 +64,52 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-tasks {
-    val compileTestWasm = register("compileTestWasm") {
-        val wat2wasm = findProgram("wat2wasm", "WAT2WASM")
+val wasmTestSuiteRepositoryName = "testsuite"
+val wasmTestSuiteCommit = "88e97b0f742f4c3ee01fea683da130f344dd7b02"
 
-        if (wat2wasm != null) {
+val wasmTestSuiteDirectory = layout.buildDirectory.dir("wasm-testsuite")
+val wasmTestSuiteZip = wasmTestSuiteDirectory.map { it.file("wasm-testsuite.zip") }
+val wasmTestSuiteSource = wasmTestSuiteDirectory.map { it.dir("extracted") }
+
+sourceSets {
+    test {
+        resources {
+            srcDir(wasmTestSuiteSource)
+        }
+    }
+}
+
+tasks {
+    val downloadWasmTestsuite = register<Download>("downloadWasmTestsuite") {
+        src("https://github.com/WebAssembly/${wasmTestSuiteRepositoryName}/archive/${wasmTestSuiteCommit}.zip")
+        dest(wasmTestSuiteZip)
+    }
+
+    val extractWasmTestsuite = register<Copy>("extractWasmTestsuite") {
+        dependsOn(downloadWasmTestsuite)
+
+        from(zipTree(wasmTestSuiteZip))
+        into(wasmTestSuiteSource)
+
+        exclude("**/proposals/**")
+    }
+
+    val compileTestWasm = register("compileTestWasm") {
+        data class WasmOutput(
+            val wasm: RegularFile?,
+            val testJson: RegularFile?
+        )
+
+        dependsOn(extractWasmTestsuite)
+
+        val wat2wasm = findProgram("wat2wasm", "WAT2WASM")
+        val wast2json = findProgram("wast2json", "WAST2JSON")
+
+        if (wat2wasm != null && wast2json != null) {
             val outputDir = layout.buildDirectory.dir("wasm/test")
 
             val inputFileProvider = sourceSets.test.map { set ->
-                val files = set.resources.filter { it.isFile && it.extension == "wat" }
+                val files = set.resources.filter { it.isFile && (it.extension == "wat" || it.extension == "wast") }
                 val rootDirs = set.resources.sourceDirectories
 
                 rootDirs to files
@@ -81,10 +121,19 @@ tasks {
                     for (rootDir in rootDirs) {
                         if (inputFile.startsWith(rootDir)) {
                             val relativeOutput = inputFile.relativeTo(rootDir)
-                            val relativeOutputWasm =
+                            val relativeOutputWasm = if (inputFile.extension == "wat")
                                 File(relativeOutput.parent, "${relativeOutput.nameWithoutExtension}.wasm")
+                            else null
+                            val relativeTestJson = if (inputFile.extension == "wast")
+                                File(relativeOutput.parent, "${relativeOutput.nameWithoutExtension}.json")
+                            else null
 
-                            val outputFileProvider = outputDir.map { out -> out.file(relativeOutputWasm.path) }
+                            val outputFileProvider = outputDir.map { out ->
+                                WasmOutput(
+                                    relativeOutputWasm?.let { w -> out.file(w.path) },
+                                    relativeTestJson?.let { j -> out.file(j.path) }
+                                )
+                            }
                             return@outputFiles (inputFile to outputFileProvider)
                         }
                     }
@@ -98,25 +147,44 @@ tasks {
             outputs.dir(outputDir)
 
             doLast {
-                fileMappingProvider.get().forEach { (inputFile, outputFile) ->
-                    val outputParent = outputFile.get().asFile.parentFile
-                    if (!outputParent.exists()) {
+                fileMappingProvider.get().forEach { (inputFile, output) ->
+                    val wasmFile = output.get().wasm?.asFile
+                    val testJson = output.get().testJson?.asFile
+
+                    val outputParent = wasmFile?.parentFile ?: testJson?.parentFile
+                    if (outputParent?.exists() == false) {
                         outputParent.mkdirs()
                     }
 
-                    exec {
-                        executable(wat2wasm)
-                        args(
-                            inputFile.absolutePath,
-                            "-o", outputFile.get().asFile.absolutePath,
-                            "--enable-annotations"
-                        )
+                    if (wasmFile != null) {
+                        exec {
+                            executable(wat2wasm)
+                            args(
+                                inputFile.absolutePath,
+                                "-o", wasmFile.absolutePath,
+                                "--enable-annotations"
+                            )
+                        }
+                    } else if (testJson != null) {
+                        exec {
+                            executable(wast2json)
+                            args(
+                                inputFile.absolutePath,
+                                "-o", testJson.absolutePath
+                            )
+                        }
                     }
                 }
             }
         } else {
             doFirst {
-                throw GradleScriptException("wat2wasm not found", NoSuchFileException("wat2wasm"))
+                if (wat2wasm == null) {
+                    throw GradleScriptException("wat2wasm not found", NoSuchFileException("wat2wasm"))
+                }
+
+                if (wast2json == null) {
+                    throw GradleScriptException("wast2json not found", NoSuchFileException("wast2json"))
+                }
             }
         }
     }
