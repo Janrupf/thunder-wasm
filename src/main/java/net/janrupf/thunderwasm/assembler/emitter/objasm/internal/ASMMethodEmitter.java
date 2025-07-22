@@ -15,13 +15,22 @@ public final class ASMMethodEmitter implements MethodEmitter {
     private final ObjectType owner;
     private final JavaType returnType;
     private final JavaType[] argumentTypes;
+    private final JavaType[] staticLocals;
 
-    ASMMethodEmitter(MethodVisitor visitor, boolean isStatic, ObjectType owner, JavaType returnType, JavaType[] argumentTypes) {
+    ASMMethodEmitter(
+            MethodVisitor visitor,
+            boolean isStatic,
+            ObjectType owner,
+            JavaType returnType,
+            JavaType[] argumentTypes,
+            JavaType[] staticLocals
+    ) {
         this.visitor = visitor;
         this.isStatic = isStatic;
         this.owner = owner;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
+        this.staticLocals = staticLocals;
     }
 
     @Override
@@ -35,12 +44,15 @@ public final class ASMMethodEmitter implements MethodEmitter {
             thisLocal = stackFrameState.allocateLocal(owner);
         }
 
-        JavaLocal[] argumentLocals = new JavaLocal[argumentTypes.length];
-        for (int i = 0; i < argumentLocals.length; i++) {
-            argumentLocals[i] = stackFrameState.allocateLocal(argumentTypes[i]);
+        JavaLocal[] allLocals = new JavaLocal[argumentTypes.length + staticLocals.length];
+        for (int i = 0; i < argumentTypes.length; i++) {
+            allLocals[i] = stackFrameState.allocateLocal(argumentTypes[i]);
+        }
+        for (int i = 0; i < staticLocals.length; i++) {
+            allLocals[argumentTypes.length + i] = stackFrameState.allocateLocal(staticLocals[i]);
         }
 
-        return new ASMCodeEmitter(visitor, owner, returnType, thisLocal, argumentLocals, stackFrameState);
+        return new ASMCodeEmitter(visitor, owner, returnType, thisLocal, allLocals, stackFrameState);
     }
 
     @Override

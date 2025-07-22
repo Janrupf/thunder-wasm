@@ -52,34 +52,14 @@ public class BasicTest {
         LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 20));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        TestUtil.callCodeMethod(
+        int result = (int) TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
                 new Class<?>[]{},
                 new Object[]{}
         );
 
-        Function<Integer, Byte> readByte = (address) -> {
-            try {
-                return (byte) (int) TestUtil.callCodeMethod(
-                        moduleInstance,
-                        1,
-                        new Class<?>[]{int.class,},
-                        new Object[]{address}
-                );
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-        };
-
-        System.out.println("Read byte at 100: " + (char) (byte) readByte.apply(100));
-        System.out.println("Read byte at 101: " + (char) (byte) readByte.apply(101));
-        System.out.println("Read byte at 102: " + (char) (byte) readByte.apply(102));
-        System.out.println("Read byte at 103: " + (char) (byte) readByte.apply(103));
-        System.out.println("Read byte at  50: " + (char) (byte) readByte.apply(50));
-        System.out.println("Read byte at  51: " + (char) (byte) readByte.apply(51));
-        System.out.println("Read byte at  52: " + (char) (byte) readByte.apply(52));
-        System.out.println("Read byte at  53: " + (char) (byte) readByte.apply(53));
+        System.out.println("Result: " + result);
     }
 
     private static final class TestLinker implements RuntimeLinker {

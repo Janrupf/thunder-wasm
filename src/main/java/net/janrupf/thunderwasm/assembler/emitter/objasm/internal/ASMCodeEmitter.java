@@ -27,7 +27,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     private final ObjectType owner;
     private final JavaType returnType;
     private final JavaLocal thisLocal;
-    private final JavaLocal[] argumentLocals;
+    private final JavaLocal[] staticLocals;
     private JavaStackFrameState stackFrameState;
     private boolean noNewInstructionsSinceLastVisitFrame;
 
@@ -39,14 +39,14 @@ public final class ASMCodeEmitter implements CodeEmitter {
             ObjectType owner,
             JavaType returnType,
             JavaLocal thisLocal,
-            JavaLocal[] argumentLocals,
+            JavaLocal[] staticLocals,
             JavaStackFrameState stackFrameState
     ) {
         this.visitor = visitor;
         this.owner = owner;
         this.returnType = returnType;
         this.thisLocal = thisLocal;
-        this.argumentLocals = argumentLocals;
+        this.staticLocals = staticLocals;
         this.stackFrameState = stackFrameState;
         this.noNewInstructionsSinceLastVisitFrame = false;
 
@@ -66,8 +66,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
     @Override
     public JavaFrameSnapshot fixupInferredFrame(JavaFrameSnapshot snapshot) throws WasmAssemblerException {
-        // We need to re-order the arguments and `this` - the first N locals of the snapshot always need to
-        // be the arguments and this. Additional locals may have been allocated later and are not re-ordered
+        // We need to re-order the static locals and `this` - the first N locals of the snapshot always need to
+        // be the static locals and this. Additional locals may have been allocated later and are not re-ordered
         // by this emitter.
         List<JavaType> newLocals = new ArrayList<>(snapshot.getLocals());
 
@@ -75,9 +75,9 @@ public final class ASMCodeEmitter implements CodeEmitter {
         if (thisLocal != null) {
             specialLocals.add(thisLocal);
         }
-        specialLocals.addAll(Arrays.asList(argumentLocals));
+        specialLocals.addAll(Arrays.asList(staticLocals));
 
-        if (newLocals.size() < argumentLocals.length) {
+        if (newLocals.size() < staticLocals.length) {
             // This shouldn't happen unless someone freed the argument locals
             throw new WasmAssemblerException("Argument locals have disappeared from frame state");
         }
@@ -1143,14 +1143,14 @@ public final class ASMCodeEmitter implements CodeEmitter {
     }
 
     @Override
-    public JavaLocal getArgumentLocal(int index) throws WasmAssemblerException {
+    public JavaLocal getStaticLocal(int index) throws WasmAssemblerException {
         requireValidFrameSnapshot();
 
-        if (index >= this.argumentLocals.length) {
+        if (index >= this.staticLocals.length) {
             throw new WasmAssemblerException("Argument index " + index + " out of bounds");
         }
 
-        return this.argumentLocals[index];
+        return this.staticLocals[index];
     }
 
     @Override

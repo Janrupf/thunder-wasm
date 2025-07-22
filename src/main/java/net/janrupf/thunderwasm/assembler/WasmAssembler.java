@@ -153,7 +153,8 @@ public final class WasmAssembler {
                 false,
                 PrimitiveType.VOID,
                 new JavaType[]{generators.getImportGenerator().getLinkerType()},
-                new JavaType[]{ObjectType.of(ThunderWasmException.class)}
+                new JavaType[]{ObjectType.of(ThunderWasmException.class)},
+                new JavaType[0]
         );
 
         // Emit a call to the super constructor
@@ -172,7 +173,7 @@ public final class WasmAssembler {
         if (importSection != null) {
             for (Import<?> im : importSection.getImports()) {
                 // The contract for emitLinkImport says the linker should be on top of the stack
-                code.loadLocal(code.getArgumentLocal(0));
+                code.loadLocal(code.getStaticLocal(0));
 
                 generators.getImportGenerator().emitLinkImport(im, emitContext);
             }

@@ -128,6 +128,9 @@ public final class ControlHelper {
             // we infer a "pure" view of Java state from the WASM state ("pure" as in
             // doesn't account for emitter specific changes) and then ask the emitter
             // to re-do its changes on the stack frame.
+            //
+            // TODO: This wont work with an unreachable block inside another block
+            //       because the frame state only takes into account the most inner frame
             JavaFrameSnapshot inferred = context.getFrameState().inferJavaFrameSnapshot();
             fixed = context.getEmitter().fixupInferredFrame(inferred);
         }

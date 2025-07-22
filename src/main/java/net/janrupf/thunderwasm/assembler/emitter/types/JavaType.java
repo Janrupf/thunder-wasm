@@ -15,6 +15,15 @@ public abstract class JavaType {
      */
     public abstract int getSlotCount();
 
+    /**
+     * Returns the default value of this type.
+     *
+     * @return the default value
+     */
+    public Object getDefaultValue() {
+        return null;
+    }
+
     @Override
     public String toString() {
         return toJvmDescriptor();

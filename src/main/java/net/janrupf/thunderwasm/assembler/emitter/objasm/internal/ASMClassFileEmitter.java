@@ -64,7 +64,8 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
             boolean isFinal,
             JavaType returnType,
             JavaType[] parameterTypes,
-            JavaType[] thrownTypes
+            JavaType[] thrownTypes,
+            JavaType[] staticLocals
     ) {
         int access = ASMConverter.toAccessModifiers(visibility, isStatic, isFinal);
         Type asmReturnType = ASMConverter.convertType(returnType);
@@ -80,7 +81,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
                 ASMConverter.convertTypesToNames(thrownTypes)
         );
 
-        return new ASMMethodEmitter(mVisitor, isStatic, owner, returnType, parameterTypes);
+        return new ASMMethodEmitter(mVisitor, isStatic, owner, returnType, parameterTypes, staticLocals);
     }
 
     @Override

@@ -4,7 +4,6 @@ import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
@@ -104,13 +103,16 @@ public interface CodeEmitter {
     void loadThis() throws WasmAssemblerException;
 
     /**
-     * Retrieve the local for a specific argument.
+     * Retrieve the java local for a local index that has the lifetime of the function.
+     * <p>
+     * The first N locals are the arguments, after that come the static locals as passed
+     * to the {@link ClassFileEmitter#method} call.
      *
-     * @param index the index of the argument
-     * @return the local for that argument
+     * @param index the index of the local
+     * @return the java local for that local index
      * @throws WasmAssemblerException if the argument doesn't exist
      */
-    JavaLocal getArgumentLocal(int index) throws WasmAssemblerException;
+    JavaLocal getStaticLocal(int index) throws WasmAssemblerException;
 
     /**
      * Allocate a temporary local.

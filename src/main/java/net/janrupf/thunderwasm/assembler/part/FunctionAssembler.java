@@ -80,21 +80,9 @@ public final class FunctionAssembler {
                 returnType = PrimitiveType.VOID;
             }
 
-            MethodEmitter methodEmitter = classEmitter.method(
-                    functionName,
-                    // TODO: Exports...
-                    Visibility.PUBLIC,
-                    isStatic,
-                    false,
-                    returnType,
-                    WasmTypeConverter.toJavaTypes(inputs.asFlatArray()),
-                    new JavaType[0]
-            );
-
-            CodeEmitter codeEmitter = methodEmitter.code();
-
             // Expand locals
             List<ValueType> expandedLocals = new ArrayList<>();
+            List<JavaType> javaExpandedLocals = new ArrayList<>();
             for (Local local : locals.asFlatArray()) {
                 if (expandedLocals.size() + local.getCount() > 65535) {
                     throw new WasmAssemblerException(
@@ -104,7 +92,30 @@ public final class FunctionAssembler {
 
                 for (int i = 0; i < local.getCount(); i++) {
                     expandedLocals.add(local.getType());
+                    javaExpandedLocals.add(WasmTypeConverter.toJavaType(local.getType()));
                 }
+            }
+
+            JavaType[] argumentTypes = WasmTypeConverter.toJavaTypes(inputs.asFlatArray());
+
+            MethodEmitter methodEmitter = classEmitter.method(
+                    functionName,
+                    // TODO: Exports...
+                    Visibility.PUBLIC,
+                    isStatic,
+                    false,
+                    returnType,
+                    argumentTypes,
+                    new JavaType[0],
+                    javaExpandedLocals.toArray(new JavaType[0])
+            );
+
+            CodeEmitter codeEmitter = methodEmitter.code();
+
+            // Initialize all locals that are not arguments with 0
+            for (int i = 0; i < javaExpandedLocals.size(); i++) {
+                codeEmitter.loadConstant(javaExpandedLocals.get(i).getDefaultValue());
+                codeEmitter.storeLocal(codeEmitter.getStaticLocal(argumentTypes.length + i));
             }
 
             WasmFrameState frameState = new WasmFrameState(
