@@ -5,6 +5,6 @@
     local.get $offset
     local.get $value
     local.get $size
-    memory.fill
+    return
   )
 )

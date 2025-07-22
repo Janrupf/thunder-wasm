@@ -1,6 +1,5 @@
 package net.janrupf.thunderwasm.assembler;
 
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -15,17 +14,20 @@ public final class WasmFrameState {
     // array under the hood anyway.
     private final List<ValueType> operandStack;
     private final List<ValueType> locals;
+    private final ValueType returnType;
     private boolean isReachable;
 
     public WasmFrameState(
             ValueType[] argumentTypes,
-            List<ValueType> locals
+            List<ValueType> locals,
+            ValueType returnType
     ) throws WasmAssemblerException {
         this.operandStack = new ArrayList<>();
 
         this.locals = new ArrayList<>();
         this.locals.addAll(Arrays.asList(argumentTypes));
         this.locals.addAll(locals);
+        this.returnType = returnType;
 
         this.isReachable = true;
     }
@@ -164,6 +166,15 @@ public final class WasmFrameState {
      */
     public void markReachable() {
         this.isReachable = true;
+    }
+
+    /**
+     * Retrieve the current frame's return type.
+     *
+     * @return the frame's return type, or null, if none
+     */
+    public ValueType getReturnType() {
+        return returnType;
     }
 
     /**

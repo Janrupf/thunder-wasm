@@ -111,7 +111,8 @@ public final class WasmAssembler {
     private void emitConstructor() throws WasmAssemblerException {
         WasmFrameState frameState = new WasmFrameState(
                 new ValueType[]{},
-                Collections.emptyList()
+                Collections.emptyList(),
+                null
         );
 
         // Create the import fields

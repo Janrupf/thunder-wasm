@@ -68,12 +68,15 @@ public final class FunctionAssembler {
                 );
             }
 
+            ValueType wasmReturnType;
             JavaType returnType;
             if (outputs.length() != 0) {
                 // 1 output
-                returnType = WasmTypeConverter.toJavaType(outputs.get(LargeArrayIndex.ZERO));
+                wasmReturnType = outputs.get(LargeArrayIndex.ZERO);
+                returnType = WasmTypeConverter.toJavaType(wasmReturnType);
             } else {
                 // 0 outputs
+                wasmReturnType = null;
                 returnType = PrimitiveType.VOID;
             }
 
@@ -104,7 +107,11 @@ public final class FunctionAssembler {
                 }
             }
 
-            WasmFrameState frameState = new WasmFrameState(inputs.asFlatArray(), expandedLocals);
+            WasmFrameState frameState = new WasmFrameState(
+                    inputs.asFlatArray(),
+                    expandedLocals,
+                    wasmReturnType
+            );
 
             for (InstructionInstance instruction : expr.getInstructions()) {
                 this.processInstruction(instruction, codeEmitter, frameState);
