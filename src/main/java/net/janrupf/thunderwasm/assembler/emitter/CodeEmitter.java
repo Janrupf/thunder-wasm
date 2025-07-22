@@ -254,6 +254,16 @@ public interface CodeEmitter {
     void checkCast(ObjectType type) throws WasmAssemblerException;
 
     /**
+     * Emit a tableswitch instruction.
+     *
+     * @param base the base value (lower bound, aka min)
+     * @param defaultLabel the value to jump to if no appropriate label case is found
+     * @param targets the target labels
+     * @throws WasmAssemblerException if the tableswitch instruction is invalid
+     */
+    void tableSwitch(int base, CodeLabel defaultLabel, CodeLabel... targets) throws WasmAssemblerException;
+
+    /**
      * Finish the code generation.
      *
      * @throws WasmAssemblerException if the code generation fails

@@ -1,12 +1,21 @@
 package net.janrupf.thunderwasm.instructions.control;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
+import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
+import net.janrupf.thunderwasm.types.NumberType;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class BrTable extends WasmInstruction<BrTable.Data> {
     public static final BrTable INSTANCE = new BrTable();
@@ -21,6 +30,48 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
         int defaultLabel = loader.readU32();
 
         return new Data(branchLabels, defaultLabel);
+    }
+
+    @Override
+    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+
+        CodeEmitter emitter = context.getEmitter();
+
+        int[] branchLabels = data.getBranchLabels().asFlatArray();
+        if (branchLabels == null) {
+            throw new WasmAssemblerException("Too many branch labels");
+        }
+
+        Map<Integer, CodeLabel> targetLabels = new HashMap<>();
+
+        int defaultDepth = data.getDefaultLabel();
+        targetLabels.put(defaultDepth, emitter.newLabel());
+
+        CodeLabel defaultCodeLabel = targetLabels.get(defaultDepth);
+        CodeLabel[] branchCodeLabels = new CodeLabel[branchLabels.length];
+
+        // Collect all the labels that will possibly be branched to
+        for (int i = 0; i < branchLabels.length; i++) {
+            int depth = branchLabels[i];
+            if (!targetLabels.containsKey(depth)) {
+                targetLabels.put(depth, emitter.newLabel());
+            }
+
+            branchCodeLabels[i] = targetLabels.get(depth);
+        }
+
+        emitter.tableSwitch(0, defaultCodeLabel, branchCodeLabels);
+
+        // Now generate all the cases
+        for (Map.Entry<Integer, CodeLabel> entry : targetLabels.entrySet()) {
+            int depth = entry.getKey();
+            CodeLabel codeLabel = entry.getValue();
+
+            emitter.resolveLabel(codeLabel);
+            CodeLabel jumpTarget = ControlHelper.emitCleanStackForBlockLabel(context, depth);
+            emitter.jump(JumpCondition.ALWAYS, jumpTarget);
+        }
     }
 
     public static final class Data implements WasmInstruction.Data {

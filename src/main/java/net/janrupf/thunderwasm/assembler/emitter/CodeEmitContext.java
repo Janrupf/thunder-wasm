@@ -79,7 +79,7 @@ public final class CodeEmitContext {
             return null;
         }
 
-        return blockJumpLabels.get(blockJumpLabels.size() - 1);
+        return blockJumpLabels.get(blockJumpLabels.size() - 1 - depth);
     }
 
     /**

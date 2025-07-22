@@ -155,7 +155,7 @@ public final class ControlHelper {
     public static CodeLabel emitCleanStackForBlockLabel(CodeEmitContext context, int depth) throws WasmAssemblerException {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
-        WasmPushedLabel blockJumpLabel = context.getBlockJumpLabel();
+        WasmPushedLabel blockJumpLabel = context.getBlockJumpLabel(depth);
 
         if (blockJumpLabel == null) {
             throw new WasmAssemblerException("Not enough labels on the stack to pop " + depth + " labels");

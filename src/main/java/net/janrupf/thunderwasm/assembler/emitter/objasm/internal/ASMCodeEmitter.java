@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -1127,6 +1128,28 @@ public final class ASMCodeEmitter implements CodeEmitter {
         visitor.visitTypeInsn(Opcodes.CHECKCAST, ASMConverter.convertType(type).getInternalName());
         markNewInstruction();
         stackFrameState.pushOperand(type);
+    }
+
+    @Override
+    public void tableSwitch(int base, CodeLabel defaultLabel, CodeLabel... targets) throws WasmAssemblerException {
+        requireValidFrameSnapshot();
+
+        stackFrameState.popOperand(PrimitiveType.INT);
+        JavaFrameSnapshot snapshot = stackFrameState.computeSnapshot();
+
+        ((ASMCodeLabel) defaultLabel).attachFrameState(snapshot);
+
+        Label asmDefaultLabel = ((ASMCodeLabel) defaultLabel).getInner();
+        Label[] targetLabels = new Label[targets.length];
+
+        for (int i = 0; i < targetLabels.length; i++) {
+            targetLabels[i] = ((ASMCodeLabel) targets[i]).getInner();
+            ((ASMCodeLabel) targets[i]).attachFrameState(snapshot);
+        }
+
+        visitor.visitTableSwitchInsn(base, base + targetLabels.length - 1, asmDefaultLabel, targetLabels);
+        markNewInstruction();
+        invalidateCurrentFrameState();
     }
 
     @Override

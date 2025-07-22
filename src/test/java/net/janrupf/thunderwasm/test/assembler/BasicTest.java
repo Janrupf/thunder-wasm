@@ -55,8 +55,8 @@ public class BasicTest {
         int result = (int) TestUtil.callCodeMethod(
                 moduleInstance,
                 0,
-                new Class<?>[]{},
-                new Object[]{}
+                new Class<?>[]{ int.class },
+                new Object[]{ 2 }
         );
 
         System.out.println("Result: " + result);
