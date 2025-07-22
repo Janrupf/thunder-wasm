@@ -120,6 +120,7 @@ public final class InstructionSet {
             MemoryInit.INSTANCE,
             DataDrop.INSTANCE,
             MemoryCopy.INSTANCE,
+            MemoryFill.INSTANCE,
 
             // Numeric instructions
             I32Const.INSTANCE,

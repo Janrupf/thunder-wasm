@@ -69,17 +69,22 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         if (frame != null) {
             asmLabel.attachFrameState(frame);
-        } else if (asmLabel.getKnownFrameSnapshot() == null) {
-            throw new WasmAssemblerException("Current frame state is not known");
         } else {
             frame = asmLabel.getKnownFrameSnapshot();
         }
 
         if (stackFrameState == null) {
+            if (frame == null) {
+                throw new WasmAssemblerException("Current frame state is not known");
+            }
+
             stackFrameState = new JavaStackFrameState();
             stackFrameState.restoreFromSnapshot(asmLabel.getKnownFrameSnapshot());
-        } else {
+        } else if (frame != null) {
             stackFrameState.computeSnapshot().checkCompatible(frame);
+        } else {
+            frame = stackFrameState.computeSnapshot();
+            asmLabel.attachFrameState(frame);
         }
 
         requireValidFrameSnapshot();
