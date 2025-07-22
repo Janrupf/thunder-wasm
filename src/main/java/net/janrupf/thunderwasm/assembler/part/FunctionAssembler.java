@@ -110,7 +110,8 @@ public final class FunctionAssembler {
             WasmFrameState frameState = new WasmFrameState(
                     inputs.asFlatArray(),
                     expandedLocals,
-                    wasmReturnType
+                    wasmReturnType,
+                    null
             );
 
             for (InstructionInstance instruction : expr.getInstructions()) {

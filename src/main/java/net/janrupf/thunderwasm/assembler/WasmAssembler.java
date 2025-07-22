@@ -112,6 +112,7 @@ public final class WasmAssembler {
         WasmFrameState frameState = new WasmFrameState(
                 new ValueType[]{},
                 Collections.emptyList(),
+                null,
                 null
         );
 

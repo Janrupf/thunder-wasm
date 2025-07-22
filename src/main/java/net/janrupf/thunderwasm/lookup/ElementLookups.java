@@ -7,6 +7,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
+import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.TableType;
 
@@ -133,6 +134,22 @@ public final class ElementLookups {
         }
 
         return dataSection.getSegments().get(i);
+    }
+
+    /**
+     * Require the type at the given index.
+     *
+     * @param i the index of the type
+     * @return the found type
+     * @throws WasmAssemblerException if the type could not be found
+     */
+    public FunctionType requireType(LargeArrayIndex i) throws WasmAssemblerException {
+        TypeSection typeSection = moduleLookups.findSingleSection(TypeSection.LOCATOR);
+        if (typeSection == null || !typeSection.getTypes().isValid(i)) {
+            throw new WasmAssemblerException("Type section index " + i + " out of bounds");
+        }
+
+        return typeSection.getTypes().get(i);
     }
 
     /**

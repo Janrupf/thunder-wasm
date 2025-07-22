@@ -1132,11 +1132,10 @@ public class WasmLoader {
     public BlockType readBlockType() throws IOException, InvalidModuleException {
         byte type = this.peekByte();
 
-        // Test if high bit is set, if so we read a 33 bit LEB128 integer
         if (type == 0x40) {
             this.requireByte();
             return BlockType.Empty.INSTANCE;
-        } else if ((type & 0x80) != 0) {
+        } else if ((type & 0x80) == 0) {
             // This technically reads a 64bit LEB128 integer, but we only need the lower 32 bits
             // (upper is sign bit)
             int value = (int) (this.readS64() & 0xFFFFFFFFL);

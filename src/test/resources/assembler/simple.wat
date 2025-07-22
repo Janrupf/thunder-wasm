@@ -1,10 +1,14 @@
 (module
   (import "test" "memory" (memory 1 5))
 
-  (func (export "fill") (param $offset i32) (param $value i32) (param $size i32)
-    local.get $offset
-    local.get $value
-    local.get $size
-    return
+  (func $block_example (result i32)
+    (block (result i32 f32)
+      i32.const 5
+      f32.const 1.0
+      i32.const 10
+      return
+    )
+
+    drop
   )
 )

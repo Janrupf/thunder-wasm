@@ -2,12 +2,10 @@ package net.janrupf.thunderwasm.assembler;
 
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public final class WasmFrameState {
     // Could use a java.util.Stack, but its synchronized and uses an
@@ -15,12 +13,14 @@ public final class WasmFrameState {
     private final List<ValueType> operandStack;
     private final List<ValueType> locals;
     private final ValueType returnType;
+    private final List<ValueType> blockReturnTypes;
     private boolean isReachable;
 
     public WasmFrameState(
             ValueType[] argumentTypes,
             List<ValueType> locals,
-            ValueType returnType
+            ValueType returnType,
+            List<ValueType> blockReturnTypes
     ) throws WasmAssemblerException {
         this.operandStack = new ArrayList<>();
 
@@ -28,6 +28,7 @@ public final class WasmFrameState {
         this.locals.addAll(Arrays.asList(argumentTypes));
         this.locals.addAll(locals);
         this.returnType = returnType;
+        this.blockReturnTypes = blockReturnTypes;
 
         this.isReachable = true;
     }
@@ -140,6 +141,15 @@ public final class WasmFrameState {
     }
 
     /**
+     * Retrieve the current operand stack.
+     *
+     * @return the operand stack
+     */
+    public List<ValueType> getOperandStack() {
+        return Collections.unmodifiableList(operandStack);
+    }
+
+    /**
      * Retrieves the local at the specified index.
      *
      * @param index the index of the local
@@ -178,11 +188,48 @@ public final class WasmFrameState {
     }
 
     /**
+     * Retrieve the current frame's block return types.
+     *
+     * @return the frame's block return types, or null, if not inside a block
+     */
+    public List<ValueType> getBlockReturnTypes() {
+        return blockReturnTypes;
+    }
+
+    /**
      * Determines whether the frame state is reachable.
      *
      * @return whether the frame state is reachable
      */
     public boolean isReachable() {
         return this.isReachable;
+    }
+
+    /**
+     * Moves this frame to the state after the block and
+     * returns a new frame which represents the frame inside the block.
+     *
+     * @param type the function type of the block
+     * @return the frame inside the block
+     * @throws WasmAssemblerException if the block can not be executed
+     */
+    public WasmFrameState executeBlock(FunctionType type) throws WasmAssemblerException {
+        WasmFrameState newFrameState = new WasmFrameState(
+                new ValueType[0],
+                locals,
+                returnType,
+                Arrays.asList(type.getOutputs().asFlatArray())
+        );
+
+        for (ValueType input : type.getInputs()) {
+            popOperand(input);
+            newFrameState.pushOperand(input);
+        }
+
+        for (ValueType output : type.getOutputs()) {
+            pushOperand(output);
+        }
+
+        return newFrameState;
     }
 }
