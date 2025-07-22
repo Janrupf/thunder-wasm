@@ -24,6 +24,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     private final JavaLocal thisLocal;
     private final JavaLocal[] argumentLocals;
     private JavaStackFrameState stackFrameState;
+    private boolean noNewInstructionsSinceLastVisitFrame;
 
     private int maxLocalsSize;
     private int maxStackSize;
@@ -42,6 +43,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         this.thisLocal = thisLocal;
         this.argumentLocals = argumentLocals;
         this.stackFrameState = stackFrameState;
+        this.noNewInstructionsSinceLastVisitFrame = false;
 
         this.maxLocalsSize = 0;
         this.maxStackSize = 0;
@@ -91,26 +93,30 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         visitor.visitLabel(asmLabel.getInner());
 
-        int localCount = frame.getLocals().size();
+        if (!noNewInstructionsSinceLastVisitFrame) {
+            int localCount = frame.getLocals().size();
 
-        Object[] locals = new Object[localCount];
+            Object[] locals = new Object[localCount];
 
-        for (int i = 0; i < localCount; i++) {
-            locals[i] = this.javaTypeToFrameType(frame.getLocals().get(i));
+            for (int i = 0; i < localCount; i++) {
+                locals[i] = this.javaTypeToFrameType(frame.getLocals().get(i));
+            }
+
+            Object[] stack = new Object[frame.getStack().size()];
+            for (int i = 0; i < stack.length; i++) {
+                stack[i] = this.javaTypeToFrameType(frame.getStack().get(i));
+            }
+
+            visitor.visitFrame(
+                    Opcodes.F_FULL,
+                    locals.length,
+                    locals,
+                    stack.length,
+                    stack
+            );
+
+            noNewInstructionsSinceLastVisitFrame = true;
         }
-
-        Object[] stack = new Object[frame.getStack().size()];
-        for (int i = 0; i < stack.length; i++) {
-            stack[i] = this.javaTypeToFrameType(frame.getStack().get(i));
-        }
-
-        visitor.visitFrame(
-                Opcodes.F_FULL,
-                locals.length,
-                locals,
-                stack.length,
-                stack
-        );
     }
 
     private Object javaTypeToFrameType(JavaType type) throws WasmAssemblerException {
@@ -134,6 +140,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public void loadConstant(Object value) throws WasmAssemblerException {
         requireValidFrameSnapshot();
+        markNewInstruction();
 
         if (value == null) {
             visitor.visitInsn(Opcodes.ACONST_NULL);
@@ -284,6 +291,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public void doReturn() throws WasmAssemblerException {
         requireValidFrameSnapshot();
+        markNewInstruction();
 
         if (returnType.equals(PrimitiveType.VOID)) {
             visitor.visitInsn(Opcodes.RETURN);
@@ -391,6 +399,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         label.attachFrameState(stackFrameState.computeSnapshot());
 
         visitor.visitJumpInsn(opCode, ((ASMCodeLabel) target).getInner());
+        markNewInstruction();
 
         if (condition == JumpCondition.ALWAYS) {
             invalidateCurrentFrameState();
@@ -445,6 +454,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
                 Type.getMethodDescriptor(asmReturnType, asmParameterTypes),
                 ownerIsInterface
         );
+        markNewInstruction();
 
         if (!returnType.equals(PrimitiveType.VOID)) {
             stackFrameState.pushOperand(returnType);
@@ -466,6 +476,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
             visitor.visitTypeInsn(Opcodes.NEW, ASMConverter.convertType(type).getInternalName());
         }
 
+        markNewInstruction();
         stackFrameState.pushOperand(type);
     }
 
@@ -500,6 +511,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
                 fieldName,
                 ASMConverter.convertType(fieldType).getDescriptor()
         );
+        markNewInstruction();
 
         if (!isSet) {
             stackFrameState.pushOperand(fieldType);
@@ -633,6 +645,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
             default:
                 throw new WasmAssemblerException("Unsupported duplication count " + count + " with depth " + depth);
         }
+
+        markNewInstruction();
     }
 
 
@@ -647,6 +661,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
         } else {
             visitor.visitInsn(Opcodes.POP);
         }
+
+        markNewInstruction();
     }
 
     @Override
@@ -686,6 +702,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
         } else {
             visitor.visitInsn(Opcodes.AASTORE);
         }
+
+        markNewInstruction();
     }
 
     @Override
@@ -719,6 +737,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
         } else {
             visitor.visitInsn(Opcodes.AALOAD);
         }
+
+        markNewInstruction();
     }
 
     @Override
@@ -1057,6 +1077,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         }
 
         visitor.visitInsn(opCode);
+        markNewInstruction();
     }
 
     @Override
@@ -1065,6 +1086,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         stackFrameState.popOperand(ObjectType.OBJECT);
         visitor.visitTypeInsn(Opcodes.CHECKCAST, ASMConverter.convertType(type).getInternalName());
+        markNewInstruction();
         stackFrameState.pushOperand(type);
     }
 
@@ -1077,6 +1099,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         }
 
         visitor.visitVarInsn(Opcodes.ALOAD, thisLocal.getSlot());
+        markNewInstruction();
         stackFrameState.pushOperand(owner);
     }
 
@@ -1134,6 +1157,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         }
 
         visitor.visitVarInsn(opCode, local.getSlot());
+        markNewInstruction();
         stackFrameState.pushOperand(type);
     }
 
@@ -1174,11 +1198,13 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         stackFrameState.popOperand(type);
         visitor.visitVarInsn(opCode, local.getSlot());
+        markNewInstruction();
     }
 
     @Override
     public void finish() throws WasmAssemblerException {
         if (stackFrameState != null) {
+            markNewInstruction();
             invalidateCurrentFrameState();
         }
 
@@ -1233,5 +1259,9 @@ public final class ASMCodeEmitter implements CodeEmitter {
         }
 
         this.stackFrameState = null;
+    }
+
+    private void markNewInstruction() {
+        noNewInstructionsSinceLastVisitFrame = false;
     }
 }

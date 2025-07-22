@@ -14,7 +14,7 @@ public final class CodeEmitContext {
     private final ElementLookups lookups;
     private final CodeEmitter emitter;
     private final List<WasmFrameState> frameStates;
-    private final List<CodeLabel> blockEndLabels;
+    private final List<CodeLabel> blockJumpLabels;
     private final WasmGenerators generators;
 
     public CodeEmitContext(
@@ -27,7 +27,7 @@ public final class CodeEmitContext {
         this.emitter = emitter;
         this.frameStates = new ArrayList<>();
         this.frameStates.add(frameState);
-        this.blockEndLabels = new ArrayList<>();
+        this.blockJumpLabels = new ArrayList<>();
         this.generators = generators;
     }
 
@@ -59,16 +59,16 @@ public final class CodeEmitContext {
     }
 
     /**
-     * Retrieves the block end label of the context.
+     * Retrieves the block jump label of the context.
      *
-     * @return the block end label, or null, if inside the top level block
+     * @return the block jump label, or null, if inside the top level block
      */
-    public CodeLabel getBlockEndLabel() {
-        if (blockEndLabels.isEmpty()) {
+    public CodeLabel getBlockJumpLabel() {
+        if (blockJumpLabels.isEmpty()) {
             return null;
         }
 
-        return blockEndLabels.get(blockEndLabels.size() - 1);
+        return blockJumpLabels.get(blockJumpLabels.size() - 1);
     }
 
     /**
@@ -83,12 +83,12 @@ public final class CodeEmitContext {
     /**
      * Push a new block.
      *
-     * @param frameState the new frame state
-     * @param blockEndLabel the label at which the block ends
+     * @param frameState    the new frame state
+     * @param blockEndLabel the label to which the block jumps at the end
      */
     public void pushBlock(WasmFrameState frameState, CodeLabel blockEndLabel) {
         frameStates.add(frameState);
-        blockEndLabels.add(blockEndLabel);
+        blockJumpLabels.add(blockEndLabel);
     }
 
     /**
@@ -102,6 +102,6 @@ public final class CodeEmitContext {
         }
 
         frameStates.remove(frameStates.size() - 1);
-        blockEndLabels.remove(frameStates.size() - 1);
+        blockJumpLabels.remove(frameStates.size() - 1);
     }
 }

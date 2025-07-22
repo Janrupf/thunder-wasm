@@ -25,6 +25,6 @@ public final class Block extends WasmInstruction<BlockData> {
     public void emitCode(CodeEmitContext context, BlockData data) throws WasmAssemblerException {
         ControlHelper.emitPushBlock(context, data.getType());
         ControlHelper.emitExpression(context, data.getPrimaryExpression());
-        ControlHelper.emitPopBlock(context);
+        ControlHelper.emitPopBlock(context, true);
     }
 }

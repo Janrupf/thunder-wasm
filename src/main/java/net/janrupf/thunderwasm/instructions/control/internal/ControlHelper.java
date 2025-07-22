@@ -52,10 +52,26 @@ public final class ControlHelper {
      * @param blockType the block type to push
      * @throws WasmAssemblerException if the block can not be pushed
      */
-    public static void emitPushBlock(CodeEmitContext context, BlockType blockType)
+    public static void emitPushBlock(CodeEmitContext context, BlockType blockType) throws WasmAssemblerException {
+        emitPushBlock(context, blockType, false);
+    }
+
+    /**
+     * Emit the required sequence to push a block.
+     *
+     * @param context      the context to use
+     * @param blockType    the block type to push
+     * @param resolveLabel whether to resolve the block jump label to the start of the block
+     * @throws WasmAssemblerException if the block can not be pushed
+     */
+    public static void emitPushBlock(CodeEmitContext context, BlockType blockType, boolean resolveLabel)
             throws WasmAssemblerException {
         FunctionType functionType = expandBlockType(context, blockType);
         CodeLabel label = context.getEmitter().newLabel();
+
+        if (resolveLabel) {
+            context.getEmitter().resolveLabel(label);
+        }
 
         WasmFrameState newFrameState = context.getFrameState().executeBlock(functionType);
         context.pushBlock(newFrameState, label);
@@ -68,19 +84,32 @@ public final class ControlHelper {
      * @throws WasmAssemblerException if the block can not be popped
      */
     public static void emitPopBlock(CodeEmitContext context) throws WasmAssemblerException {
+        emitPopBlock(context, false);
+    }
+
+    /**
+     * Emit the required sequence to pop a block.
+     *
+     * @param context      the context to use
+     * @param resolveLabel whether to resolve the block jump label to the end of the block
+     * @throws WasmAssemblerException if the block can not be popped
+     */
+    public static void emitPopBlock(CodeEmitContext context, boolean resolveLabel) throws WasmAssemblerException {
         if (context.getFrameState().isReachable()) {
             emitBlockExit(context);
         }
 
-        CodeLabel blockEndLabel = context.getBlockEndLabel();
+        CodeLabel blockEndLabel = context.getBlockJumpLabel();
         context.popBlock();
 
-        // TODO: This could fail if the block end is not reachable for some reason.
-        //       The emitter will not know the frame state and subsequently not know
-        //       how to resolve the label. This could probably be fixed by re-computing
-        //       the Java frame state from the WASM frame stat
-        context.getFrameState().markReachable();
-        context.getEmitter().resolveLabel(blockEndLabel);
+        if (resolveLabel) {
+            // TODO: This could fail if the block end is not reachable for some reason.
+            //       The emitter will not know the frame state and subsequently not know
+            //       how to resolve the label. This could probably be fixed by re-computing
+            //       the Java frame state from the WASM frame stat
+            context.getFrameState().markReachable();
+            context.getEmitter().resolveLabel(blockEndLabel);
+        }
     }
 
     /**
