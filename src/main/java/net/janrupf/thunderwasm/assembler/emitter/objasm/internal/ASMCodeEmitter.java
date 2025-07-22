@@ -1112,12 +1112,21 @@ public final class ASMCodeEmitter implements CodeEmitter {
                 stackFrameState.pushOperand(PrimitiveType.LONG);
                 break;
 
+            case THROW:
+                stackFrameState.popOperand(ObjectType.OBJECT);
+                opCode = Opcodes.ATHROW;
+                break;
+
             default:
                 throw new WasmAssemblerException("Unsupported operation: " + op);
         }
 
         visitor.visitInsn(opCode);
         markNewInstruction();
+
+        if (op == Op.THROW) {
+            invalidateCurrentFrameState();
+        }
     }
 
     @Override
