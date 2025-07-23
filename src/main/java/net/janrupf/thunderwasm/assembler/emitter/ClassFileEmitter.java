@@ -4,6 +4,8 @@ import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
+import java.util.List;
+
 public interface ClassFileEmitter {
     /**
      * Retrieve the type of the class being emitted.
@@ -41,7 +43,6 @@ public interface ClassFileEmitter {
      * @param returnType     the return type of the method
      * @param parameterTypes the parameter types of the method
      * @param thrownTypes    the types of checked exceptions thrown by the method
-     * @param staticLocals   locals that are required for the entire function (excluding arguments)
      * @return the emitter for the method
      */
     MethodEmitter method(
@@ -50,9 +51,8 @@ public interface ClassFileEmitter {
             boolean isStatic,
             boolean isFinal,
             JavaType returnType,
-            JavaType[] parameterTypes,
-            JavaType[] thrownTypes,
-            JavaType[] staticLocals
+            List<JavaType> parameterTypes,
+            List<JavaType> thrownTypes
     );
 
     /**

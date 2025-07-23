@@ -32,7 +32,7 @@ public final class LocalGet extends WasmInstruction<LocalIndexData> {
         CodeEmitter emitter = context.getEmitter();
 
         ValueType type = frameState.requireLocal(data.getIndex());
-        emitter.loadLocal(emitter.getStaticLocal(data.getIndex()));
+        emitter.loadLocal(context.getLocalVariables().getStatic(data.getIndex()));
         frameState.pushOperand(type);
     }
 }

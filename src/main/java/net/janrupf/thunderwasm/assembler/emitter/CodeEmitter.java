@@ -23,25 +23,6 @@ public interface CodeEmitter {
     JavaStackFrameState getStackFrameState();
 
     /**
-     * Fix up a frame which was inferred from WASM state.
-     * <p>
-     * The way the code emitter organizes locals is not necessarily
-     * the same that WASM does it. For example, WASM doesn't have a
-     * concept of a "this" local. Moreover, the emitter may decide
-     * to re-order locals.
-     * <p>
-     * There are cases where frame state needs to be inferred from
-     * WASM state (mainly when dealing with WASM code that is unreachable).
-     * This inferred frame state can not accommodate for emitter specific
-     * intricacies.
-     *
-     * @param snapshot the snapshot to fix up
-     * @return the fixed up snapshot with emitter intricacies applied
-     * @throws WasmAssemblerException if the emitter can not fix up the frame
-     */
-    JavaFrameSnapshot fixupInferredFrame(JavaFrameSnapshot snapshot) throws WasmAssemblerException;
-
-    /**
      * Creates a new, not yet resolved label.
      *
      * @return the new label
@@ -94,25 +75,6 @@ public interface CodeEmitter {
      * @throws WasmAssemblerException if the jump instruction is invalid
      */
     void jump(JumpCondition condition, CodeLabel target) throws WasmAssemblerException;
-
-    /**
-     * Load the "this" reference onto the stack.
-     *
-     * @throws WasmAssemblerException if the code has no "this" reference
-     */
-    void loadThis() throws WasmAssemblerException;
-
-    /**
-     * Retrieve the java local for a local index that has the lifetime of the function.
-     * <p>
-     * The first N locals are the arguments, after that come the static locals as passed
-     * to the {@link ClassFileEmitter#method} call.
-     *
-     * @param index the index of the local
-     * @return the java local for that local index
-     * @throws WasmAssemblerException if the argument doesn't exist
-     */
-    JavaLocal getStaticLocal(int index) throws WasmAssemblerException;
 
     /**
      * Allocate a temporary local.

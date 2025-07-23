@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
@@ -109,7 +108,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.op(Op.SWAP);
         emitter.accessField(
                 context.getEmitter().getOwner(),
@@ -146,7 +145,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         JavaLocal destinationStartLocal = emitter.allocateLocal(PrimitiveType.INT);
         emitter.storeLocal(destinationStartLocal);
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
 
         emitter.duplicate();
 
@@ -318,7 +317,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
         String methodName;
         JavaType returnType;
-        ValueType wasmReturnType;
         int bitWidth;
 
         if (numberType == NumberType.I32 || numberType == NumberType.I64) {
@@ -326,7 +324,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 case SIGNED_8:
                 case UNSIGNED_8:
                     returnType = PrimitiveType.BYTE;
-                    wasmReturnType = NumberType.I32;
                     methodName = "get";
                     bitWidth = 8;
                     break;
@@ -334,7 +331,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 case SIGNED_16:
                 case UNSIGNED_16:
                     returnType = PrimitiveType.SHORT;
-                    wasmReturnType = NumberType.I32;
                     methodName = "getShort";
                     bitWidth = 16;
                     break;
@@ -342,14 +338,12 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 case SIGNED_32:
                 case UNSIGNED_32:
                     returnType = PrimitiveType.INT;
-                    wasmReturnType = NumberType.I32;
                     methodName = "getInt";
                     bitWidth = 32;
                     break;
 
                 case NATIVE:
                     returnType = javaType;
-                    wasmReturnType = numberType;
 
                     if (numberType == NumberType.I32) {
                         methodName = "getInt";
@@ -370,7 +364,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
             }
 
             returnType = javaType;
-            wasmReturnType = numberType;
 
             if (numberType == NumberType.F32) {
                 methodName = "getFloat";
@@ -620,7 +613,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     public void emitLoadData(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.accessField(
                 context.getEmitter().getOwner(),
                 generateDataSegmentFieldName(i),
@@ -706,7 +699,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     ) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
 
         if (isSet) {
             // Make sure to get the value to set to the top
@@ -720,10 +713,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 false,
                 isSet
         );
-
-        if (isSet) {
-            // Setting consumes both the this reference and the object to set
-        }
     }
 
     private void emitEnforceByteOrder(

@@ -14,10 +14,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
 
 public final class ASMCodeEmitter implements CodeEmitter {
     private final MethodVisitor visitor;
@@ -27,8 +24,6 @@ public final class ASMCodeEmitter implements CodeEmitter {
     // "this" may sometimes be passed in another position.
     private final ObjectType owner;
     private final JavaType returnType;
-    private final JavaLocal thisLocal;
-    private final JavaLocal[] staticLocals;
     private JavaStackFrameState stackFrameState;
     private boolean noNewInstructionsSinceLastVisitFrame;
 
@@ -39,15 +34,11 @@ public final class ASMCodeEmitter implements CodeEmitter {
             MethodVisitor visitor,
             ObjectType owner,
             JavaType returnType,
-            JavaLocal thisLocal,
-            JavaLocal[] staticLocals,
             JavaStackFrameState stackFrameState
     ) {
         this.visitor = visitor;
         this.owner = owner;
         this.returnType = returnType;
-        this.thisLocal = thisLocal;
-        this.staticLocals = staticLocals;
         this.stackFrameState = stackFrameState;
         this.noNewInstructionsSinceLastVisitFrame = false;
 
@@ -63,39 +54,6 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public JavaStackFrameState getStackFrameState() {
         return stackFrameState;
-    }
-
-    @Override
-    public JavaFrameSnapshot fixupInferredFrame(JavaFrameSnapshot snapshot) throws WasmAssemblerException {
-        // We need to re-order the static locals and `this` - the first N locals of the snapshot always need to
-        // be the static locals and this. Additional locals may have been allocated later and are not re-ordered
-        // by this emitter.
-        List<JavaType> newLocals = new ArrayList<>(snapshot.getLocals());
-
-        List<JavaLocal> specialLocals = new ArrayList<>();
-        if (thisLocal != null) {
-            specialLocals.add(thisLocal);
-        }
-        specialLocals.addAll(Arrays.asList(staticLocals));
-
-        if (newLocals.size() < staticLocals.length) {
-            // This shouldn't happen unless someone freed the argument locals
-            throw new WasmAssemblerException("Argument locals have disappeared from frame state");
-        }
-
-        // Sort by slot index and overwrite the re-ordered locals
-        specialLocals.sort(Comparator.comparingInt(JavaLocal::getSlot));
-
-        // Make room for the additional this local
-        if (thisLocal != null) {
-            newLocals.add(0, ObjectType.OBJECT);
-        }
-        for (int i = 0; i < specialLocals.size(); i++) {
-            newLocals.set(i, specialLocals.get(i).getType());
-        }
-
-        // The emitter doesn't do anything special with the stack, just use it as is
-        return new JavaFrameSnapshot(snapshot.getStack(), newLocals);
     }
 
     @Override
@@ -477,7 +435,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         Type asmType = ASMConverter.convertType(type);
         Type asmReturnType = ASMConverter.convertType(returnType);
-        Type[] asmParameterTypes = ASMConverter.convertTypes(parameterTypes);
+        Type[] asmParameterTypes = ASMConverter.convertTypes(Arrays.asList(parameterTypes));
 
         for (int i = parameterTypes.length - 1; i >= 0; i--) {
             stackFrameState.popOperand(parameterTypes[i]);
@@ -1159,30 +1117,6 @@ public final class ASMCodeEmitter implements CodeEmitter {
         visitor.visitTableSwitchInsn(base, base + targetLabels.length - 1, asmDefaultLabel, targetLabels);
         markNewInstruction();
         invalidateCurrentFrameState();
-    }
-
-    @Override
-    public void loadThis() throws WasmAssemblerException {
-        requireValidFrameSnapshot();
-
-        if (thisLocal == null) {
-            throw new WasmAssemblerException("Can not load this inside a static function");
-        }
-
-        visitor.visitVarInsn(Opcodes.ALOAD, thisLocal.getSlot());
-        markNewInstruction();
-        stackFrameState.pushOperand(owner);
-    }
-
-    @Override
-    public JavaLocal getStaticLocal(int index) throws WasmAssemblerException {
-        requireValidFrameSnapshot();
-
-        if (index >= this.staticLocals.length) {
-            throw new WasmAssemblerException("Argument index " + index + " out of bounds");
-        }
-
-        return this.staticLocals[index];
     }
 
     @Override

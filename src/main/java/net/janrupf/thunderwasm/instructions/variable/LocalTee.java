@@ -35,6 +35,6 @@ public final class LocalTee extends WasmInstruction<LocalIndexData> {
         frameState.requireOperand(type);
 
         emitter.duplicate();
-        emitter.storeLocal(emitter.getStaticLocal(data.getIndex()));
+        emitter.storeLocal(context.getLocalVariables().getStatic(data.getIndex()));
     }
 }

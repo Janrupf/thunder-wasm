@@ -33,6 +33,6 @@ public final class LocalSet extends WasmInstruction<LocalIndexData> {
 
         ValueType type = frameState.requireLocal(data.getIndex());
         frameState.popOperand(type);
-        emitter.storeLocal(emitter.getStaticLocal(data.getIndex()));
+        emitter.storeLocal(context.getLocalVariables().getStatic(data.getIndex()));
     }
 }

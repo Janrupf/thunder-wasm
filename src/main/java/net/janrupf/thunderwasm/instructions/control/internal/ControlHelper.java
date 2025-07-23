@@ -123,16 +123,16 @@ public final class ControlHelper {
             // look like (after all, nothing jumped there, so the state may be whatever).
             //
             // We need to fix this situation by taking the WASM state and transforming it
-            // back into Java state. Easier said than done - the emitter may decide to
+            // back into Java state. Easier said than done - the assembler may decide to
             // inject, re-order and otherwise mangle with the locals and operands. So
             // we infer a "pure" view of Java state from the WASM state ("pure" as in
-            // doesn't account for emitter specific changes) and then ask the emitter
+            // doesn't account for emitter specific changes) and then ask the assembler
             // to re-do its changes on the stack frame.
             //
             // TODO: This wont work with an unreachable block inside another block
             //       because the frame state only takes into account the most inner frame
             JavaFrameSnapshot inferred = context.getFrameState().inferJavaFrameSnapshot();
-            fixed = context.getEmitter().fixupInferredFrame(inferred);
+            fixed = context.fixupInferredFrameSnapshot(inferred);
         }
 
         if (resolveLabel) {

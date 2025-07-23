@@ -11,6 +11,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
+import java.util.List;
+
 public final class ASMClassFileEmitter implements ClassFileEmitter {
     private final ClassWriter writer;
     private final ObjectType owner;
@@ -63,9 +65,8 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
             boolean isStatic,
             boolean isFinal,
             JavaType returnType,
-            JavaType[] parameterTypes,
-            JavaType[] thrownTypes,
-            JavaType[] staticLocals
+            List<JavaType> parameterTypes,
+            List<JavaType> thrownTypes
     ) {
         int access = ASMConverter.toAccessModifiers(visibility, isStatic, isFinal);
         Type asmReturnType = ASMConverter.convertType(returnType);
@@ -81,7 +82,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
                 ASMConverter.convertTypesToNames(thrownTypes)
         );
 
-        return new ASMMethodEmitter(mVisitor, isStatic, owner, returnType, parameterTypes, staticLocals);
+        return new ASMMethodEmitter(mVisitor, isStatic, owner, returnType, parameterTypes);
     }
 
     @Override

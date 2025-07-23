@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
+import java.util.List;
 
 public final class Return extends WasmInstruction<EmptyInstructionData> {
     public static final Return INSTANCE = new Return();
@@ -24,9 +25,15 @@ public final class Return extends WasmInstruction<EmptyInstructionData> {
 
     @Override
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        ValueType returnType = context.getFrameState().getReturnType();
-        if (returnType != null) {
-            context.getFrameState().popOperand(returnType);
+        // TODO: Unify this code with the code in FunctionAssembler
+
+        List<ValueType> returnTypes = context.getFrameState().getReturnTypes();
+        if (returnTypes.size() > 1) {
+            throw new WasmAssemblerException("Multiple return types are not supported yet");
+        }
+
+        if (!returnTypes.isEmpty()) {
+            context.getFrameState().popOperand(returnTypes.get(0));
         }
 
         context.getEmitter().doReturn();

@@ -13,14 +13,14 @@ public final class WasmFrameState {
     // array under the hood anyway.
     private final List<ValueType> operandStack;
     private final List<ValueType> locals;
-    private final ValueType returnType;
+    private final List<ValueType> returnTypes;
     private final List<ValueType> blockReturnTypes;
     private boolean isReachable;
 
     public WasmFrameState(
             ValueType[] argumentTypes,
             List<ValueType> locals,
-            ValueType returnType,
+            List<ValueType> returnTypes,
             List<ValueType> blockReturnTypes
     ) throws WasmAssemblerException {
         this.operandStack = new ArrayList<>();
@@ -28,7 +28,7 @@ public final class WasmFrameState {
         this.locals = new ArrayList<>();
         this.locals.addAll(Arrays.asList(argumentTypes));
         this.locals.addAll(locals);
-        this.returnType = returnType;
+        this.returnTypes = returnTypes;
         this.blockReturnTypes = blockReturnTypes;
 
         this.isReachable = true;
@@ -94,9 +94,7 @@ public final class WasmFrameState {
             throw new WasmAssemblerException("Tried to pop from empty operand stack");
         }
 
-        ValueType popped = operandStack.remove(operandStack.size() - 1);
-
-        return popped;
+        return operandStack.remove(operandStack.size() - 1);
     }
 
     /**
@@ -180,12 +178,12 @@ public final class WasmFrameState {
     }
 
     /**
-     * Retrieve the current frame's return type.
+     * Retrieve the current frame's return types.
      *
-     * @return the frame's return type, or null, if none
+     * @return the frame's return types
      */
-    public ValueType getReturnType() {
-        return returnType;
+    public List<ValueType> getReturnTypes() {
+        return returnTypes;
     }
 
     /**
@@ -218,7 +216,7 @@ public final class WasmFrameState {
         WasmFrameState newFrameState = new WasmFrameState(
                 new ValueType[0],
                 locals,
-                returnType,
+                returnTypes,
                 Arrays.asList(type.getOutputs().asFlatArray())
         );
 

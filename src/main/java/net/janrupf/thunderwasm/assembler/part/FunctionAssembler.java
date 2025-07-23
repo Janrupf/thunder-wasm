@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.assembler.part;
 
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.lookup.ModuleLookups;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
@@ -7,16 +8,16 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
-import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
-import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.ValueType;
+import net.janrupf.thunderwasm.util.ObjectUtil;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -44,45 +45,40 @@ public final class FunctionAssembler {
             ClassFileEmitter classEmitter,
             String functionName,
             LargeArray<ValueType> inputs,
-            LargeArray<ValueType> outputs,
-            boolean isStatic
+            LargeArray<ValueType> outputs
     ) throws WasmAssemblerException  {
         try {
-            if (Long.compareUnsigned(inputs.length(), 255) > 0) {
-                throw new WasmAssemblerException(
-                        "Function has too many inputs, maximum is 255"
-                );
+            TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(inputs, outputs, classEmitter.getOwner());
+
+            MethodEmitter methodEmitter = classEmitter.method(
+                    functionName,
+                    // TODO: Exports...
+                    Visibility.PUBLIC,
+                    true,
+                    false,
+                    signature.getJavaReturnType(),
+                    signature.getJavaArgumentTypes(),
+                    Collections.emptyList()
+            );
+
+            CodeEmitter codeEmitter = methodEmitter.code();
+
+            // Purposefully not using `thisLocal` here - we emit a static function that may very well
+            // not have `this` at position 0.
+            JavaLocal thisLocal = methodEmitter.getArgumentLocals().get(signature.getOwnerArgumentIndex());
+            List<JavaLocal> staticLocals = new ArrayList<>();
+
+            for (int i = 0; i < signature.getJavaArgumentTypes().size(); i++) {
+                if (i == signature.getOwnerArgumentIndex()) {
+                    continue;
+                }
+
+                JavaLocal argumentLocal = methodEmitter.getArgumentLocals().get(signature.getArgumentIndex(i));
+                staticLocals.add(argumentLocal);
             }
 
-            // Somewhat arbitrary limit, but we need to limit the number of outputs...
-            // besides that, if you need more than 255 outputs, you're doing something wrong
-            if (Long.compareUnsigned(outputs.length(), 255) > 0) {
-                throw new WasmAssemblerException(
-                        "Function has too many outputs, maximum is 255"
-                );
-            }
-
-            if (Long.compareUnsigned(outputs.length(), 1) > 0) {
-                throw new WasmAssemblerException(
-                        "Function has too many outputs, currently only 1 is supported"
-                );
-            }
-
-            ValueType wasmReturnType;
-            JavaType returnType;
-            if (outputs.length() != 0) {
-                // 1 output
-                wasmReturnType = outputs.get(LargeArrayIndex.ZERO);
-                returnType = WasmTypeConverter.toJavaType(wasmReturnType);
-            } else {
-                // 0 outputs
-                wasmReturnType = null;
-                returnType = PrimitiveType.VOID;
-            }
-
-            // Expand locals
+            // Expand WASM locals
             List<ValueType> expandedLocals = new ArrayList<>();
-            List<JavaType> javaExpandedLocals = new ArrayList<>();
             for (Local local : locals.asFlatArray()) {
                 if (expandedLocals.size() + local.getCount() > 65535) {
                     throw new WasmAssemblerException(
@@ -92,44 +88,38 @@ public final class FunctionAssembler {
 
                 for (int i = 0; i < local.getCount(); i++) {
                     expandedLocals.add(local.getType());
-                    javaExpandedLocals.add(WasmTypeConverter.toJavaType(local.getType()));
+
+                    JavaType javaType = WasmTypeConverter.toJavaType(local.getType());
+                    JavaLocal javaLocal = codeEmitter.allocateLocal(javaType);
+                    staticLocals.add(javaLocal);
+
+                    codeEmitter.loadConstant(javaType.getDefaultValue());
+                    codeEmitter.storeLocal(javaLocal);
                 }
             }
 
-            JavaType[] argumentTypes = WasmTypeConverter.toJavaTypes(inputs.asFlatArray());
-
-            MethodEmitter methodEmitter = classEmitter.method(
-                    functionName,
-                    // TODO: Exports...
-                    Visibility.PUBLIC,
-                    isStatic,
-                    false,
-                    returnType,
-                    argumentTypes,
-                    new JavaType[0],
-                    javaExpandedLocals.toArray(new JavaType[0])
-            );
-
-            CodeEmitter codeEmitter = methodEmitter.code();
-
-            // Initialize all locals that are not arguments with 0
-            for (int i = 0; i < javaExpandedLocals.size(); i++) {
-                codeEmitter.loadConstant(javaExpandedLocals.get(i).getDefaultValue());
-                codeEmitter.storeLocal(codeEmitter.getStaticLocal(argumentTypes.length + i));
-            }
+            LocalVariables localVariables = new LocalVariables(thisLocal, staticLocals);
 
             WasmFrameState frameState = new WasmFrameState(
                     inputs.asFlatArray(),
                     expandedLocals,
-                    wasmReturnType,
+                    signature.getWasmReturnTypes(),
                     null
             );
 
+            CodeEmitContext context = new CodeEmitContext(
+                    new ElementLookups(lookups),
+                    codeEmitter,
+                    frameState,
+                    generators,
+                    localVariables
+            );
+
             for (InstructionInstance instruction : expr.getInstructions()) {
-                this.processInstruction(instruction, codeEmitter, frameState);
+                this.processInstruction(instruction, context);
             }
 
-            this.processFunctionEpilogue(codeEmitter, frameState, outputs, returnType);
+            this.processFunctionEpilogue(context);
 
             // Finish code generation
             codeEmitter.finish();
@@ -141,62 +131,39 @@ public final class FunctionAssembler {
 
     private void processInstruction(
             InstructionInstance instruction,
-            CodeEmitter codeEmitter,
-            WasmFrameState frameState
+            CodeEmitContext context
     ) throws WasmAssemblerException {
         WasmInstruction<? extends WasmInstruction.Data> wasmInstruction = instruction.getInstruction();
         WasmInstruction.Data data = instruction.getData();
 
-        // This intermediary helper method is necessary in order to be able to cast
-        // the data to the correct type
-        this.processInstructionWithData(wasmInstruction, data, codeEmitter, frameState);
-    }
-
-    @SuppressWarnings("unchecked")
-    private <D extends WasmInstruction.Data> void processInstructionWithData(
-            WasmInstruction<D> instruction,
-            Object instructionData,
-            CodeEmitter codeEmitter,
-            WasmFrameState frameState
-    ) throws WasmAssemblerException {
-        D data = (D) instructionData;
         try {
-            instruction.emitCode(
-                    new CodeEmitContext(new ElementLookups(lookups), codeEmitter, frameState, generators),
-                    data
-            );
+            wasmInstruction.emitCode(context, ObjectUtil.forceCast(data));
         } catch (WasmAssemblerException e) {
-            throw new WasmAssemblerException("Could not process instruction " + instruction.getName(), e);
+            throw new WasmAssemblerException("Could not process instruction " + wasmInstruction.getName(), e);
         }
     }
 
     private void processFunctionEpilogue(
-            CodeEmitter codeEmitter,
-            WasmFrameState frameState,
-            LargeArray<ValueType> wasmOutputs,
-            JavaType javaOutput
+            CodeEmitContext context
     ) throws WasmAssemblerException {
+        List<ValueType> wasmOutputs = context.getFrameState().getReturnTypes();
+        WasmFrameState frameState = context.getFrameState();
+        CodeEmitter codeEmitter = context.getEmitter();
+
         if (!frameState.isReachable()) {
             return;
         }
 
         // We have no trailing return instruction, insert one!
-        if (wasmOutputs.length() > 1) {
+        if (wasmOutputs.size() > 1) {
             throw new WasmAssemblerException("Only one output is supported for now");
-        } else if (wasmOutputs.length() < 1) {
+        } else if (wasmOutputs.isEmpty()) {
             codeEmitter.doReturn();
             return;
         }
 
-        ValueType output = wasmOutputs.get(LargeArrayIndex.ZERO);
-        JavaType javaOutputType = WasmTypeConverter.toJavaType(output);
-
-        // We expect the output to be on the stack
-
-        if (!javaOutputType.equals(javaOutput)) {
-            throw new WasmAssemblerException(
-                    "Expected output type " + javaOutput.toJvmDescriptor() + " but got " + javaOutputType.toJvmDescriptor()
-            );
+        for (ValueType output : wasmOutputs) {
+            frameState.popOperand(output);
         }
 
         codeEmitter.doReturn();

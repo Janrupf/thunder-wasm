@@ -104,7 +104,7 @@ public class DefaultTableGenerator implements TableGenerator {
         );
 
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.op(Op.SWAP);
         emitter.accessField(
                 context.getEmitter().getOwner(),
@@ -142,7 +142,7 @@ public class DefaultTableGenerator implements TableGenerator {
 
         }
 
-        CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), 1);
+        CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), context.getLocalVariables(), 1);
         emitter.accessField(
                 context.getEmitter().getOwner(),
                 generateElementSegmentFieldName(i),
@@ -303,7 +303,7 @@ public class DefaultTableGenerator implements TableGenerator {
 
         CodeEmitter emitter = context.getEmitter();
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.accessField(
                 context.getEmitter().getOwner(),
                 generateElementSegmentFieldName(elementIndex),
@@ -332,7 +332,7 @@ public class DefaultTableGenerator implements TableGenerator {
     public void emitLoadElement(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.accessField(
                 context.getEmitter().getOwner(),
                 generateElementSegmentFieldName(i),
@@ -362,7 +362,7 @@ public class DefaultTableGenerator implements TableGenerator {
      * @throws WasmAssemblerException if an error occurs
      */
     private void emitLoadTableReferenceInternal(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException {
-        context.getEmitter().loadThis();
+        context.getEmitter().loadLocal(context.getLocalVariables().getThis());
         context.getEmitter().accessField(
                 context.getEmitter().getOwner(),
                 generateTableFieldName(i),

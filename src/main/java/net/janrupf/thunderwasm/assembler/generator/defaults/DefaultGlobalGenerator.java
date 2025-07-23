@@ -30,7 +30,7 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
 
     @Override
     public void emitGetGlobal(LargeArrayIndex index, Global global, CodeEmitContext context) throws WasmAssemblerException {
-        CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), 0);
+        CommonBytecodeGenerator.loadThisBelow(context.getEmitter(),  context.getLocalVariables(), 0);
         context.getEmitter().accessField(
                 context.getEmitter().getOwner(),
                 getGlobalFieldName(index),
@@ -46,7 +46,7 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
 
         ValueType globalType = global.getType().getValueType();
 
-        CommonBytecodeGenerator.loadThisBelow(emitter, 1);
+        CommonBytecodeGenerator.loadThisBelow(emitter, context.getLocalVariables(), 1);
 
         // And store the value
         context.getEmitter().accessField(

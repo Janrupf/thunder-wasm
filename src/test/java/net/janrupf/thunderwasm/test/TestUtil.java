@@ -151,9 +151,15 @@ public class TestUtil {
     ) throws ThunderWasmException  {
         Class<?> moduleClass = moduleInstance.getClass();
 
+        Class<?>[] realArgumentTypes = new Class<?>[argumentTypes.length + 1];
+        for (int i = 0; i < argumentTypes.length; i++) {
+            realArgumentTypes[argumentTypes.length - 1 - i] = argumentTypes[i];
+        }
+        realArgumentTypes[argumentTypes.length] = moduleClass;
+
         Method method;
         try {
-            method = moduleClass.getMethod("$code_" + index, argumentTypes);
+            method = moduleClass.getMethod("$code_" + index, realArgumentTypes);
         } catch (NoSuchMethodException e) {
             throw new ThunderWasmException("Failed to look up method", e);
         }
@@ -164,8 +170,14 @@ public class TestUtil {
             throw new ThunderWasmException("Failed to make method accessible", e);
         }
 
+        Object[] realArguments = new Object[arguments.length + 1];
+        for (int i = 0; i < arguments.length; i++) {
+            realArguments[arguments.length - 1 - i] = arguments[i];
+        }
+        realArguments[arguments.length] = moduleInstance;
+
         try {
-            return method.invoke(moduleInstance, arguments);
+            return method.invoke(null, realArguments);
         } catch (Exception e) {
             throw new ThunderWasmException("Failed to invoke method", e);
         }

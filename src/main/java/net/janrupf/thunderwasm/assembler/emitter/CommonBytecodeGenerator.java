@@ -392,14 +392,16 @@ public class CommonBytecodeGenerator {
      * Load the value of "this" and move it below n values.
      *
      * @param emitter         the code emitter
+     * @param localVariables  the local variables
      * @param valuesAboveThis the number of values above "this"
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadThisBelow(
             CodeEmitter emitter,
+            LocalVariables localVariables,
             int valuesAboveThis
     ) throws WasmAssemblerException {
-        loadBelow(emitter, valuesAboveThis, ObjectType.OBJECT, emitter::loadThis);
+        loadBelow(emitter, valuesAboveThis, emitter.getOwner(), () -> emitter.loadLocal(localVariables.getThis()));
     }
 
     /**

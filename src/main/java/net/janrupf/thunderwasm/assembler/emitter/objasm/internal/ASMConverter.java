@@ -10,6 +10,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.signature.SignatureVisitor;
 import org.objectweb.asm.signature.SignatureWriter;
 
+import java.util.List;
+
 public final class ASMConverter {
     private ASMConverter() {
         throw new AssertionError("No instances of ASMConverter are allowed");
@@ -77,10 +79,10 @@ public final class ASMConverter {
      * @param types the JavaTypes
      * @return the ASM Types
      */
-    public static Type[] convertTypes(JavaType[] types) {
-        Type[] result = new Type[types.length];
-        for (int i = 0; i < types.length; i++) {
-            result[i] = convertType(types[i]);
+    public static Type[] convertTypes(List<JavaType> types) {
+        Type[] result = new Type[types.size()];
+        for (int i = 0; i < types.size(); i++) {
+            result[i] = convertType(types.get(i));
         }
         return result;
     }
@@ -91,10 +93,10 @@ public final class ASMConverter {
      * @param types the JavaTypes
      * @return the ASM descriptors
      */
-    public static String[] convertTypesToNames(JavaType[] types) {
-        String[] result = new String[types.length];
-        for (int i = 0; i < types.length; i++) {
-            result[i] = convertType(types[i]).getInternalName();
+    public static String[] convertTypesToNames(List<JavaType> types) {
+        String[] result = new String[types.size()];
+        for (int i = 0; i < types.size(); i++) {
+            result[i] = convertType(types.get(i)).getInternalName();
         }
         return result;
     }

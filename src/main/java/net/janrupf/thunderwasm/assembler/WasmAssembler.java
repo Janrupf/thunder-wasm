@@ -29,6 +29,7 @@ import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
 import net.janrupf.thunderwasm.types.*;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 
@@ -126,9 +127,6 @@ public final class WasmAssembler {
 
         // Create global constructors
         GlobalSection globalSection = lookups.findSingleSection(GlobalSection.LOCATOR);
-        if (globalSection != null) {
-            emitAllGlobalConstructor(globalSection);
-        }
 
         // Create element segments
         ElementSection elementSection = lookups.findSingleSection(ElementSection.LOCATOR);
@@ -152,28 +150,31 @@ public final class WasmAssembler {
                 false,
                 false,
                 PrimitiveType.VOID,
-                new JavaType[]{generators.getImportGenerator().getLinkerType()},
-                new JavaType[]{ObjectType.of(ThunderWasmException.class)},
-                new JavaType[0]
+                Collections.singletonList(generators.getImportGenerator().getLinkerType()),
+                Collections.singletonList(ObjectType.of(ThunderWasmException.class))
         );
+
+        LocalVariables localVariables = new LocalVariables(
+                constructor.getThisLocal(), constructor.getArgumentLocals());
 
         // Emit a call to the super constructor
         CodeEmitter code = constructor.code();
-        code.loadThis();
+        code.loadLocal(localVariables.getThis());
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
 
         CodeEmitContext emitContext = new CodeEmitContext(
                 elementLookups,
                 code,
                 frameState,
-                generators
+                generators,
+                localVariables
         );
 
         // Initializes imports if any
         if (importSection != null) {
             for (Import<?> im : importSection.getImports()) {
                 // The contract for emitLinkImport says the linker should be on top of the stack
-                code.loadLocal(code.getStaticLocal(0));
+                code.loadLocal(constructor.getArgumentLocals().get(0));
 
                 generators.getImportGenerator().emitLinkImport(im, emitContext);
             }
@@ -181,7 +182,7 @@ public final class WasmAssembler {
 
         // Initializes globals if any
         if (globalSection != null) {
-            emitGlobalInitializers(globalSection, code, frameState);
+            emitGlobalInitializers(globalSection, code, frameState, localVariables);
         }
 
         // Initializes tables if any
@@ -316,65 +317,28 @@ public final class WasmAssembler {
         code.finish();
     }
 
-    private void emitAllGlobalConstructor(GlobalSection section) throws WasmAssemblerException {
-        LargeArray<Global> globals = section.getGlobals();
-
-        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
-            emitGlobalConstructor(globals.get(i), determineMethodName("global", i));
-        }
-    }
-
-    private void emitGlobalConstructor(
-            Global global,
-            String name
-    ) throws WasmAssemblerException {
-        ValueType type = global.getType().getValueType();
-
-        // Emit the initializer code
-        FunctionAssembler assembler = new FunctionAssembler(
-                lookups,
-                generators,
-                LargeArray.of(Local.class),
-                global.getInit()
-        );
-
-        // Emit the initializer
-        assembler.assemble(
-                emitter,
-                name,
-                LargeArray.of(ValueType.class),
-                LargeArray.of(ValueType.class, type),
-                true
-        );
-    }
-
     private void emitGlobalInitializers(
             GlobalSection section,
             CodeEmitter code,
-            WasmFrameState frameState
+            WasmFrameState frameState,
+            LocalVariables localVariables
     ) throws WasmAssemblerException {
         LargeArray<Global> globals = section.getGlobals();
 
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
             Global global = globals.get(i);
 
-            // Invoke the global initializers
-            code.invoke(
-                    emitter.getOwner(),
-                    determineMethodName("global", i),
-                    new JavaType[0],
-                    WasmTypeConverter.toJavaType(global.getType().getValueType()),
-                    InvokeType.STATIC,
-                    false
-            );
-
+            EvalContext evalContext = new EvalContext(elementLookups);
+            Object globalValue = evalContext.evalSingleValue(global.getInit(), true, global.getType().getValueType());
 
             // Emit the setter
+            code.loadConstant(globalValue);
             generators.getGlobalGenerator().emitSetGlobal(i, global, new CodeEmitContext(
                     elementLookups,
                     code,
                     frameState,
-                    generators
+                    generators,
+                    localVariables
             ));
         }
     }
@@ -494,8 +458,7 @@ public final class WasmAssembler {
                 emitter,
                 determineMethodName("code", index),
                 functionType.getInputs(),
-                functionType.getOutputs(),
-                false
+                functionType.getOutputs()
         );
     }
 

@@ -221,7 +221,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
 
         // Set the field to the result of the method invocation
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.op(Op.SWAP);
         emitter.accessField(
                 emitter.getOwner(),
@@ -262,7 +262,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
 
         // Set the field to the result of the method invocation
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.op(Op.SWAP);
 
         emitter.duplicate(2, 0);
@@ -424,7 +424,7 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         emitter.storeLocal(temporaryLocal);
 
-        emitter.loadThis();
+        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.duplicate();
 
         emitter.accessField(
@@ -554,7 +554,7 @@ public class DefaultImportGenerator implements ImportGenerator {
     ) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        CommonBytecodeGenerator.loadThisBelow(emitter, isSet ? 1 : 0);
+        CommonBytecodeGenerator.loadThisBelow(emitter, context.getLocalVariables(), isSet ? 1 : 0);
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldName(im),
