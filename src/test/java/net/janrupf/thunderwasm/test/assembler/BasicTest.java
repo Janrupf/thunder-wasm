@@ -54,9 +54,9 @@ public class BasicTest {
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
         int result = (int) TestUtil.callCodeMethod(
                 moduleInstance,
-                0,
-                new Class<?>[]{ int.class, int.class, int.class },
-                new Object[]{ 1, 2, 3 }
+                2,
+                new Class<?>[]{ int.class },
+                new Object[]{ 1 }
         );
 
         System.out.println("Result: " + result);

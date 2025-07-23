@@ -316,10 +316,10 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     }
 
     @Override
-    public void emitFunctionTableInitializer(int functionCount, int firstLocalFunction, CodeEmitContext context) throws WasmAssemblerException {
+    public void emitFunctionTableInitializer(WasmAssemblerStatistics statistics, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        emitter.loadConstant(functionCount);
+        emitter.loadConstant(statistics.getTotalFunctionCount());
         emitter.doNew(LINKED_FUNCTION_ARRAY_TYPE);
 
         emitter.duplicate();
@@ -327,6 +327,21 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         emitter.op(Op.SWAP);
         emitter.accessField(emitter.getOwner(), "functions", LINKED_FUNCTION_ARRAY_TYPE, false, true);
 
+        emitter.accessField(emitter.getOwner(), "MODULE_FUNCTIONS", LINKED_FUNCTION_ARRAY_TYPE, true, false);
+        emitter.loadConstant(0);
+        emitLoadFunctionTable(context);
+        emitter.loadConstant(statistics.getImportedFunctionCount()); // Start copying right after the imported functions
+        emitter.loadConstant(statistics.getLocalFunctionCount());
+
+        // Copy over from the MODULE_FUNCTIONS array
+        emitter.invoke(
+                ObjectType.of(System.class),
+                "arraycopy",
+                new JavaType[] { ObjectType.OBJECT, PrimitiveType.INT, ObjectType.OBJECT, PrimitiveType.INT, PrimitiveType.INT },
+                PrimitiveType.VOID,
+                InvokeType.STATIC,
+                false
+        );
     }
 
     @Override
@@ -334,6 +349,23 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         CodeEmitter emitter = context.getEmitter();
         emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.accessField(emitter.getOwner(), "functions", LINKED_FUNCTION_ARRAY_TYPE, false, false);
+    }
+
+    @Override
+    public void emitInvokeFunction(LargeArrayIndex functionIndex, FunctionType function, CodeEmitContext context)
+            throws WasmAssemblerException {
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(function, context.getEmitter().getOwner());
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.invoke(
+                emitter.getOwner(),
+                determineMethodName(functionIndex),
+                signature.getJavaArgumentTypes().toArray(new JavaType[0]),
+                signature.getJavaReturnType(),
+                InvokeType.STATIC,
+                false
+        );
     }
 
     private String determineMethodName(LargeArrayIndex i) {
@@ -348,7 +380,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             LargeArrayIndex i,
             ElementLookups lookups
     ) throws WasmAssemblerException {
-        int functionTypeIndex = lookups.requireFunctionTypeIndex(i);
+        int functionTypeIndex = lookups.requireLocalFunctionTypeIndex(i);
         return lookups.requireType(LargeArrayIndex.fromU32(functionTypeIndex));
     }
 }

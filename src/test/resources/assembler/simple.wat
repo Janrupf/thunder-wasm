@@ -1,20 +1,26 @@
 (module
   (import "test" "memory" (memory 1 5))
+  (import "test" "function" (func $importedFunction (param i32) (result i32)))
 
-  (func $test (param $a i32) (param $b i32) (param $c i32) (result i32)
-    (local $d i32)
-    (local $e i32)
-
-    local.get $b
-    local.get $c
+  (func $addOne (param $x i32) (result i32)
+    local.get $x
+    i32.const 1
     i32.add
-    local.set $d
+  )
 
-    local.get $e
-    local.get $e
+  ;; Function 2: Calls $addOne and adds 1 to the result
+  (func $addTwo (param $y i32) (result i32)
+    local.get $y
+    call $addOne
+    i32.const 1
     i32.add
-    local.set $e
+  )
 
-    local.get $a
+  ;; Function 3: Calls $addTwo and adds 1 to the result
+  (func $addThree (param $z i32) (result i32)
+    local.get $z
+    call $addTwo
+    i32.const 1
+    i32.add
   )
 )

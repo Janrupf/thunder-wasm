@@ -11,7 +11,6 @@ import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
-import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
@@ -211,6 +210,9 @@ public final class WasmAssembler {
                 generators,
                 localVariables
         );
+
+        // Emit the function table initializer, imports depend on it
+        generators.getFunctionGenerator().emitFunctionTableInitializer(statistics, emitContext);
 
         // Initializes imports if any
         if (importSection != null) {
