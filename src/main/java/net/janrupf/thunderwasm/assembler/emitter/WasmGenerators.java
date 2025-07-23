@@ -1,28 +1,35 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
-import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
-import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
-import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
-import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultGlobalGenerator;
-import net.janrupf.thunderwasm.assembler.generator.GlobalGenerator;
-import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultImportGenerator;
-import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultMemoryGenerator;
-import net.janrupf.thunderwasm.assembler.generator.defaults.DefaultTableGenerator;
+import net.janrupf.thunderwasm.assembler.generator.*;
+import net.janrupf.thunderwasm.assembler.generator.defaults.*;
 
 /**
  * Holder for all generators used by the {@link net.janrupf.thunderwasm.assembler.WasmAssembler}.
  */
 public final class WasmGenerators {
+    private FunctionGenerator functionGenerator;
     private GlobalGenerator globalGenerator;
     private ImportGenerator importGenerator;
     private MemoryGenerator memoryGenerator;
     private TableGenerator tableGenerator;
 
     public WasmGenerators() {
+        this.functionGenerator = new DefaultFunctionGenerator();
         this.globalGenerator = new DefaultGlobalGenerator();
         this.importGenerator = new DefaultImportGenerator();
         this.memoryGenerator = new DefaultMemoryGenerator();
         this.tableGenerator = new DefaultTableGenerator();
+    }
+
+    /**
+     * Overrides the function generator.
+     *
+     * @param functionGenerator the new function generator
+     * @return this
+     */
+    public WasmGenerators withFunctionGenerator(FunctionGenerator functionGenerator) {
+        this.functionGenerator = functionGenerator;
+        return this;
     }
 
     /**
@@ -67,6 +74,15 @@ public final class WasmGenerators {
     public WasmGenerators withTableGenerator(TableGenerator tableGenerator) {
         this.tableGenerator = tableGenerator;
         return this;
+    }
+
+    /**
+     * Retrieves the function generator.
+     *
+     * @return the function generator
+     */
+    public FunctionGenerator getFunctionGenerator() {
+        return functionGenerator;
     }
 
     /**

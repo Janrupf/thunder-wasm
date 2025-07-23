@@ -18,7 +18,7 @@ public final class WasmFrameState {
     private boolean isReachable;
 
     public WasmFrameState(
-            ValueType[] argumentTypes,
+            List<ValueType> argumentTypes,
             List<ValueType> locals,
             List<ValueType> returnTypes,
             List<ValueType> blockReturnTypes
@@ -26,7 +26,7 @@ public final class WasmFrameState {
         this.operandStack = new ArrayList<>();
 
         this.locals = new ArrayList<>();
-        this.locals.addAll(Arrays.asList(argumentTypes));
+        this.locals.addAll(argumentTypes);
         this.locals.addAll(locals);
         this.returnTypes = returnTypes;
         this.blockReturnTypes = blockReturnTypes;
@@ -214,7 +214,7 @@ public final class WasmFrameState {
      */
     public WasmFrameState executeBlock(FunctionType type) throws WasmAssemblerException {
         WasmFrameState newFrameState = new WasmFrameState(
-                new ValueType[0],
+                Collections.emptyList(),
                 locals,
                 returnTypes,
                 Arrays.asList(type.getOutputs().asFlatArray())

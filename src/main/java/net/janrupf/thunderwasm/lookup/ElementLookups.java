@@ -137,6 +137,22 @@ public final class ElementLookups {
     }
 
     /**
+     * Require the function type index at the given index.
+     *
+     * @param i the index of the function
+     * @return the found function type index
+     * @throws WasmAssemblerException if the function type could not be found
+     */
+    public int requireFunctionTypeIndex(LargeArrayIndex i) throws WasmAssemblerException {
+        FunctionSection typeSection = moduleLookups.findSingleSection(FunctionSection.LOCATOR);
+        if (typeSection == null || !typeSection.getTypes().isValid(i)) {
+            throw new WasmAssemblerException("Function section index " + i + " out of bounds");
+        }
+
+        return typeSection.getTypes().get(i);
+    }
+
+    /**
      * Require the type at the given index.
      *
      * @param i the index of the type

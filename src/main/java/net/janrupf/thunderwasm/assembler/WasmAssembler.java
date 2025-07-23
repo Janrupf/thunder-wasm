@@ -6,7 +6,6 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
-import net.janrupf.thunderwasm.assembler.part.FunctionAssembler;
 import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.Import;
@@ -14,14 +13,12 @@ import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
-import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.lookup.ModuleLookups;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.DataSegmentMode;
@@ -29,7 +26,6 @@ import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
 import net.janrupf.thunderwasm.types.*;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 
@@ -111,7 +107,7 @@ public final class WasmAssembler {
      */
     private void emitConstructor() throws WasmAssemblerException {
         WasmFrameState frameState = new WasmFrameState(
-                new ValueType[]{},
+                Collections.emptyList(),
                 Collections.emptyList(),
                 null,
                 null
@@ -388,7 +384,11 @@ public final class WasmAssembler {
 
         LargeArray<Function> functions = section.getFunctions();
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(functions.largeLength()) < 0; i = i.add(1)) {
-            processFunction(i, functions.get(i));
+            processFunction(i, functions.get(i), new ClassEmitContext(
+                    elementLookups,
+                    emitter,
+                    generators
+            ));
         }
     }
 
@@ -426,40 +426,8 @@ public final class WasmAssembler {
      * @param function the function to process
      * @throws WasmAssemblerException if an error occurs during processing
      */
-    private void processFunction(LargeArrayIndex index, Function function) throws WasmAssemblerException {
-        FunctionAssembler functionAssembler = new FunctionAssembler(
-                lookups,
-                generators,
-                function.getLocals(),
-                function.getExpr()
-        );
-
-        // Look up the function type
-        LargeArray<FunctionType> functionTypes = lookups.requireSingleSection(TypeSection.LOCATOR).getTypes();
-        LargeIntArray functionTypesIndices = lookups.requireSingleSection(FunctionSection.LOCATOR).getTypes();
-
-        if (!functionTypesIndices.isValid(index)) {
-            throw new WasmAssemblerException(
-                    "Function in code section at index " + index + " has no associated index in function section"
-            );
-        }
-
-        int functionTypeIndex = functionTypesIndices.get(index);
-        if (!functionTypes.isValid(LargeArrayIndex.fromU64(functionTypeIndex))) {
-            throw new WasmAssemblerException(
-                    "Function in code section at index " + index + " has invalid function type index " + functionTypeIndex
-            );
-        }
-
-        FunctionType functionType = functionTypes.get(LargeArrayIndex.fromU64(functionTypeIndex));
-
-        // Emit the function
-        functionAssembler.assemble(
-                emitter,
-                determineMethodName("code", index),
-                functionType.getInputs(),
-                functionType.getOutputs()
-        );
+    private void processFunction(LargeArrayIndex index, Function function, ClassEmitContext context) throws WasmAssemblerException {
+        generators.getFunctionGenerator().addFunction(index, function, context);
     }
 
     /**
@@ -475,9 +443,5 @@ public final class WasmAssembler {
         }
 
         onceProcessedSections.add(section);
-    }
-
-    private String determineMethodName(String sectionName, LargeArrayIndex index) {
-        return "$" + sectionName + "_" + index;
     }
 }
