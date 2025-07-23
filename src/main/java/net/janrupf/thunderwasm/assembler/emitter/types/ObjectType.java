@@ -43,6 +43,10 @@ public class ObjectType extends JavaType {
      * @return the binary name of this object type
      */
     public String getBinaryName() {
+        if (packageName == null || packageName.isEmpty()) {
+            return className;
+        }
+
         return packageName.replace('.', '/') + "/" + className;
     }
 

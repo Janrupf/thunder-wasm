@@ -11,6 +11,7 @@ import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
@@ -43,6 +44,7 @@ public final class WasmAssembler {
     private final EnumSet<ProcessedSections> onceProcessedSections;
 
     private final WasmGenerators generators;
+    private final WasmAssemblerStatistics statistics;
 
     public WasmAssembler(
             WasmModule module,
@@ -50,7 +52,7 @@ public final class WasmAssembler {
             String packageName,
             String className,
             WasmGenerators generators
-    ) {
+    ) throws WasmAssemblerException {
         this.packageName = packageName;
         this.className = className;
 
@@ -60,6 +62,7 @@ public final class WasmAssembler {
         this.lookups = new ModuleLookups(module);
         this.elementLookups = new ElementLookups(lookups);
         this.onceProcessedSections = EnumSet.noneOf(ProcessedSections.class);
+        this.statistics = WasmAssemblerStatistics.calculate(lookups);
 
         this.generators = generators;
     }
@@ -93,6 +96,8 @@ public final class WasmAssembler {
             throw new IllegalArgumentException("Unsupported WASM version: " + module.getVersion());
         }
 
+        this.applyStaticChanges();
+        this.emitStaticConstructor();
         this.emitConstructor();
 
         for (WasmSection section : module.getSections()) {
@@ -100,6 +105,47 @@ public final class WasmAssembler {
         }
 
         return emitter.finish();
+    }
+
+    private void applyStaticChanges() throws WasmAssemblerException {
+        ClassEmitContext context = new ClassEmitContext(
+                elementLookups,
+                emitter,
+                generators
+        );
+
+        generators.getFunctionGenerator().addFunctionTable(statistics, context);
+    }
+
+    /**
+     * Emit the static constructor for the class.
+     */
+    private void emitStaticConstructor() throws WasmAssemblerException {
+        // Create the static initializer
+        MethodEmitter staticConstructor = emitter.method(
+                "<clinit>",
+                Visibility.PRIVATE,
+                true,
+                false,
+                PrimitiveType.VOID,
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
+
+        CodeEmitter code = staticConstructor.code();
+
+        CodeEmitContext context = new CodeEmitContext(
+                elementLookups,
+                code,
+                new WasmFrameState(Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null),
+                generators,
+                new LocalVariables(null, Collections.emptyList())
+        );
+        generators.getFunctionGenerator().emitStaticFunctionTableInitializer(context);
+
+        code.doReturn();
+        code.finish();
+        staticConstructor.finish();
     }
 
     /**

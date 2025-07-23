@@ -1,15 +1,21 @@
 package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.Visibility;
 import net.janrupf.thunderwasm.assembler.emitter.signature.ConcreteType;
 import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.signature.TypeVariable;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaMethodHandle;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.signature.SignatureVisitor;
 import org.objectweb.asm.signature.SignatureWriter;
 
+import java.util.Arrays;
 import java.util.List;
 
 public final class ASMConverter {
@@ -99,6 +105,85 @@ public final class ASMConverter {
             result[i] = convertType(types.get(i)).getInternalName();
         }
         return result;
+    }
+
+    /**
+     * Convert a method signature to an ASM Type.
+     *
+     * @param parameterTypes the parameter types of the method
+     * @param returnType     the return type of the method
+     * @return the ASM Type representing the method signature
+     */
+    public static Type convertMethod(List<JavaType> parameterTypes, JavaType returnType) {
+        return Type.getMethodType(convertType(returnType), convertTypes(parameterTypes));
+    }
+
+    /**
+     * Convert a method handle to an ASM Handle.
+     *
+     * @param handle the JavaMethodHandle to convert
+     * @return the ASM Handle representing the method handle
+     * @throws WasmAssemblerException if the invoke type is unknown or invalid
+     */
+    public static Handle convertMethodHandle(JavaMethodHandle handle) throws WasmAssemblerException {
+        return convertMethodHandle(
+                handle.getOwner(),
+                handle.getName(),
+                handle.getParameterTypes(),
+                handle.getReturnType(),
+                handle.getInvokeType(),
+                handle.isOwnerIsInterface()
+        );
+    }
+
+    /**
+     * Convert a method handle to an ASM Handle.
+     *
+     * @param type             the type of the method handle, typically an ObjectType
+     * @param methodName       the name of the method
+     * @param parameterTypes   the parameter types of the method
+     * @param returnType       the return type of the method
+     * @param invokeType       the type of the invocation (e.g., STATIC, VIRTUAL, etc.)
+     * @param ownerIsInterface whether the owner of the method is an interface
+     * @return the ASM Handle representing the method handle
+     * @throws WasmAssemblerException if the invoke type is unknown or invalid
+     */
+    public static Handle convertMethodHandle(
+            JavaType type,
+            String methodName,
+            List<JavaType> parameterTypes,
+            JavaType returnType,
+            InvokeType invokeType,
+            boolean ownerIsInterface
+    ) throws WasmAssemblerException {
+        int tag;
+        switch (invokeType) {
+            case INTERFACE:
+                tag = Opcodes.H_INVOKEINTERFACE;
+                break;
+            case SPECIAL:
+                tag = Opcodes.H_INVOKESPECIAL;
+                break;
+            case STATIC:
+                tag = Opcodes.H_INVOKESTATIC;
+                break;
+            case VIRTUAL:
+                tag = Opcodes.H_INVOKEVIRTUAL;
+                break;
+            default:
+                throw new WasmAssemblerException("Unknown invoke type: " + invokeType);
+        }
+
+        String owner = convertType(type).getInternalName();
+        String methodDescriptor = convertMethod(parameterTypes, returnType).getDescriptor();
+
+        return new Handle(
+                tag,
+                owner,
+                methodName,
+                methodDescriptor,
+                ownerIsInterface
+        );
     }
 
     /**

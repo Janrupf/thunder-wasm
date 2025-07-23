@@ -204,6 +204,15 @@ public final class ElementLookups {
     }
 
     /**
+     * Retrieve the underlying module lookups.
+     *
+     * @return the module lookups
+     */
+    public ModuleLookups getModuleLookups() {
+        return moduleLookups;
+    }
+
+    /**
      * The result of searching for an import.
      *
      * @param <T> the type of the import description

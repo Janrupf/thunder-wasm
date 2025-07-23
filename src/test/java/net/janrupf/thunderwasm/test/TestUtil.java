@@ -87,7 +87,7 @@ public class TestUtil {
 
     private static final AtomicInteger ASSEMBLER_COUNTER = new AtomicInteger(0);
 
-    public static WasmAssembler makeAssembler(WasmModule module) {
+    public static WasmAssembler makeAssembler(WasmModule module) throws WasmAssemblerException {
         int counter = ASSEMBLER_COUNTER.getAndIncrement();
 
         return new WasmAssembler(

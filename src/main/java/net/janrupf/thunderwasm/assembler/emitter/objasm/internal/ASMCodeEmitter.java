@@ -5,15 +5,10 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
-import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
-import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import net.janrupf.thunderwasm.assembler.emitter.types.*;
+import org.objectweb.asm.*;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
 public final class ASMCodeEmitter implements CodeEmitter {
@@ -270,6 +265,9 @@ public final class ASMCodeEmitter implements CodeEmitter {
         } else if (value instanceof ObjectType) {
             stackFrameState.pushOperand(ObjectType.of(Class.class));
             visitor.visitLdcInsn(ASMConverter.convertType((ObjectType) value));
+        } else if (value instanceof JavaMethodHandle) {
+            stackFrameState.pushOperand(ObjectType.of(MethodHandle.class));
+            visitor.visitLdcInsn(ASMConverter.convertMethodHandle((JavaMethodHandle) value));
         } else {
             throw new WasmAssemblerException("Unsupported constant type: " + value.getClass().getName());
         }
@@ -677,8 +675,11 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
         JavaType elementType = ((ArrayType) arrayType).getElementType();
 
-        if (!stackFrameState.remapForStackFrame(elementType).equals(elementTypeOnStack)) {
-            throw new WasmAssemblerException("Expected operand of type " + elementType + " on the stack but found " + elementTypeOnStack);
+        JavaType remappedForStackFrame = stackFrameState.remapForStackFrame(elementType);
+        if (!remappedForStackFrame.equals(elementTypeOnStack)) {
+            if (!(remappedForStackFrame instanceof ObjectType && elementTypeOnStack instanceof  ObjectType)) {
+                throw new WasmAssemblerException("Expected operand of type " + elementType + " on the stack but found " + elementTypeOnStack);
+            }
         }
 
         if (elementType.equals(PrimitiveType.BOOLEAN)) {
