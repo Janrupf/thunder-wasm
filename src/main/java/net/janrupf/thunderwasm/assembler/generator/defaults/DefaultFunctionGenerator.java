@@ -213,6 +213,13 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 false
         );
 
+        emitInvokeFunctionByMethodHandle(functionType, context);
+    }
+
+    public void emitInvokeFunctionByMethodHandle(FunctionType functionType, CodeEmitContext context)
+            throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
         // Use owner null here - we don't know the owner at this point, and prepareCallIndirect
         // will have bound the method handle to the correct owner if there is one.
         TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, null);

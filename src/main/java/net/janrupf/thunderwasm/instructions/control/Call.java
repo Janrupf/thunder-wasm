@@ -30,17 +30,18 @@ public final class Call extends WasmInstruction<Call.Data> {
     public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
         FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
                 LargeArrayIndex.fromU32(data.getFunctionIndex()));
+        FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
+
+        ControlHelper.popArguments(context, functionType);
 
         if (functionTypeIndex.isImport()) {
-            throw new WasmAssemblerException("Imported functions not supported yet");
+            context.getGenerators().getImportGenerator().emitInvokeFunction(functionTypeIndex.getImport(), context);
         } else {
-            LargeArrayIndex localFunctionTypeIndex = LargeArrayIndex.fromU32(functionTypeIndex.getElement());
-            FunctionType functionType = context.getLookups().requireType(localFunctionTypeIndex);
-
-            ControlHelper.popArguments(context, functionType);
             context.getGenerators().getFunctionGenerator().emitInvokeFunction(functionTypeIndex.getIndex(), functionType, context);
-            ControlHelper.pushReturnValues(context, functionType);
         }
+
+        ControlHelper.pushReturnValues(context, functionType);
+
     }
 
     public static final class Data implements WasmInstruction.Data {

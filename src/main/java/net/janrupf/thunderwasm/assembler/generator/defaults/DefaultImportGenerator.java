@@ -11,36 +11,39 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
 import net.janrupf.thunderwasm.data.Limits;
-import net.janrupf.thunderwasm.imports.GlobalImportDescription;
-import net.janrupf.thunderwasm.imports.Import;
-import net.janrupf.thunderwasm.imports.MemoryImportDescription;
-import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.imports.*;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
+import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.*;
 
+import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
 
 public class DefaultImportGenerator implements ImportGenerator {
     private static final ObjectType RUNTIME_LINKER_TYPE = ObjectType.of(RuntimeLinker.class);
     private static final ObjectType LINKED_MEMORY_TYPE = ObjectType.of(LinkedMemory.class);
+    private static final ObjectType LINKED_FUNCTION_TYPE = ObjectType.of(LinkedFunction.class);
 
     private final Map<String, String> identifierNameCache;
     private final Map<String, DefaultTableGenerator> importedTableGenerators;
     private final Map<String, DefaultMemoryGenerator> importedMemoryGenerators;
+    private final DefaultFunctionGenerator functionGenerator;
 
     public DefaultImportGenerator() {
         this.identifierNameCache = new HashMap<>();
         this.importedTableGenerators = new HashMap<>();
         this.importedMemoryGenerators = new HashMap<>();
+        this.functionGenerator = new DefaultFunctionGenerator();
     }
 
     @Override
@@ -67,6 +70,14 @@ public class DefaultImportGenerator implements ImportGenerator {
             addMemoryImport(memoryImport, emitter);
             return;
         }
+
+        Import<TypeImportDescription> typeImport = im.tryCast(TypeImportDescription.class);
+        if (typeImport != null) {
+            addTypeImport(typeImport, emitter);
+            return;
+        }
+
+        throw new WasmAssemblerException("Unknown import type: " + im.getDescription());
     }
 
     private void addGlobalImport(Import<GlobalImportDescription> im, ClassFileEmitter emitter)
@@ -117,6 +128,17 @@ public class DefaultImportGenerator implements ImportGenerator {
         );
     }
 
+    private void addTypeImport(Import<TypeImportDescription> im, ClassFileEmitter emitter) {
+        emitter.field(
+                generateImportFieldName(im),
+                Visibility.PRIVATE,
+                false,
+                true,
+                LINKED_FUNCTION_TYPE,
+                null
+        );
+    }
+
     @Override
     public void emitLinkImport(Import<?> im, CodeEmitContext context) throws WasmAssemblerException {
         Import<GlobalImportDescription> globalImport = im.tryCast(GlobalImportDescription.class);
@@ -137,8 +159,13 @@ public class DefaultImportGenerator implements ImportGenerator {
             return;
         }
 
-        // For now just pop the linker if we don't handle the import
-        context.getEmitter().pop();
+        Import<TypeImportDescription> typeImport = im.tryCast(TypeImportDescription.class);
+        if (typeImport != null) {
+            emitLinkTypeImport(typeImport, context);
+            return;
+        }
+
+        throw new WasmAssemblerException("Unknown import type " + im.getDescription());
     }
 
     private void emitLinkGlobalImport(Import<GlobalImportDescription> im, CodeEmitContext context)
@@ -179,10 +206,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 isConst
         ).getType());
 
-        // Pop Arguments from the stack
-
-        // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
-
         // Set the field to the result of the method invocation
         accessImportField(im, context, true);
     }
@@ -214,10 +237,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 InvokeType.INTERFACE,
                 true
         );
-
-        // Pop Arguments from the stack
-
-        // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
 
         // Set the field to the result of the method invocation
         emitter.loadLocal(context.getLocalVariables().getThis());
@@ -256,10 +275,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 true
         );
 
-        // Pop Arguments from the stack
-
-        // Don't bother popping the "linker" instance, it has been replaced by another OBJECT reference
-
         // Set the field to the result of the method invocation
         emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.op(Op.SWAP);
@@ -289,6 +304,44 @@ public class DefaultImportGenerator implements ImportGenerator {
                 true
         );
 
+    }
+
+    private void emitLinkTypeImport(Import<TypeImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException {
+        // WASM has named this confusingly, it's a function import in the end
+
+        CodeEmitter emitter = context.getEmitter();
+        int typeIndex = im.getDescription().getIndex();
+        FunctionType type = context.getLookups().requireType(LargeArrayIndex.fromU32(typeIndex));
+
+        emitter.loadConstant(im.getModule());
+        emitter.loadConstant(im.getName());
+
+        CommonBytecodeGenerator.loadFunctionType(emitter, type);
+
+        emitter.invoke(
+                RUNTIME_LINKER_TYPE,
+                "linkFunction",
+                new JavaType[]{
+                        ObjectType.of(String.class),
+                        ObjectType.of(String.class),
+                        ObjectType.of(FunctionType.class),
+                },
+                LINKED_FUNCTION_TYPE,
+                InvokeType.INTERFACE,
+                true
+        );
+
+        // Set the field to the result of the method invocation
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.op(Op.SWAP);
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                LINKED_FUNCTION_TYPE,
+                false,
+                true
+        );
     }
 
     @Override
@@ -440,7 +493,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         emitter.invoke(
                 LINKED_MEMORY_TYPE,
                 "grow",
-                new JavaType[] { PrimitiveType.INT },
+                new JavaType[]{PrimitiveType.INT},
                 PrimitiveType.BOOLEAN,
                 InvokeType.INTERFACE,
                 true
@@ -513,6 +566,58 @@ public class DefaultImportGenerator implements ImportGenerator {
     }
 
     @Override
+    public void emitInvokeFunction(Import<TypeImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+        int typeIndex = im.getDescription().getIndex();
+        FunctionType functionType = context.getLookups().requireType(LargeArrayIndex.fromU32(typeIndex));
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                LINKED_FUNCTION_TYPE,
+                false,
+                false
+        );
+        emitter.invoke(
+                LINKED_FUNCTION_TYPE,
+                "asMethodHandle",
+                new JavaType[0],
+                ObjectType.of(MethodHandle.class),
+                InvokeType.INTERFACE,
+                true
+        );
+
+        functionGenerator.emitInvokeFunctionByMethodHandle(functionType, context);
+    }
+
+    @Override
+    public void emitLoadFunctionReference(Import<TypeImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.doNew(ObjectType.of(FunctionReference.class));
+        emitter.duplicate();
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                LINKED_FUNCTION_TYPE,
+                false,
+                false
+        );
+
+        emitter.invoke(
+                ObjectType.of(FunctionReference.class),
+                "<init>",
+                new JavaType[]{LINKED_FUNCTION_TYPE},
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
+    }
+
+    @Override
     public ObjectType getMemoryType(Import<MemoryImportDescription> im) {
         return memoryGeneratorFor(im).getMemoryType(null);
     }
@@ -530,7 +635,7 @@ public class DefaultImportGenerator implements ImportGenerator {
     /**
      * Generates a unique field name for an import attachment.
      *
-     * @param im the import to generate a field name for
+     * @param im             the import to generate a field name for
      * @param attachmentName the name of the attachment
      * @return the generated field name
      */

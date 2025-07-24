@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.runtime.linker.function;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.lang.invoke.MethodHandle;
@@ -92,7 +93,13 @@ public interface LinkedFunction {
                 argumentTypes.add(WasmTypeConverter.fromJavaType(JavaType.of(argumentClass)));
             }
 
-            List<ValueType> returnTypes = Collections.singletonList(WasmTypeConverter.fromJavaType(JavaType.of(returnClass)));
+            JavaType javaReturnType = JavaType.of(returnClass);
+            List<ValueType> returnTypes;
+            if (javaReturnType.equals(PrimitiveType.VOID)) {
+                returnTypes = Collections.emptyList();
+            } else {
+                returnTypes = Collections.singletonList(WasmTypeConverter.fromJavaType(javaReturnType));
+            }
 
             return new Simple(methodHandle, argumentTypes, returnTypes);
         }

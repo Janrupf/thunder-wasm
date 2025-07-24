@@ -32,15 +32,13 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
     @Override
     public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
         context.getFrameState().pushOperand(ReferenceType.FUNCREF);
-
         FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
                 LargeArrayIndex.fromU32(data.getFunctionIndex()));
+        FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
 
         if (functionTypeIndex.isImport()) {
-            throw new WasmAssemblerException("Imported functions not supported yet");
+            context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
         } else {
-            LargeArrayIndex localFunctionTypeIndex = LargeArrayIndex.fromU32(functionTypeIndex.getElement());
-            FunctionType functionType = context.getLookups().requireType(localFunctionTypeIndex);
             context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
         }
     }

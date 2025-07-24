@@ -137,13 +137,11 @@ public class DefaultTableGenerator implements TableGenerator {
                 int functionIndex = ((UnresolvedFunctionReference) initValues[j]).getFunctionIndex();
                 FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
                         LargeArrayIndex.fromU32(functionIndex));
+                FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
 
                 if (functionTypeIndex.isImport()) {
-                    throw new WasmAssemblerException("Imported functions not supported yet");
+                   context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
                 } else {
-                    LargeArrayIndex localFunctionTypeIndex = LargeArrayIndex.fromU32(functionTypeIndex.getElement());
-                    FunctionType functionType = context.getLookups().requireType(localFunctionTypeIndex);
-
                     context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
                 }
             } else {

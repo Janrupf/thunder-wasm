@@ -53,6 +53,8 @@ public abstract class JavaType {
                 return PrimitiveType.FLOAT;
             } else if (clazz == double.class) {
                 return PrimitiveType.DOUBLE;
+            } else if (clazz == void.class) {
+                return PrimitiveType.VOID;
             } else {
                 throw new IllegalArgumentException("Unsupported primitive type: " + clazz);
             }

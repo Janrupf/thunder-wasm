@@ -3,9 +3,11 @@ package net.janrupf.thunderwasm.runtime.linker;
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.runtime.ElementReference;
+import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.*;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
+import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 
@@ -62,5 +64,19 @@ public interface RuntimeLinker {
     default LinkedMemory linkMemory(String moduleName, String importName, Limits limits)
             throws ThunderWasmException {
         throw new ThunderWasmException("Linkage of memories is not implemented in this runtime linker");
+    }
+
+    /**
+     * Link a function to a function reference.
+     *
+     * @param moduleName the module name of the import
+     * @param importName the import name of the import
+     * @param type       the function type
+     * @return the linked function
+     * @throws ThunderWasmException if the function could not be linked
+     */
+    default LinkedFunction linkFunction(String moduleName, String importName, FunctionType type)
+            throws ThunderWasmException {
+        throw new ThunderWasmException("Linkage of function is not implemented in this runtime linker");
     }
 }

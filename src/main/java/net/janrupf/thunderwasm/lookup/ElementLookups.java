@@ -161,6 +161,24 @@ public final class ElementLookups {
     }
 
     /**
+     * Completely resolve a function type by its function index.
+     *
+     * @param element the function index or import
+     * @return the resolved type
+     * @throws WasmAssemblerException if the type could not be resolved
+     */
+    public FunctionType resovleFunctionType(FoundElement<Integer, TypeImportDescription> element) throws WasmAssemblerException {
+        int resolvedTypeIndex;
+        if (element.isImport()) {
+            resolvedTypeIndex = element.getImport().getDescription().getIndex();
+        } else {
+            resolvedTypeIndex = element.getElement();
+        }
+
+        return requireType(LargeArrayIndex.fromU32(resolvedTypeIndex));
+    }
+
+    /**
      * Require the function type of a local function index at the given index.
      *
      * @param i the index of the function

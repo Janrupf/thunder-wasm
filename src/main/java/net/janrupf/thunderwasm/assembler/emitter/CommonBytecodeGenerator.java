@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
+import com.sun.tools.javac.jvm.Code;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
@@ -7,13 +8,15 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.data.Limits;
+import net.janrupf.thunderwasm.module.encoding.LargeArray;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.ExternReference;
-import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
-import net.janrupf.thunderwasm.types.ValueType;
-import net.janrupf.thunderwasm.types.VecType;
+import net.janrupf.thunderwasm.types.*;
 
 public class CommonBytecodeGenerator {
+    private static final ObjectType LARGE_ARRAY_TYPE = ObjectType.of(LargeArray.class);
+    private static final ObjectType LARGE_ARRAY_INDEX_TYPE = ObjectType.of(LargeArrayIndex.class);
+
     private CommonBytecodeGenerator() {
     }
 
@@ -549,7 +552,75 @@ public class CommonBytecodeGenerator {
                 InvokeType.SPECIAL,
                 false
         );
+    }
 
+    /**
+     * Load the function type.
+     *
+     * @param emitter the code emitter
+     * @param type the function type to load
+     * @throws WasmAssemblerException if the load cannot be generated
+     */
+    public static void loadFunctionType(CodeEmitter emitter, FunctionType type) throws WasmAssemblerException {
+        emitter.doNew(ObjectType.of(FunctionType.class));
+        emitter.duplicate();
+
+        loadLargeArrayOfTypes(emitter, type.getInputs());
+        loadLargeArrayOfTypes(emitter, type.getOutputs());
+
+        emitter.invoke(
+                ObjectType.of(FunctionType.class),
+                "<init>",
+                new JavaType[] { LARGE_ARRAY_TYPE, LARGE_ARRAY_TYPE },
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
+    }
+
+    private static void loadLargeArrayOfTypes(CodeEmitter emitter, LargeArray<ValueType> types)
+        throws WasmAssemblerException {
+        emitter.doNew(LARGE_ARRAY_TYPE);
+        emitter.duplicate();
+        emitter.loadConstant(ObjectType.of(ValueType.class));
+
+        loadLargeArrayIndex(emitter, types.largeLength());
+
+        emitter.invoke(
+                LARGE_ARRAY_TYPE,
+                "<init>",
+                new JavaType[] { ObjectType.of(Class.class), LARGE_ARRAY_INDEX_TYPE },
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
+
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(types.largeLength()) < 0; i = i.add(1)) {
+            emitter.duplicate();
+            loadLargeArrayIndex(emitter, i);
+            loadTypeReference(emitter, types.get(i));
+
+            emitter.invoke(
+                    LARGE_ARRAY_TYPE,
+                    "set",
+                    new JavaType[] { LARGE_ARRAY_INDEX_TYPE, ObjectType.OBJECT },
+                    PrimitiveType.VOID,
+                    InvokeType.VIRTUAL,
+                    false
+            );
+        }
+    }
+
+    private static void loadLargeArrayIndex(CodeEmitter emitter, LargeArrayIndex i) throws WasmAssemblerException {
+        emitter.loadConstant(i.toU64());
+        emitter.invoke(
+                LARGE_ARRAY_INDEX_TYPE,
+                "fromU64",
+                new JavaType[] { PrimitiveType.LONG },
+                LARGE_ARRAY_INDEX_TYPE,
+                InvokeType.STATIC,
+                false
+        );
     }
 
     /**

@@ -4,17 +4,17 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
-import net.janrupf.thunderwasm.imports.GlobalImportDescription;
-import net.janrupf.thunderwasm.imports.Import;
-import net.janrupf.thunderwasm.imports.MemoryImportDescription;
-import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.imports.*;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
+
+import java.lang.reflect.Type;
 
 public interface ImportGenerator {
     /**
@@ -222,6 +222,26 @@ public interface ImportGenerator {
      * @throws WasmAssemblerException if an error occurs
      */
     void emitLoadMemoryReference(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit the code to invoke a module local function by its index.
+     *
+     * @param im      the function import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void emitInvokeFunction(Import<TypeImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load a function reference.
+     *
+     * @param im the function import
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void emitLoadFunctionReference(Import<TypeImportDescription> im, CodeEmitContext context)
+        throws WasmAssemblerException;
 
     /**
      * Retrieves the underlying memory type.
