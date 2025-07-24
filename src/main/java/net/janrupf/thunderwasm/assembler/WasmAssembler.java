@@ -95,7 +95,6 @@ public final class WasmAssembler {
             throw new IllegalArgumentException("Unsupported WASM version: " + module.getVersion());
         }
 
-        this.applyStaticChanges();
         this.emitStaticConstructor();
         this.emitConstructor();
 
@@ -104,16 +103,6 @@ public final class WasmAssembler {
         }
 
         return emitter.finish();
-    }
-
-    private void applyStaticChanges() throws WasmAssemblerException {
-        ClassEmitContext context = new ClassEmitContext(
-                elementLookups,
-                emitter,
-                generators
-        );
-
-        generators.getFunctionGenerator().addFunctionTable(statistics, context);
     }
 
     /**
@@ -140,7 +129,6 @@ public final class WasmAssembler {
                 generators,
                 new LocalVariables(null, Collections.emptyList())
         );
-        generators.getFunctionGenerator().emitStaticFunctionTableInitializer(context);
 
         code.doReturn();
         code.finish();
@@ -210,9 +198,6 @@ public final class WasmAssembler {
                 generators,
                 localVariables
         );
-
-        // Emit the function table initializer, imports depend on it
-        generators.getFunctionGenerator().emitFunctionTableInitializer(statistics, emitContext);
 
         // Initializes imports if any
         if (importSection != null) {

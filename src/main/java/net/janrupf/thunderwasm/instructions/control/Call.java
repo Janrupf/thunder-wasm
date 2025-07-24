@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -36,25 +37,9 @@ public final class Call extends WasmInstruction<Call.Data> {
             LargeArrayIndex localFunctionTypeIndex = LargeArrayIndex.fromU32(functionTypeIndex.getElement());
             FunctionType functionType = context.getLookups().requireType(localFunctionTypeIndex);
 
-            popArguments(context, functionType);
+            ControlHelper.popArguments(context, functionType);
             context.getGenerators().getFunctionGenerator().emitInvokeFunction(functionTypeIndex.getIndex(), functionType, context);
-            pushReturnValues(context, functionType);
-        }
-    }
-
-    private void popArguments(CodeEmitContext context, FunctionType functionType) throws WasmAssemblerException {
-        // Pop the arguments from the stack
-        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(functionType.getInputs().largeLength()) < 0; i = i.add(1)) {
-            context.getFrameState().popOperand(functionType.getInputs().get(i));
-        }
-    }
-
-    private void pushReturnValues(CodeEmitContext context, FunctionType functionType) throws WasmAssemblerException {
-        // Push the return values onto the stack
-        LargeArrayIndex i = functionType.getOutputs().largeLength();
-        while (i.compareTo(LargeArrayIndex.ZERO) > 0) {
-            i = i.subtract(1);
-            context.getFrameState().pushOperand(functionType.getOutputs().get(i));
+            ControlHelper.pushReturnValues(context, functionType);
         }
     }
 

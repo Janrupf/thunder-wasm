@@ -15,8 +15,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
     private final MethodVisitor visitor;
 
     // Java always has the this local at index 0, however, for WASM generated code this is somewhat
-    // impractical because WASM has the argument order reversed. In order to accommodate for that,
-    // "this" may sometimes be passed in another position.
+    // impractical because WASM has no 'this' argument and for efficiency we move it to the last
+    // position in the arguments in the Java code.
     private final ObjectType owner;
     private final JavaType returnType;
     private JavaStackFrameState stackFrameState;

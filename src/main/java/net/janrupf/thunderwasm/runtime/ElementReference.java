@@ -25,7 +25,7 @@ public abstract class ElementReference {
      */
     public static ElementReference nullOf(ReferenceType type) {
         if (type.equals(ReferenceType.FUNCREF)) {
-            return FunctionReference.ofNull();
+            return UnresolvedFunctionReference.ofNull();
         } else if (type.equals(ReferenceType.EXTERNREF)) {
             return ExternReference.ofNull();
         }

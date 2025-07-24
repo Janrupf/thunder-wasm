@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.runtime.FunctionReference;
+import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;

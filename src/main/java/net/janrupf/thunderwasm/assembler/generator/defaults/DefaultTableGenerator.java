@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.signature.ConcreteType;
@@ -11,14 +10,13 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.data.Limits;
+import net.janrupf.thunderwasm.imports.TypeImportDescription;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
-import net.janrupf.thunderwasm.runtime.ElementReference;
-import net.janrupf.thunderwasm.runtime.ExternReference;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
-import net.janrupf.thunderwasm.runtime.Table;
+import net.janrupf.thunderwasm.runtime.*;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
-import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.TableType;
 
@@ -131,13 +129,26 @@ public class DefaultTableGenerator implements TableGenerator {
         emitter.loadConstant(initValues.length);
         emitter.doNew(arrayType);
 
-
         for (int j = 0; j < initValues.length; j++) {
-
             emitter.duplicate();
             emitter.loadConstant(j);
 
-            CommonBytecodeGenerator.loadConstant(emitter, segment.getType(), initValues[j]);
+            if (initValues[j] instanceof UnresolvedFunctionReference) {
+                int functionIndex = ((UnresolvedFunctionReference) initValues[j]).getFunctionIndex();
+                FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
+                        LargeArrayIndex.fromU32(functionIndex));
+
+                if (functionTypeIndex.isImport()) {
+                    throw new WasmAssemblerException("Imported functions not supported yet");
+                } else {
+                    LargeArrayIndex localFunctionTypeIndex = LargeArrayIndex.fromU32(functionTypeIndex.getElement());
+                    FunctionType functionType = context.getLookups().requireType(localFunctionTypeIndex);
+
+                    context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
+                }
+            } else {
+                CommonBytecodeGenerator.loadConstant(emitter, segment.getType(), initValues[j]);
+            }
             emitter.storeArrayElement();
 
         }

@@ -1,8 +1,14 @@
 package net.janrupf.thunderwasm.instructions.control;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.NumberType;
 
 import java.io.IOException;
 
@@ -18,6 +24,17 @@ public final class CallIndirect extends WasmInstruction<CallIndirect.Data> {
         int typeIndex = loader.readU32();
         int tableIndex = loader.readU32();
         return new Data(typeIndex, tableIndex);
+    }
+
+    @Override
+    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32);
+
+        FunctionType type = context.getLookups().requireType(LargeArrayIndex.fromU32(data.getTypeIndex()));
+        ControlHelper.popArguments(context, type);
+        context.getGenerators().getFunctionGenerator()
+                .emitInvokeFunctionIndirect(type, LargeArrayIndex.fromU32(data.getTableIndex()), context);
+        ControlHelper.pushReturnValues(context, type);
     }
 
     public static final class Data implements WasmInstruction.Data {

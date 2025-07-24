@@ -136,7 +136,7 @@ public final class CodeEmitContext {
     /**
      * Convert a frame snapshot that has been inferred from WASM state to a real Java frame snapshot.
      * <p>
-     * Frame snapshots inferred from the WASM state don't take into account the reordered order of arguments
+     * Frame snapshots inferred from the WASM state don't take into account the order of arguments
      * and the 'this' local. This function re-orders the locals to match the expected order.
      *
      * @param snapshot the frame snapshot to fix up

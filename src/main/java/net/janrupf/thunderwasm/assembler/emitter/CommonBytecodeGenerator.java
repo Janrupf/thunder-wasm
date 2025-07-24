@@ -6,9 +6,11 @@ import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.assembler.generator.FunctionGenerator;
 import net.janrupf.thunderwasm.data.Limits;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.ExternReference;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
+import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -21,7 +23,7 @@ public class CommonBytecodeGenerator {
     /**
      * Convert the top i32 from unsigned to signed, swapping them in the process.
      *
-     * @param emitter    the code emitter
+     * @param emitter the code emitter
      * @throws WasmAssemblerException if the conversion is invalid
      */
     public static void swapConvertUnsignedI32(
@@ -45,8 +47,8 @@ public class CommonBytecodeGenerator {
     /**
      * Convert the top 2 values from unsigned to signed.
      *
-     * @param emitter    the code emitter
-     * @param type       the type of the values to convert
+     * @param emitter the code emitter
+     * @param type    the type of the values to convert
      * @throws WasmAssemblerException if the conversion is invalid
      */
     public static void convertTop2Unsigned(
@@ -84,8 +86,8 @@ public class CommonBytecodeGenerator {
     /**
      * Helper function to generate a conditional jump that pushes 0 or 1 on the stack.
      *
-     * @param emitter    the code emitter
-     * @param condition  the condition to evaluate
+     * @param emitter   the code emitter
+     * @param condition the condition to evaluate
      * @throws WasmAssemblerException if the condition is invalid
      */
     public static void evalConditionZeroOrOne(
@@ -187,8 +189,8 @@ public class CommonBytecodeGenerator {
     /**
      * Evaluate if any of 2 floats on top of the stack is NaN.
      *
-     * @param emitter    the code emitter
-     * @param target     the target result to generate
+     * @param emitter the code emitter
+     * @param target  the target result to generate
      * @throws WasmAssemblerException if the evaluation cannot be generated
      */
     public static void eval2FloatsNaN(
@@ -265,8 +267,8 @@ public class CommonBytecodeGenerator {
     /**
      * Evaluate if any of 2 doubles on top of the stack is NaN.
      *
-     * @param emitter    the code emitter
-     * @param target     the target result to generate
+     * @param emitter the code emitter
+     * @param target  the target result to generate
      * @throws WasmAssemblerException if the evaluation cannot be generated
      */
     public static void eval2DoublesNaN(
@@ -360,7 +362,7 @@ public class CommonBytecodeGenerator {
     /**
      * Swap the top two values on the stack.
      *
-     * @param emitter    the code emitter
+     * @param emitter the code emitter
      * @throws WasmAssemblerException if the swap cannot be generated
      */
     public static void swap(
@@ -428,7 +430,7 @@ public class CommonBytecodeGenerator {
         // Remove all values above
         JavaType[] toPop = new JavaType[valuesAbove];
         for (int i = 0; i < valuesAbove; i++) {
-            toPop[i] = emitter.getStackFrameState().requireOperand(valuesAbove - 1 - i);
+            toPop[i] = emitter.getStackFrameState().requireOperand(i);
         }
 
         if (toPop.length == 1 && toPop[0].getSlotCount() < 2 && type.getSlotCount() < 2) {
@@ -471,8 +473,8 @@ public class CommonBytecodeGenerator {
     /**
      * Load the value type reference.
      *
-     * @param emitter    the code emitter
-     * @param type       the value type
+     * @param emitter the code emitter
+     * @param type    the value type
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadTypeReference(
@@ -512,8 +514,8 @@ public class CommonBytecodeGenerator {
     /**
      * Load the limits.
      *
-     * @param emitter    the code emitter
-     * @param limits     the limits to load
+     * @param emitter the code emitter
+     * @param limits  the limits to load
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadLimits(CodeEmitter emitter, Limits limits)
@@ -557,12 +559,11 @@ public class CommonBytecodeGenerator {
      * Load a constant value.
      * <p>
      * This is mostly equivalent to {@link CodeEmitter#loadConstant(Object)} but also supports
-     * {@link net.janrupf.thunderwasm.runtime.FunctionReference} and
      * {@link net.janrupf.thunderwasm.runtime.ExternReference} values.
      *
-     * @param emitter    the code emitter
-     * @param type       the type of the value
-     * @param value      the value to load
+     * @param emitter           the code emitter
+     * @param type              the type of the value
+     * @param value             the value to load
      * @throws WasmAssemblerException if the constant type is not supported
      */
     public static void loadConstant(
@@ -570,26 +571,7 @@ public class CommonBytecodeGenerator {
             ValueType type,
             Object value
     ) throws WasmAssemblerException {
-        if (value instanceof FunctionReference) {
-            if (!type.equals(ReferenceType.FUNCREF)) {
-                throw new WasmAssemblerException("Invalid type for function reference: " + type);
-            }
-
-            ObjectType functionReferenceType = ObjectType.of(FunctionReference.class);
-
-            emitter.loadConstant(((FunctionReference) value).getFunctionIndex());
-
-            emitter.invoke(
-                    functionReferenceType,
-                    "of",
-                    new JavaType[]{PrimitiveType.INT},
-                    functionReferenceType,
-                    InvokeType.STATIC,
-                    false
-            );
-
-            return;
-        } else if (value instanceof ExternReference) {
+        if (value instanceof ExternReference) {
             if (!type.equals(ReferenceType.EXTERNREF)) {
                 throw new WasmAssemblerException("Invalid type for extern reference: " + type);
             }

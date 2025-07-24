@@ -152,9 +152,7 @@ public class TestUtil {
         Class<?> moduleClass = moduleInstance.getClass();
 
         Class<?>[] realArgumentTypes = new Class<?>[argumentTypes.length + 1];
-        for (int i = 0; i < argumentTypes.length; i++) {
-            realArgumentTypes[argumentTypes.length - 1 - i] = argumentTypes[i];
-        }
+        System.arraycopy(argumentTypes, 0, realArgumentTypes, 0, argumentTypes.length);
         realArgumentTypes[argumentTypes.length] = moduleClass;
 
         Method method;
@@ -171,9 +169,7 @@ public class TestUtil {
         }
 
         Object[] realArguments = new Object[arguments.length + 1];
-        for (int i = 0; i < arguments.length; i++) {
-            realArguments[arguments.length - 1 - i] = arguments[i];
-        }
+        System.arraycopy(arguments, 0, realArguments, 0, arguments.length);
         realArguments[arguments.length] = moduleInstance;
 
         try {

@@ -4,10 +4,14 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.eval.EvalContext;
+import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
+import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
+import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 
 import java.io.IOException;
@@ -28,7 +32,17 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
     @Override
     public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
         context.getFrameState().pushOperand(ReferenceType.FUNCREF);
-        CommonBytecodeGenerator.loadConstant(context.getEmitter(), ReferenceType.FUNCREF, FunctionReference.of(data.getFunctionIndex()));
+
+        FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
+                LargeArrayIndex.fromU32(data.getFunctionIndex()));
+
+        if (functionTypeIndex.isImport()) {
+            throw new WasmAssemblerException("Imported functions not supported yet");
+        } else {
+            LargeArrayIndex localFunctionTypeIndex = LargeArrayIndex.fromU32(functionTypeIndex.getElement());
+            FunctionType functionType = context.getLookups().requireType(localFunctionTypeIndex);
+            context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
+        }
     }
 
     @Override
@@ -38,7 +52,7 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
 
     @Override
     public void eval(EvalContext context, Data data) {
-        context.getFrameState().push(ReferenceType.FUNCREF, FunctionReference.of(data.getFunctionIndex()));
+        context.getFrameState().push(ReferenceType.FUNCREF, UnresolvedFunctionReference.of(data.getFunctionIndex()));
     }
 
     public static final class Data implements WasmInstruction.Data {

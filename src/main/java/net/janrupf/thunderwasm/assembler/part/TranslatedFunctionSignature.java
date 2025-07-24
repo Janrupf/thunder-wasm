@@ -74,7 +74,7 @@ public final class TranslatedFunctionSignature {
     /**
      * Retrieves the index of the owner argument in the Java function signature.
      *
-     * @return the index of the owner argument
+     * @return the index of the owner argument, or -1, if there is no owner argument
      */
     public int getOwnerArgumentIndex() {
         return ownerArgumentIndex;
@@ -87,13 +87,11 @@ public final class TranslatedFunctionSignature {
      * @return the index of the argument in the Java function signature
      */
     public int getArgumentIndex(int argument) {
-        int remappedIndex = javaArgumentTypes.size() - 1 - argument;
-
-        if (remappedIndex <= ownerArgumentIndex) {
-            remappedIndex--;
+        if (argument >= ownerArgumentIndex) {
+            argument++;
         }
 
-        return  remappedIndex;
+        return  argument;
     }
 
     /**
@@ -142,16 +140,12 @@ public final class TranslatedFunctionSignature {
             );
         }
 
-        // We reverse the java function signature because WASM pops arguments from the stack in reverse order
-        JavaType[] originalJavaArgumentTypes = WasmTypeConverter.toJavaTypes(inputs.asFlatArray());
+        List<JavaType> javaArgumentTypes = new ArrayList<>(Arrays.asList(WasmTypeConverter.toJavaTypes(inputs.asFlatArray())));
 
-        List<JavaType> javaArgumentTypes = new ArrayList<>(originalJavaArgumentTypes.length + 1);
-        for (int i = 0; i < originalJavaArgumentTypes.length; i++) {
-            javaArgumentTypes.add(originalJavaArgumentTypes[originalJavaArgumentTypes.length - 1 - i]);
+        // The owner (this) becomes the last argument
+        if (owner != null) {
+            javaArgumentTypes.add(owner);
         }
-
-        // ... And the owner (this) becomes the last argument
-        javaArgumentTypes.add(owner);
 
         JavaType returnType;
         if (outputs.length() != 0) {
@@ -170,7 +164,7 @@ public final class TranslatedFunctionSignature {
                 javaArgumentTypes,
                 wasmReturnTypes,
                 returnType,
-                javaArgumentTypes.size() - 1
+                owner != null ? javaArgumentTypes.size() - 1 : -1
         );
     }
 }

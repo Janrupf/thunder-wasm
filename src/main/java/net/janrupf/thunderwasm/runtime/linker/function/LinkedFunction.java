@@ -15,9 +15,8 @@ public interface LinkedFunction {
     /**
      * Convert this function to a {@link MethodHandle}.
      * <p>
-     * The method handle must have the Java equivalent signature of
-     * what is indicated by {@link #getArguments()} and {@link #getReturnTypes()}.
-     * See {@link net.janrupf.thunderwasm.assembler.WasmTypeConverter} for how to convert.
+     * See {@link net.janrupf.thunderwasm.assembler.WasmTypeConverter} for how to convert
+     * the types of this function to Java types.
      *
      * @return the method handle representing this function
      */
@@ -111,7 +110,7 @@ public interface LinkedFunction {
         /**
          * Infers a {@link Simple} from a {@link MethodHandle}.
          *
-         * @param methodHandle the method handle to infer from
+         * @param methodHandle                the method handle to infer from
          * @param moduleInstanceArgumentIndex the index of the module instance argument, or -1 if not applicable
          * @return a new {@link Simple} instance
          * @throws WasmAssemblerException if the method handle's types cannot be converted

@@ -1,0 +1,43 @@
+package net.janrupf.thunderwasm.runtime;
+
+import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+
+/**
+ * Helper that is used by the generated code to dispatch call_indirect instructions.
+ */
+public final class WasmDynamicDispatch {
+    private WasmDynamicDispatch() {
+        throw new AssertionError("This is a helper class for generated code");
+    }
+
+    /**
+     * Prepares a method handle for a call_indirect instruction.
+     *
+     * @param reference      the function reference to call
+     * @param moduleInstance the instance of the module is calling the function
+     * @return a method handle that can be invoked
+     */
+    public static MethodHandle prepareCallIndirect(FunctionReference reference, Object moduleInstance) {
+        LinkedFunction linkedFunction = reference.getFunction();
+
+        if (linkedFunction == null) {
+            throw new IllegalStateException("call_indirect attempted to invoke a null function");
+        }
+
+        MethodHandle methodHandle = linkedFunction.asMethodHandle();
+        if (methodHandle == null) {
+            throw new IllegalStateException("Method handle for linked function is null");
+        }
+
+        // Prepare the method handle for invocation
+        if (linkedFunction.getModuleInstanceArgumentIndex() != -1) {
+            methodHandle = MethodHandles.insertArguments(methodHandle, linkedFunction.getModuleInstanceArgumentIndex(), moduleInstance);
+        }
+
+        return methodHandle;
+    }
+}

@@ -10,15 +10,6 @@ import net.janrupf.thunderwasm.types.FunctionType;
 
 public interface FunctionGenerator {
     /**
-     * Add the function lookup table to the generated class.
-     *
-     * @param statistics the statistics of the module
-     * @param context    the context to use
-     * @throws WasmAssemblerException if an error occurs during assembly
-     */
-    void addFunctionTable(WasmAssemblerStatistics statistics, ClassEmitContext context) throws WasmAssemblerException;
-
-    /**
      * Add a function to the generated class.
      *
      * @param i        the index of the function
@@ -28,30 +19,6 @@ public interface FunctionGenerator {
      */
     void addFunction(LargeArrayIndex i, Function function, ClassEmitContext context) throws WasmAssemblerException;
 
-    /**
-     * Emit the static initializer for the function table.
-     *
-     * @param context the context to use
-     * @throws WasmAssemblerException if an error occurs during assembly
-     */
-    void emitStaticFunctionTableInitializer(CodeEmitContext context) throws WasmAssemblerException;
-
-    /**
-     * Emit the code required to initialize the function table.
-     *
-     * @param statistics the statistics of the module
-     * @param context    the context to use
-     * @throws WasmAssemblerException if an error occurs during assembly
-     */
-    void emitFunctionTableInitializer(WasmAssemblerStatistics statistics, CodeEmitContext context) throws WasmAssemblerException;
-
-    /**
-     * Emit the code that loads the function table.
-     *
-     * @param context the context to use
-     * @throws WasmAssemblerException if an error occurs during assembly
-     */
-    void emitLoadFunctionTable(CodeEmitContext context) throws WasmAssemblerException;
 
     /**
      * Emit the code to invoke a module local function by its index.
@@ -63,4 +30,25 @@ public interface FunctionGenerator {
      */
     void emitInvokeFunction(LargeArrayIndex functionIndex, FunctionType function, CodeEmitContext context)
             throws WasmAssemblerException;
+
+    /**
+     * Emit the code to invoke a function indirectly via the function table.
+     *
+     * @param functionType the type of the function to invoke
+     * @param tableIndex   the index of the function table to use
+     * @param context      the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void emitInvokeFunctionIndirect(FunctionType functionType, LargeArrayIndex tableIndex, CodeEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load a function reference from the function table.
+     *
+     * @param i            the index of the function reference to load
+     * @param functionType the type of the function reference to load
+     * @param context      the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void emitLoadFunctionReference(LargeArrayIndex i, FunctionType functionType, CodeEmitContext context) throws WasmAssemblerException;
 }

@@ -52,11 +52,11 @@ public class BasicTest {
         LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 20));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        int result = (int) TestUtil.callCodeMethod(
+        double result = (double) TestUtil.callCodeMethod(
                 moduleInstance,
-                2,
-                new Class<?>[]{ int.class },
-                new Object[]{ 1 }
+                1,
+                new Class<?>[]{ int.class, int.class, double.class },
+                new Object[]{ 0, 1, 2.0 }
         );
 
         System.out.println("Result: " + result);

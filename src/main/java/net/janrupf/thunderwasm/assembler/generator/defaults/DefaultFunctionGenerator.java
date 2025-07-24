@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmAssemblerStatistics;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
@@ -9,17 +8,20 @@ import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.*;
 import net.janrupf.thunderwasm.assembler.generator.FunctionGenerator;
 import net.janrupf.thunderwasm.assembler.part.TranslatedFunctionSignature;
+import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
-import net.janrupf.thunderwasm.lookup.ModuleLookups;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.module.section.CodeSection;
+import net.janrupf.thunderwasm.runtime.FunctionReference;
+import net.janrupf.thunderwasm.runtime.WasmDynamicDispatch;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.TableType;
 import net.janrupf.thunderwasm.types.ValueType;
 import net.janrupf.thunderwasm.util.ObjectUtil;
 
@@ -32,151 +34,9 @@ import java.util.List;
 public class DefaultFunctionGenerator implements FunctionGenerator {
     private static final ObjectType LINKED_FUNCTION_TYPE = ObjectType.of(LinkedFunction.class);
     private static final ObjectType SIMPLE_LINKED_FUNCTION_TYPE = ObjectType.of(LinkedFunction.Simple.class);
-    private static final ArrayType LINKED_FUNCTION_ARRAY_TYPE = new ArrayType(LINKED_FUNCTION_TYPE);
-
-    @Override
-    public void addFunctionTable(WasmAssemblerStatistics statistics, ClassEmitContext context) throws WasmAssemblerException {
-        context.getEmitter().field(
-                "functions",
-                Visibility.PRIVATE,
-                false,
-                true,
-                LINKED_FUNCTION_ARRAY_TYPE,
-                null
-        );
-
-        context.getEmitter().field(
-                "MODULE_FUNCTIONS",
-                Visibility.PRIVATE,
-                true,
-                true,
-                LINKED_FUNCTION_ARRAY_TYPE,
-                null
-        );
-
-        // We use this chance to add a bunch of methods which populate the MODULE_FUNCTIONS array
-        // The reason is pretty simple: There may be A LOT of function in the module, and we don't want to
-        // hit the bytecode limit for a single method. So instead we split the initialization into multiple methods.
-        ClassFileEmitter classEmitter = context.getEmitter();
-        ElementLookups lookups = context.getLookups();
-        ModuleLookups moduleLookups = lookups.getModuleLookups();
-
-        CodeSection codeSection = moduleLookups.requireSingleSection(CodeSection.LOCATOR);
-
-        if (codeSection.getFunctions().length() > Integer.MAX_VALUE) {
-            throw new WasmAssemblerException("Function section has too many types");
-        }
-
-        int generatedInitializerCount = 0;
-        int methodCount = 0;
-
-        MethodEmitter currentMethodEmitter = null;
-        CodeEmitter currentCodeEmitter = null;
-
-        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(codeSection.getFunctions().largeLength()) < 0; i = i.add(1)) {
-            if (methodCount % 10000 == 0 && currentCodeEmitter != null) {
-                currentCodeEmitter.doReturn();
-                currentCodeEmitter.finish();
-                currentMethodEmitter.finish();
-                currentCodeEmitter = null;
-            }
-
-            if (currentCodeEmitter == null) {
-                String methodName = determineFunctionTableInitializerName(generatedInitializerCount++);
-
-                currentMethodEmitter = classEmitter.method(
-                        methodName,
-                        Visibility.PRIVATE,
-                        true,
-                        false,
-                        PrimitiveType.VOID,
-                        Collections.emptyList(),
-                        Collections.emptyList()
-                );
-                currentCodeEmitter = currentMethodEmitter.code();
-            }
-
-            // Emit the function table initializer
-            FunctionType type = determineFunctionType(i, lookups);
-            TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(type, classEmitter.getOwner());
-
-            JavaMethodHandle handle = new JavaMethodHandle(
-                    classEmitter.getOwner(),
-                    determineMethodName(i),
-                    signature.getJavaReturnType(),
-                    signature.getJavaArgumentTypes(),
-                    InvokeType.STATIC,
-                    false
-            );
-
-            currentCodeEmitter.accessField(
-                    currentCodeEmitter.getOwner(),
-                    "MODULE_FUNCTIONS",
-                    LINKED_FUNCTION_ARRAY_TYPE,
-                    true,
-                    false
-            );
-            currentCodeEmitter.loadConstant(i.getElementIndex());
-            currentCodeEmitter.loadConstant(handle);
-            currentCodeEmitter.loadConstant(signature.getOwnerArgumentIndex());
-            currentCodeEmitter.invoke(
-                    SIMPLE_LINKED_FUNCTION_TYPE,
-                    "inferFromMethodHandle",
-                    new JavaType[] { ObjectType.of(MethodHandle.class), PrimitiveType.INT },
-                    SIMPLE_LINKED_FUNCTION_TYPE,
-                    InvokeType.STATIC,
-                    false
-            );
-            currentCodeEmitter.storeArrayElement();
-
-            methodCount++;
-        }
-
-        if (currentCodeEmitter != null) {
-            currentCodeEmitter.doReturn();
-            currentCodeEmitter.finish();
-            currentMethodEmitter.finish();
-        }
-
-        // And generate the final initializer method
-        MethodEmitter finalMethodEmitter = classEmitter.method(
-                "$initModuleFunctions",
-                Visibility.PRIVATE,
-                true,
-                false,
-                PrimitiveType.VOID,
-                Collections.emptyList(),
-                Collections.singletonList(ObjectType.of(WasmAssemblerException.class))
-        );
-
-        CodeEmitter finalCodeEmitter = finalMethodEmitter.code();
-
-        // We need to initialize the MODULE_FUNCTIONS array
-        finalCodeEmitter.loadConstant(statistics.getLocalFunctionCount());
-        finalCodeEmitter.doNew(LINKED_FUNCTION_ARRAY_TYPE);
-        finalCodeEmitter.accessField(
-                finalCodeEmitter.getOwner(),
-                "MODULE_FUNCTIONS",
-                LINKED_FUNCTION_ARRAY_TYPE,
-                true,
-                true
-        );
-
-        for (int i = 0; i < generatedInitializerCount; i++) {
-            finalCodeEmitter.invoke(
-                    classEmitter.getOwner(),
-                    determineFunctionTableInitializerName(i),
-                    new JavaType[0],
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
-        }
-
-        finalCodeEmitter.doReturn();
-        finalCodeEmitter.finish();
-        finalMethodEmitter.finish();
-    }
+    private static final ObjectType FUNCTION_REFERENCE_TYPE = ObjectType.of(FunctionReference.class);
+    private static final ObjectType DYNAMIC_DISPATCH_HELPER_TYPE = ObjectType.of(WasmDynamicDispatch.class);
+    private static final ObjectType METHOD_HANDLE_TYPE = ObjectType.of(MethodHandle.class);
 
     @Override
     public void addFunction(LargeArrayIndex i, Function function, ClassEmitContext context) throws WasmAssemblerException {
@@ -304,54 +164,6 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     }
 
     @Override
-    public void emitStaticFunctionTableInitializer(CodeEmitContext context) throws WasmAssemblerException {
-        context.getEmitter().invoke(
-                context.getEmitter().getOwner(),
-                "$initModuleFunctions",
-                new JavaType[0],
-                PrimitiveType.VOID,
-                InvokeType.STATIC,
-                false
-        );
-    }
-
-    @Override
-    public void emitFunctionTableInitializer(WasmAssemblerStatistics statistics, CodeEmitContext context) throws WasmAssemblerException {
-        CodeEmitter emitter = context.getEmitter();
-
-        emitter.loadConstant(statistics.getTotalFunctionCount());
-        emitter.doNew(LINKED_FUNCTION_ARRAY_TYPE);
-
-        emitter.duplicate();
-        emitter.loadLocal(context.getLocalVariables().getThis());
-        emitter.op(Op.SWAP);
-        emitter.accessField(emitter.getOwner(), "functions", LINKED_FUNCTION_ARRAY_TYPE, false, true);
-
-        emitter.accessField(emitter.getOwner(), "MODULE_FUNCTIONS", LINKED_FUNCTION_ARRAY_TYPE, true, false);
-        emitter.loadConstant(0);
-        emitLoadFunctionTable(context);
-        emitter.loadConstant(statistics.getImportedFunctionCount()); // Start copying right after the imported functions
-        emitter.loadConstant(statistics.getLocalFunctionCount());
-
-        // Copy over from the MODULE_FUNCTIONS array
-        emitter.invoke(
-                ObjectType.of(System.class),
-                "arraycopy",
-                new JavaType[] { ObjectType.OBJECT, PrimitiveType.INT, ObjectType.OBJECT, PrimitiveType.INT, PrimitiveType.INT },
-                PrimitiveType.VOID,
-                InvokeType.STATIC,
-                false
-        );
-    }
-
-    @Override
-    public void emitLoadFunctionTable(CodeEmitContext context) throws WasmAssemblerException {
-        CodeEmitter emitter = context.getEmitter();
-        emitter.loadLocal(context.getLocalVariables().getThis());
-        emitter.accessField(emitter.getOwner(), "functions", LINKED_FUNCTION_ARRAY_TYPE, false, false);
-    }
-
-    @Override
     public void emitInvokeFunction(LargeArrayIndex functionIndex, FunctionType function, CodeEmitContext context)
             throws WasmAssemblerException {
         TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(function, context.getEmitter().getOwner());
@@ -368,12 +180,99 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         );
     }
 
-    private String determineMethodName(LargeArrayIndex i) {
-        return "$code_" + i;
+    @Override
+    public void emitInvokeFunctionIndirect(
+            FunctionType functionType,
+            LargeArrayIndex tableIndex,
+            CodeEmitContext context
+    ) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+        FoundElement<TableType, TableImportDescription> element = context.getLookups().requireTable(tableIndex);
+
+        if (element.isImport()) {
+            context.getGenerators().getImportGenerator().emitTableGet(
+                    element.getImport(),
+                    context
+            );
+        } else {
+            context.getGenerators().getTableGenerator().emitTableGet(
+                    element.getIndex(),
+                    element.getElement(),
+                    context
+            );
+        }
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.invoke(
+                DYNAMIC_DISPATCH_HELPER_TYPE,
+                "prepareCallIndirect",
+                new JavaType[] { ObjectType.of(FunctionReference.class), ObjectType.OBJECT },
+                METHOD_HANDLE_TYPE,
+                InvokeType.STATIC,
+                false
+        );
+
+        // Use owner null here - we don't know the owner at this point, and prepareCallIndirect
+        // will have bound the method handle to the correct owner if there is one.
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, null);
+
+        JavaLocal methodHandleLocal = emitter.allocateLocal(METHOD_HANDLE_TYPE);
+        emitter.storeLocal(methodHandleLocal);
+        CommonBytecodeGenerator.loadBelow(emitter, signature.getJavaArgumentTypes().size(), METHOD_HANDLE_TYPE,
+                () -> emitter.loadLocal(methodHandleLocal));
+        methodHandleLocal.free();
+
+        emitter.invoke(
+                METHOD_HANDLE_TYPE,
+                "invokeExact",
+                signature.getJavaArgumentTypes().toArray(new JavaType[0]),
+                signature.getJavaReturnType(),
+                InvokeType.VIRTUAL,
+                false
+        );
     }
 
-    private String determineFunctionTableInitializerName(int methodIndex) {
-        return "$initModuleFunctions_" + methodIndex;
+    @Override
+    public void emitLoadFunctionReference(LargeArrayIndex i, FunctionType functionType, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, emitter.getOwner());
+        JavaMethodHandle handle = new JavaMethodHandle(
+                emitter.getOwner(),
+                determineMethodName(i),
+                signature.getJavaReturnType(),
+                signature.getJavaArgumentTypes(),
+                InvokeType.STATIC,
+                false
+        );
+
+        emitter.loadConstant(handle);
+
+        emitter.loadConstant(signature.getOwnerArgumentIndex());
+        emitter.invoke(
+                SIMPLE_LINKED_FUNCTION_TYPE,
+                "inferFromMethodHandle",
+                new JavaType[] { ObjectType.of(MethodHandle.class), PrimitiveType.INT },
+                SIMPLE_LINKED_FUNCTION_TYPE,
+                InvokeType.STATIC,
+                false
+        );
+
+        emitter.doNew(FUNCTION_REFERENCE_TYPE);
+        emitter.duplicate(1, 1);
+        emitter.op(Op.SWAP);
+        emitter.invoke(
+                FUNCTION_REFERENCE_TYPE,
+                "<init>",
+                new JavaType[] { LINKED_FUNCTION_TYPE },
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
+    }
+
+    private String determineMethodName(LargeArrayIndex i) {
+        return "$code_" + i;
     }
 
     private FunctionType determineFunctionType(

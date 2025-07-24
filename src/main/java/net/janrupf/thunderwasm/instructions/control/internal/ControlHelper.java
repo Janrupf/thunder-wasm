@@ -262,4 +262,18 @@ public final class ControlHelper {
                     "Could not process instruction " + instruction.getName() + " inside control block", e);
         }
     }
+
+    public static void popArguments(CodeEmitContext context, FunctionType functionType) throws WasmAssemblerException {
+        LargeArrayIndex i = functionType.getInputs().largeLength();
+        while (i.compareTo(LargeArrayIndex.ZERO) > 0) {
+            i = i.subtract(1);
+            context.getFrameState().popOperand(functionType.getInputs().get(i));
+        }
+    }
+
+    public static void pushReturnValues(CodeEmitContext context, FunctionType functionType) throws WasmAssemblerException {
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(functionType.getOutputs().largeLength()) < 0; i = i.add(1)) {
+            context.getFrameState().pushOperand(functionType.getOutputs().get(i));
+        }
+    }
 }

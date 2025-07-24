@@ -10,9 +10,8 @@ import java.util.List;
  * <p>
  * This very specifically exists because the conventions usually used by Java
  * don't really apply in the context of WASM code generation. For example, the
- * argument order is often reversed and the 'this' local is not always the first
- * argument. This is mainly due to the fact that WASM pops arguments from the
- * stack in reverse order compared to Java's method invocation conventions.
+ * argument order can be different and the 'this' local is not always the first
+ * argument.
  */
 public final class LocalVariables {
     private final JavaLocal thisLocal;
