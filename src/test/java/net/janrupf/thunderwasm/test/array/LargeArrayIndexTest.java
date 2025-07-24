@@ -1,4 +1,4 @@
-package net.janrupf.thunderwasm.test;
+package net.janrupf.thunderwasm.test.array;
 
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import org.junit.jupiter.api.Assertions;

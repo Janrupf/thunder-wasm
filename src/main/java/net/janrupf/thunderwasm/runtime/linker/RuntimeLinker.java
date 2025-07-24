@@ -26,7 +26,7 @@ public interface RuntimeLinker {
      * @return the linked global
      * @throws ThunderWasmException if the global could not be linked
      */
-    default LinkedGlobal linkGlobal(String moduleName, String importName, ValueType type, boolean readOnly)
+    default LinkedGlobalBase linkGlobal(String moduleName, String importName, ValueType type, boolean readOnly)
             throws ThunderWasmException {
         throw new ThunderWasmException("Linkage of globals is not implemented in this runtime linker");
     }

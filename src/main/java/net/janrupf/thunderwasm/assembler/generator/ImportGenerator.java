@@ -1,6 +1,5 @@
 package net.janrupf.thunderwasm.assembler.generator;
 
-import jdk.internal.classfile.ClassModel;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.ClassEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;

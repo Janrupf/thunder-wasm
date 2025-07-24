@@ -1,6 +1,5 @@
 package net.janrupf.thunderwasm.assembler.generator;
 
-import com.sun.org.apache.xerces.internal.jaxp.validation.WrappedSAXException;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.ClassEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;

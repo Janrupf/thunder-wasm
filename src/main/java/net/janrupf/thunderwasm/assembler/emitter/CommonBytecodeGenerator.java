@@ -1,6 +1,5 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
-import com.sun.tools.javac.jvm.Code;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;

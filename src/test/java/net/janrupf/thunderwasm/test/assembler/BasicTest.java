@@ -125,6 +125,11 @@ public class BasicTest {
         public void set(ExternReference value) {
             this.value = value;
         }
+
+        @Override
+        public ValueType getType() {
+            return ReferenceType.EXTERNREF;
+        }
     }
 
     private static final class TestFunctionImplementations {

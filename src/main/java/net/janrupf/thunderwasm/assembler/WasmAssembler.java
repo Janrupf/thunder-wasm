@@ -1,6 +1,5 @@
 package net.janrupf.thunderwasm.assembler;
 
-import com.sun.tools.javac.jvm.Code;
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;

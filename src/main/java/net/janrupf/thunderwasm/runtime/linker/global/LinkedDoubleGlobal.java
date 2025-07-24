@@ -2,7 +2,7 @@ package net.janrupf.thunderwasm.runtime.linker.global;
 
 import java.lang.invoke.MethodHandle;
 
-public interface LinkedDoubleGlobal extends LinkedReadOnlyDoubleGlobal {
+public interface LinkedDoubleGlobal extends LinkedReadOnlyDoubleGlobal, LinkedGlobal {
     void set(double value);
 
     class Handle extends LinkedReadOnlyDoubleGlobal.Handle implements LinkedDoubleGlobal {

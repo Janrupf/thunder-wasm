@@ -1,4 +1,4 @@
 package net.janrupf.thunderwasm.runtime.linker.global;
 
-public interface LinkedGlobal {
+public interface LinkedGlobal extends LinkedReadOnlyGlobal {
 }

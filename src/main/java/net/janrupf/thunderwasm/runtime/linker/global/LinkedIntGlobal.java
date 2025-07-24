@@ -2,7 +2,7 @@ package net.janrupf.thunderwasm.runtime.linker.global;
 
 import java.lang.invoke.MethodHandle;
 
-public interface LinkedIntGlobal extends LinkedReadOnlyIntGlobal {
+public interface LinkedIntGlobal extends LinkedReadOnlyIntGlobal, LinkedGlobal {
     void set(int value);
 
     class Handle extends LinkedReadOnlyIntGlobal.Handle implements LinkedIntGlobal {

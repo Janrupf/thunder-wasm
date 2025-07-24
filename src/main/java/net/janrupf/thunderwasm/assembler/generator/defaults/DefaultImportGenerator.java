@@ -21,6 +21,7 @@ import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
+import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobalBase;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.*;
@@ -189,7 +190,7 @@ public class DefaultImportGenerator implements ImportGenerator {
                         ObjectType.of(ValueType.class),
                         PrimitiveType.BOOLEAN
                 },
-                ObjectType.of(LinkedGlobal.class),
+                ObjectType.of(LinkedGlobalBase.class),
                 InvokeType.INTERFACE,
                 true
         );

@@ -2,7 +2,7 @@ package net.janrupf.thunderwasm.runtime.linker.global;
 
 import java.lang.invoke.MethodHandle;
 
-public interface LinkedFloatGlobal extends LinkedReadOnlyFloatGlobal {
+public interface LinkedFloatGlobal extends LinkedReadOnlyFloatGlobal, LinkedGlobal {
     void set(float value);
 
     class Handle extends LinkedReadOnlyFloatGlobal.Handle implements LinkedFloatGlobal {

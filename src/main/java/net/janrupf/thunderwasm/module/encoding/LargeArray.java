@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.module.encoding;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -139,7 +140,7 @@ public class LargeArray<T> implements Iterable<T> {
     /**
      * Converts the large byte array to a flat byte array.
      *
-     * @return the flat byte array, or null, if this array is too large
+     * @return the flat array, or null, if this array is too large
      */
     @SuppressWarnings("unchecked")
     public T[] asFlatArray() {
@@ -151,6 +152,20 @@ public class LargeArray<T> implements Iterable<T> {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Converts the large array to a list.
+     *
+     * @return the list, or null, if this array is too large
+     */
+    public List<T> asFlatList() {
+        T[] data = asFlatArray();
+        if (data == null) {
+            return null;
+        }
+
+        return Arrays.asList(data);
     }
 
     /**

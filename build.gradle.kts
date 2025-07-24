@@ -1,4 +1,5 @@
 import de.undercouch.gradle.tasks.download.Download
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
@@ -23,6 +24,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 
     implementation("org.ow2.asm:asm:9.7")
+
+    testImplementation("com.fasterxml.jackson.core:jackson-core:2.19.2")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
 }
 
 fun findProgram(name: String, env: String?): Path? {
@@ -104,6 +108,7 @@ tasks {
 
         val wat2wasm = findProgram("wat2wasm", "WAT2WASM")
         val wast2json = findProgram("wast2json", "WAST2JSON")
+        val collectedTestManifests = mutableListOf<String>()
 
         if (wat2wasm != null && wast2json != null) {
             val outputDir = layout.buildDirectory.dir("wasm/test")
@@ -127,6 +132,8 @@ tasks {
                             val relativeTestJson = if (inputFile.extension == "wast")
                                 File(relativeOutput.parent, "${relativeOutput.nameWithoutExtension}.json")
                             else null
+
+                            relativeTestJson?.let { j -> collectedTestManifests.add(j.path) }
 
                             val outputFileProvider = outputDir.map { out ->
                                 WasmOutput(
@@ -175,6 +182,9 @@ tasks {
                         }
                     }
                 }
+
+                outputDir.map { it.file("wast-tests.txt") }.get()
+                    .asFile.writeText(collectedTestManifests.joinToString("\n"))
             }
         } else {
             doFirst {
@@ -195,6 +205,10 @@ tasks {
 
     test {
         useJUnitPlatform()
+
+        testLogging {
+            exceptionFormat = TestExceptionFormat.FULL
+        }
 
         // jvmArgs(
         //     "-XX:+UnlockDiagnosticVMOptions",
