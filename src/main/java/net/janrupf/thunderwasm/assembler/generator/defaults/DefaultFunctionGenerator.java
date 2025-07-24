@@ -26,6 +26,7 @@ import net.janrupf.thunderwasm.types.ValueType;
 import net.janrupf.thunderwasm.util.ObjectUtil;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +38,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     private static final ObjectType FUNCTION_REFERENCE_TYPE = ObjectType.of(FunctionReference.class);
     private static final ObjectType DYNAMIC_DISPATCH_HELPER_TYPE = ObjectType.of(WasmDynamicDispatch.class);
     private static final ObjectType METHOD_HANDLE_TYPE = ObjectType.of(MethodHandle.class);
+    private static final ObjectType METHOD_HANDLES_HELPER_TYPE = ObjectType.of(MethodHandles.class);
 
     @Override
     public void addFunction(LargeArrayIndex i, Function function, ClassEmitContext context) throws WasmAssemblerException {
@@ -202,11 +204,10 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             );
         }
 
-        emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.invoke(
                 DYNAMIC_DISPATCH_HELPER_TYPE,
                 "prepareCallIndirect",
-                new JavaType[] { ObjectType.of(FunctionReference.class), ObjectType.OBJECT },
+                new JavaType[] { ObjectType.of(FunctionReference.class) },
                 METHOD_HANDLE_TYPE,
                 InvokeType.STATIC,
                 false
@@ -248,11 +249,29 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
 
         emitter.loadConstant(handle);
 
-        emitter.loadConstant(signature.getOwnerArgumentIndex());
+        if (signature.getOwnerArgumentIndex() != -1) {
+            // Bind the handle to this
+            emitter.loadConstant(signature.getOwnerArgumentIndex());
+            emitter.loadConstant(1);
+            emitter.doNew(new ArrayType(ObjectType.OBJECT));
+            emitter.duplicate();
+            emitter.loadConstant(0);
+            emitter.loadLocal(context.getLocalVariables().getThis());
+            emitter.storeArrayElement();
+            emitter.invoke(
+                    METHOD_HANDLES_HELPER_TYPE,
+                    "insertArguments",
+                    new JavaType[] { METHOD_HANDLE_TYPE, PrimitiveType.INT, new ArrayType(ObjectType.OBJECT) },
+                    METHOD_HANDLE_TYPE,
+                    InvokeType.STATIC,
+                    false
+            );
+        }
+
         emitter.invoke(
                 SIMPLE_LINKED_FUNCTION_TYPE,
                 "inferFromMethodHandle",
-                new JavaType[] { ObjectType.of(MethodHandle.class), PrimitiveType.INT },
+                new JavaType[] { ObjectType.of(MethodHandle.class) },
                 SIMPLE_LINKED_FUNCTION_TYPE,
                 InvokeType.STATIC,
                 false

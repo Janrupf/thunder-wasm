@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
@@ -565,10 +564,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false,
                 isSet
         );
-
-        if (isSet) {
-        } else {
-        }
     }
 
     /**

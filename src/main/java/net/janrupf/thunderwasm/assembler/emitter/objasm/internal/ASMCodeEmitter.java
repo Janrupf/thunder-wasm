@@ -458,7 +458,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     }
 
     @Override
-    public void doNew(ObjectType type) {
+    public void doNew(ObjectType type) throws WasmAssemblerException {
         if (type instanceof ArrayType) {
             JavaType elementType = ((ArrayType) type).getElementType();
 
@@ -468,6 +468,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
             } else {
                 visitor.visitTypeInsn(Opcodes.ANEWARRAY, ASMConverter.convertType(elementType).getInternalName());
             }
+
+            stackFrameState.popOperand(PrimitiveType.INT);
         } else {
             visitor.visitTypeInsn(Opcodes.NEW, ASMConverter.convertType(type).getInternalName());
         }
