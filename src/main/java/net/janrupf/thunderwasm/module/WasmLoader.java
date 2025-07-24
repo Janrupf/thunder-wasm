@@ -240,7 +240,7 @@ public class WasmLoader {
      * @throws InvalidModuleException if the module is invalid
      */
     public ExportSection readExportSection(byte id) throws IOException, InvalidModuleException {
-        LargeArray<Export> exports = this.readVec(Export.class, this::readExport);
+        LargeArray<Export<?>> exports = ObjectUtil.forceCast(this.readVec(Export.class, this::readExport));
         return new ExportSection(id, exports);
     }
 

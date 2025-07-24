@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.assembler.generator;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.ClassEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
@@ -217,6 +218,26 @@ public interface MemoryGenerator {
      * @throws WasmAssemblerException if an error occurs
      */
     void emitLoadMemoryReference(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Make a memory exportable.
+     *
+     * @param i       the index of the memory
+     * @param type    the type of the memory
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void makeMemoryExportable(LargeArrayIndex i, MemoryType type, ClassEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit the code for loading a memory export.
+     *
+     * @param i       the index of the memory
+     * @param type    the type of the memory
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadMemoryExport(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException;
 
     /**
      * Retrieves the underlying memory type.

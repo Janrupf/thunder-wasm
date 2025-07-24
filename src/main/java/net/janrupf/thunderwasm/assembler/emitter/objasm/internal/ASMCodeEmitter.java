@@ -268,6 +268,9 @@ public final class ASMCodeEmitter implements CodeEmitter {
         } else if (value instanceof JavaMethodHandle) {
             stackFrameState.pushOperand(ObjectType.of(MethodHandle.class));
             visitor.visitLdcInsn(ASMConverter.convertMethodHandle((JavaMethodHandle) value));
+        } else if (value instanceof JavaFieldHandle) {
+            stackFrameState.pushOperand(ObjectType.of(MethodHandle.class));
+            visitor.visitLdcInsn(ASMConverter.convertFieldHandle((JavaFieldHandle) value));
         } else {
             throw new WasmAssemblerException("Unsupported constant type: " + value.getClass().getName());
         }
@@ -800,6 +803,12 @@ public final class ASMCodeEmitter implements CodeEmitter {
             case IUSHR:
                 stackFrameState.popOperands(PrimitiveType.INT, PrimitiveType.INT);
                 opCode = Opcodes.IUSHR;
+                stackFrameState.pushOperand(PrimitiveType.INT);
+                break;
+
+            case INEG:
+                stackFrameState.popOperand(PrimitiveType.INT);
+                opCode = Opcodes.INEG;
                 stackFrameState.pushOperand(PrimitiveType.INT);
                 break;
 

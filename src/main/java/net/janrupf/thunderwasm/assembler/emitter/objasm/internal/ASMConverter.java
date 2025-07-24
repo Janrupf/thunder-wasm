@@ -2,13 +2,12 @@ package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
+import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.assembler.emitter.Visibility;
 import net.janrupf.thunderwasm.assembler.emitter.signature.ConcreteType;
 import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.signature.TypeVariable;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaMethodHandle;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
-import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
+import net.janrupf.thunderwasm.assembler.emitter.types.*;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -16,6 +15,7 @@ import org.objectweb.asm.signature.SignatureVisitor;
 import org.objectweb.asm.signature.SignatureWriter;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public final class ASMConverter {
@@ -182,6 +182,64 @@ public final class ASMConverter {
                 owner,
                 methodName,
                 methodDescriptor,
+                ownerIsInterface
+        );
+    }
+
+    /**
+     * Convert a field handle to an ASM handle.
+     *
+     * @param handle the handle to convert
+     * @return the converted handle
+     */
+    public static Handle convertFieldHandle(JavaFieldHandle handle) {
+        return convertFieldHandle(
+                handle.getOwner(),
+                handle.getName(),
+                handle.getType(),
+                handle.isStatic(),
+                handle.isSet(),
+                handle.isOwnerInterface()
+        );
+    }
+
+    /**
+     * Convert a field handle to an ASM handle.
+     *
+     * @param owner            the type owning the field
+     * @param name             the name of the field
+     * @param type             the type of the field
+     * @param isStatic         whether the field is static
+     * @param isSet            whether the handle is a setter
+     * @param ownerIsInterface whether the field owner is an interface
+     * @return the converted handle
+     */
+    private static Handle convertFieldHandle(
+            JavaType owner,
+            String name,
+            JavaType type,
+            boolean isStatic,
+            boolean isSet,
+            boolean ownerIsInterface
+    ) {
+        int tag;
+        if (isStatic && !isSet) {
+            tag = Opcodes.H_GETSTATIC;
+        } else if (!isStatic && !isSet) {
+            tag = Opcodes.H_GETFIELD;
+        } else if (isStatic) {
+            tag = Opcodes.H_PUTSTATIC;
+        } else {
+            tag = Opcodes.H_PUTFIELD;
+        }
+
+        String ownerName = convertType(owner).getInternalName();
+
+        return new Handle(
+                tag,
+                ownerName,
+                name,
+                convertType(type).getDescriptor(),
                 ownerIsInterface
         );
     }

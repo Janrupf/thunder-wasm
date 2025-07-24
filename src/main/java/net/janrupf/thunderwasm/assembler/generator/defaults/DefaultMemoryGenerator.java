@@ -1,13 +1,11 @@
 package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
-import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
-import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
-import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.assembler.emitter.types.*;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
@@ -16,16 +14,20 @@ import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeByteArray;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.types.*;
 
+import java.lang.invoke.MethodHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Collections;
 
 public class DefaultMemoryGenerator implements MemoryGenerator {
     private static final ArrayType BYTE_ARRAY_TYPE = new ArrayType(PrimitiveType.BYTE);
     private static final ArrayType DATA_SEGMENT_TYPE = BYTE_ARRAY_TYPE;
     private static final ObjectType MEMORY_TYPE = ObjectType.of(ByteBuffer.class);
     private static final int PAGE_SIZE = 64 * 1024;
+    private static final ObjectType LINKED_MEMORY_HANDLE_TYPE = ObjectType.of(LinkedMemory.Handle.class);
 
     private final String fieldName;
 
@@ -624,8 +626,6 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitter.op(Op.SWAP);
 
         emitter.loadArrayElement();
-
-
     }
 
     @Override
@@ -636,6 +636,88 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     @Override
     public void emitLoadMemoryReference(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException {
         emitAccessMemoryField(i, false, context);
+    }
+
+    @Override
+    public void makeMemoryExportable(LargeArrayIndex i, MemoryType type, ClassEmitContext context) throws WasmAssemblerException {
+        // We need to add a method for growing
+
+        MethodEmitter methodEmitter = context.getEmitter().method(
+                generateMemoryHelperName(i, "grow"),
+                Visibility.PRIVATE,
+                false,
+                false,
+                PrimitiveType.BOOLEAN,
+                Collections.singletonList(PrimitiveType.INT),
+                Collections.emptyList()
+        );
+
+        CodeEmitter growCodeEmitter = methodEmitter.code();
+        JavaLocal thisLocal = methodEmitter.getThisLocal();
+        JavaLocal growCountLocal = methodEmitter.getArgumentLocals().get(0);
+
+        growCodeEmitter.loadLocal(growCountLocal);
+        emitMemoryGrow(i, type, new CodeEmitContext(
+                context.getLookups(),
+                growCodeEmitter,
+                new WasmFrameState(),
+                context.getGenerators(),
+                new LocalVariables(thisLocal, Collections.singletonList(growCountLocal))
+        ));
+
+        // Returns the old size or -1 on failure - we need to convert
+        // everything except -1 to a true
+        growCodeEmitter.loadConstant(1);
+        growCodeEmitter.op(Op.IADD);
+        growCodeEmitter.duplicate();
+        growCodeEmitter.op(Op.INEG);
+        growCodeEmitter.op(Op.IOR);
+
+        growCodeEmitter.loadConstant(31);
+        growCodeEmitter.op(Op.IUSHR);
+
+        growCodeEmitter.doReturn();
+        growCodeEmitter.finish();
+        methodEmitter.finish();
+    }
+
+    @Override
+    public void emitLoadMemoryExport(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.doNew(LINKED_MEMORY_HANDLE_TYPE);
+        emitter.duplicate();
+
+        emitter.loadConstant(new JavaFieldHandle(
+                emitter.getOwner(),
+                generateMemoryFieldName(i),
+                MEMORY_TYPE,
+                false,
+                false,
+                false
+        ));
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        CommonBytecodeGenerator.bindMethodHandle(emitter);
+
+        emitter.loadConstant(new JavaMethodHandle(
+                emitter.getOwner(),
+                generateMemoryHelperName(i, "grow"),
+                PrimitiveType.BOOLEAN,
+                Collections.singletonList(PrimitiveType.INT),
+                InvokeType.VIRTUAL,
+                false
+        ));
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        CommonBytecodeGenerator.bindMethodHandle(emitter);
+
+        emitter.invoke(
+                LINKED_MEMORY_HANDLE_TYPE,
+                "<init>",
+                new JavaType[] { ObjectType.of(MethodHandle.class), ObjectType.of(MethodHandle.class) },
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
     }
 
     @Override
@@ -675,6 +757,10 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
         return "data_" + i;
+    }
+
+    protected String generateMemoryHelperName(LargeArrayIndex i, String purpose) {
+        return "$memory_" + i + "$" + purpose;
     }
 
     private void emitCalculateAccessOffset(

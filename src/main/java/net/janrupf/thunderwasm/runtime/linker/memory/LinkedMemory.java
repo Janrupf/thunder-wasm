@@ -2,6 +2,8 @@ package net.janrupf.thunderwasm.runtime.linker.memory;
 
 import net.janrupf.thunderwasm.data.Limits;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 
 public interface LinkedMemory {
@@ -69,6 +71,37 @@ public interface LinkedMemory {
 
         public int currentSize() {
             return byteBuffer.capacity() / PAGE_SIZE;
+        }
+    }
+
+    /**
+     * Handle implementation of a memory - used for exporting internal memories.
+     */
+    class Handle implements LinkedMemory {
+        private final MethodHandle getByteBuffer;
+        private final MethodHandle grow;
+
+        public Handle(MethodHandle getByteBuffer, MethodHandle grow) {
+            this.getByteBuffer = getByteBuffer;
+            this.grow = grow;
+        }
+
+        @Override
+        public ByteBuffer asInternal() {
+            try {
+                return (ByteBuffer) getByteBuffer.invokeExact();
+            } catch (Throwable t) {
+                throw new RuntimeException("Failed to retrieve byte buffer by handle", t);
+            }
+        }
+
+        @Override
+        public boolean grow(int pages) {
+            try {
+                return (boolean) grow.invokeExact(pages);
+            } catch (Throwable t) {
+                throw new RuntimeException("Failed to grow memory by handle", t);
+            }
         }
     }
 }

@@ -1,9 +1,12 @@
 package net.janrupf.thunderwasm.assembler.generator;
 
+import jdk.internal.classfile.ClassModel;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.ClassEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
+import net.janrupf.thunderwasm.exports.GlobalExportDescription;
 import net.janrupf.thunderwasm.imports.*;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
@@ -236,12 +239,93 @@ public interface ImportGenerator {
     /**
      * Emit the code to load a function reference.
      *
-     * @param im the function import
+     * @param im      the function import
      * @param context the context to use
      * @throws WasmAssemblerException if an error occurs during assembly
      */
     void emitLoadFunctionReference(Import<TypeImportDescription> im, CodeEmitContext context)
-        throws WasmAssemblerException;
+            throws WasmAssemblerException;
+
+    /**
+     * Make an imported function exportable.
+     *
+     * @param im      the imported function to make exportable
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void makeFunctionExportable(Import<TypeImportDescription> im, ClassEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load an export of a function import.
+     *
+     * @param im      the imported function to export
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadFunctionExport(Import<TypeImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Make an imported global exportable.
+     *
+     * @param im      the imported function to make exportable
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void makeGlobalExportable(Import<GlobalImportDescription> im, ClassEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load an export of a global import.
+     *
+     * @param im      the imported global to export
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadGlobalExport(Import<GlobalImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Make an imported memory exportable.
+     *
+     * @param im      the imported memory to make exportable
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void makeMemoryExportable(Import<MemoryImportDescription> im, ClassEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load an export of a memory import.
+     *
+     * @param im      the imported memory to export
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadMemoryExport(Import<MemoryImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Make an imported table exportable.
+     *
+     * @param im      the imported table to make exportable
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void makeTableExportable(Import<TableImportDescription> im, ClassEmitContext context)
+            throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load an export of a table import.
+     *
+     * @param im      the imported table to export
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadTableExport(Import<TableImportDescription> im, CodeEmitContext context)
+            throws WasmAssemblerException;
+
 
     /**
      * Retrieves the underlying memory type.

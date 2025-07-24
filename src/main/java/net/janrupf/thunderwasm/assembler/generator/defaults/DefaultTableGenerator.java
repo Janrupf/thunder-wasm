@@ -361,15 +361,17 @@ public class DefaultTableGenerator implements TableGenerator {
         // No-op
     }
 
-    /**
-     * Emit the code for loading the table reference.
-     * <p>
-     * This method does not modify the frame state!
-     *
-     * @param i       the index of the table
-     * @param context the context to use
-     * @throws WasmAssemblerException if an error occurs
-     */
+    @Override
+    public void makeTableExportable(LargeArrayIndex i, TableType type, ClassEmitContext context) {
+        // No-op, tables are exportable by default
+    }
+
+    @Override
+    public void emitLoadTableExport(LargeArrayIndex i, TableType type, CodeEmitContext context)
+            throws WasmAssemblerException {
+        emitLoadTableReferenceInternal(i, context);
+    }
+
     private void emitLoadTableReferenceInternal(LargeArrayIndex i, CodeEmitContext context) throws WasmAssemblerException {
         context.getEmitter().loadLocal(context.getLocalVariables().getThis());
         context.getEmitter().accessField(

@@ -12,6 +12,7 @@ public final class WasmGenerators {
     private ImportGenerator importGenerator;
     private MemoryGenerator memoryGenerator;
     private TableGenerator tableGenerator;
+    private ExportGenerator exportGenerator;
 
     public WasmGenerators() {
         this.functionGenerator = new DefaultFunctionGenerator();
@@ -19,6 +20,7 @@ public final class WasmGenerators {
         this.importGenerator = new DefaultImportGenerator();
         this.memoryGenerator = new DefaultMemoryGenerator();
         this.tableGenerator = new DefaultTableGenerator();
+        this.exportGenerator = new DefaultExportGenerator();
     }
 
     /**
@@ -77,6 +79,17 @@ public final class WasmGenerators {
     }
 
     /**
+     * Overrides the export generator.
+     *
+     * @param exportGenerator the new export generator
+     * @return this
+     */
+    public WasmGenerators withExportGenerator(ExportGenerator exportGenerator) {
+        this.exportGenerator = exportGenerator;
+        return this;
+    }
+
+    /**
      * Retrieves the function generator.
      *
      * @return the function generator
@@ -119,5 +132,14 @@ public final class WasmGenerators {
      */
     public TableGenerator getTableGenerator() {
         return tableGenerator;
+    }
+
+    /**
+     * Retrieves the export generator.
+     *
+     * @return the export generator
+     */
+    public ExportGenerator getExportGenerator() {
+        return exportGenerator;
     }
 }

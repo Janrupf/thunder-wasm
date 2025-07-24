@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.assembler.emitter.Visibility;
 import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
+import net.janrupf.thunderwasm.util.ObjectUtil;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -17,7 +18,12 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
     private final ClassWriter writer;
     private final ObjectType owner;
 
-    public ASMClassFileEmitter(String packageName, String className) {
+    public ASMClassFileEmitter(
+            String packageName,
+            String className,
+            ObjectType superType,
+            List<ObjectType> interfaces
+    ) {
         writer = new ClassWriter(0);
         owner = new ObjectType(packageName, className);
 
@@ -27,8 +33,8 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
                 Opcodes.ACC_PUBLIC,
                 ASMConverter.convertType(owner).getInternalName(),
                 null,
-                "java/lang/Object",
-                new String[0]
+                ASMConverter.convertType(superType).getInternalName(),
+                ASMConverter.convertTypesToNames(ObjectUtil.forceCast(interfaces))
         );
     }
 

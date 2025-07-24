@@ -244,7 +244,36 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     public void emitLoadFunctionReference(LargeArrayIndex i, FunctionType functionType, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, emitter.getOwner());
+        emitLoadLinkedFunction(i, functionType, context);
+
+        emitter.doNew(FUNCTION_REFERENCE_TYPE);
+        emitter.duplicate(1, 1);
+        emitter.op(Op.SWAP);
+        emitter.invoke(
+                FUNCTION_REFERENCE_TYPE,
+                "<init>",
+                new JavaType[] { LINKED_FUNCTION_TYPE },
+                PrimitiveType.VOID,
+                InvokeType.SPECIAL,
+                false
+        );
+    }
+
+    @Override
+    public void makeFunctionExportable(LargeArrayIndex i, FunctionType type, ClassEmitContext context) {
+        // No-op, functions are exportable through loading their references linked implementations
+    }
+
+    @Override
+    public void emitLoadFunctionExport(LargeArrayIndex i, FunctionType type, CodeEmitContext context)
+            throws WasmAssemblerException {
+        emitLoadLinkedFunction(i, type, context);
+    }
+
+    protected void emitLoadLinkedFunction(LargeArrayIndex i, FunctionType type, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(type, emitter.getOwner());
         JavaMethodHandle handle = new JavaMethodHandle(
                 emitter.getOwner(),
                 determineMethodName(i),
@@ -283,25 +312,13 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 InvokeType.STATIC,
                 false
         );
-
-        emitter.doNew(FUNCTION_REFERENCE_TYPE);
-        emitter.duplicate(1, 1);
-        emitter.op(Op.SWAP);
-        emitter.invoke(
-                FUNCTION_REFERENCE_TYPE,
-                "<init>",
-                new JavaType[] { LINKED_FUNCTION_TYPE },
-                PrimitiveType.VOID,
-                InvokeType.SPECIAL,
-                false
-        );
     }
 
-    private String determineMethodName(LargeArrayIndex i) {
+    protected String determineMethodName(LargeArrayIndex i) {
         return "$code_" + i;
     }
 
-    private FunctionType determineFunctionType(
+    protected final FunctionType determineFunctionType(
             LargeArrayIndex i,
             ElementLookups lookups
     ) throws WasmAssemblerException {

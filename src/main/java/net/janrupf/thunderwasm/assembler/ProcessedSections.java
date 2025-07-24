@@ -8,4 +8,5 @@ public enum ProcessedSections {
     CODE,
     MEMORY,
     DATA,
+    EXPORT,
 }

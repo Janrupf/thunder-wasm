@@ -13,9 +13,12 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.types.*;
 
+import java.lang.invoke.MethodHandle;
+
 public class CommonBytecodeGenerator {
     private static final ObjectType LARGE_ARRAY_TYPE = ObjectType.of(LargeArray.class);
     private static final ObjectType LARGE_ARRAY_INDEX_TYPE = ObjectType.of(LargeArrayIndex.class);
+    private static final ObjectType METHOD_HANDLE_TYPE = ObjectType.of(MethodHandle.class);
 
     private CommonBytecodeGenerator() {
     }
@@ -558,7 +561,7 @@ public class CommonBytecodeGenerator {
      * Load the function type.
      *
      * @param emitter the code emitter
-     * @param type the function type to load
+     * @param type    the function type to load
      * @throws WasmAssemblerException if the load cannot be generated
      */
     public static void loadFunctionType(CodeEmitter emitter, FunctionType type) throws WasmAssemblerException {
@@ -571,7 +574,7 @@ public class CommonBytecodeGenerator {
         emitter.invoke(
                 ObjectType.of(FunctionType.class),
                 "<init>",
-                new JavaType[] { LARGE_ARRAY_TYPE, LARGE_ARRAY_TYPE },
+                new JavaType[]{LARGE_ARRAY_TYPE, LARGE_ARRAY_TYPE},
                 PrimitiveType.VOID,
                 InvokeType.SPECIAL,
                 false
@@ -579,7 +582,7 @@ public class CommonBytecodeGenerator {
     }
 
     private static void loadLargeArrayOfTypes(CodeEmitter emitter, LargeArray<ValueType> types)
-        throws WasmAssemblerException {
+            throws WasmAssemblerException {
         emitter.doNew(LARGE_ARRAY_TYPE);
         emitter.duplicate();
         emitter.loadConstant(ObjectType.of(ValueType.class));
@@ -589,7 +592,7 @@ public class CommonBytecodeGenerator {
         emitter.invoke(
                 LARGE_ARRAY_TYPE,
                 "<init>",
-                new JavaType[] { ObjectType.of(Class.class), LARGE_ARRAY_INDEX_TYPE },
+                new JavaType[]{ObjectType.of(Class.class), LARGE_ARRAY_INDEX_TYPE},
                 PrimitiveType.VOID,
                 InvokeType.SPECIAL,
                 false
@@ -603,7 +606,7 @@ public class CommonBytecodeGenerator {
             emitter.invoke(
                     LARGE_ARRAY_TYPE,
                     "set",
-                    new JavaType[] { LARGE_ARRAY_INDEX_TYPE, ObjectType.OBJECT },
+                    new JavaType[]{LARGE_ARRAY_INDEX_TYPE, ObjectType.OBJECT},
                     PrimitiveType.VOID,
                     InvokeType.VIRTUAL,
                     false
@@ -616,7 +619,7 @@ public class CommonBytecodeGenerator {
         emitter.invoke(
                 LARGE_ARRAY_INDEX_TYPE,
                 "fromU64",
-                new JavaType[] { PrimitiveType.LONG },
+                new JavaType[]{PrimitiveType.LONG},
                 LARGE_ARRAY_INDEX_TYPE,
                 InvokeType.STATIC,
                 false
@@ -629,9 +632,9 @@ public class CommonBytecodeGenerator {
      * This is mostly equivalent to {@link CodeEmitter#loadConstant(Object)} but also supports
      * {@link net.janrupf.thunderwasm.runtime.ExternReference} values.
      *
-     * @param emitter           the code emitter
-     * @param type              the type of the value
-     * @param value             the value to load
+     * @param emitter the code emitter
+     * @param type    the type of the value
+     * @param value   the value to load
      * @throws WasmAssemblerException if the constant type is not supported
      */
     public static void loadConstant(
@@ -661,6 +664,25 @@ public class CommonBytecodeGenerator {
         }
 
         emitter.loadConstant(value);
+    }
+
+    /**
+     * Emit the code for binding a method handle.
+     *
+     * @param emitter the code emitter
+     * @throws WasmAssemblerException if the stack values are invalid
+     */
+    public static void bindMethodHandle(
+            CodeEmitter emitter
+    ) throws WasmAssemblerException {
+        emitter.invoke(
+                METHOD_HANDLE_TYPE,
+                "bindTo",
+                new JavaType[] { ObjectType.OBJECT },
+                METHOD_HANDLE_TYPE,
+                InvokeType.VIRTUAL,
+                false
+        );
     }
 
     @FunctionalInterface

@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.assembler.generator;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmAssemblerStatistics;
 import net.janrupf.thunderwasm.assembler.emitter.ClassEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.instructions.Function;
@@ -51,4 +50,24 @@ public interface FunctionGenerator {
      * @throws WasmAssemblerException if an error occurs during assembly
      */
     void emitLoadFunctionReference(LargeArrayIndex i, FunctionType functionType, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Make a function exportable.
+     *
+     * @param i       the index of the function to make exportable
+     * @param type    the type of the function to export
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void makeFunctionExportable(LargeArrayIndex i, FunctionType type, ClassEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load an export of a function.
+     *
+     * @param i       the index of the function to load
+     * @param type    the type of the function to export
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs during assembly
+     */
+    void emitLoadFunctionExport(LargeArrayIndex i, FunctionType type, CodeEmitContext context) throws WasmAssemblerException;
 }

@@ -42,6 +42,11 @@ public enum Op {
     IUSHR,
 
     /**
+     * Negate an integer.
+     */
+    INEG,
+
+    /**
      * Bitwise and of 2 integers.
      */
     IAND,

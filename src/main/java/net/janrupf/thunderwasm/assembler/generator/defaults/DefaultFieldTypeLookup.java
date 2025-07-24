@@ -25,6 +25,16 @@ public class DefaultFieldTypeLookup {
             .with(NumberType.F64, LinkedReadOnlyDoubleGlobal.class, LinkedDoubleGlobal.class)
             .withDefault(LinkedReadOnlyObjectGlobal.class, LinkedObjectGlobal.class);
 
+    /**
+     * Types to use for global handle exports.
+     */
+    public static final DefaultFieldTypeLookup GLOBAL_HANDLE = new DefaultFieldTypeLookup()
+            .with(NumberType.I32, LinkedReadOnlyIntGlobal.Handle.class, LinkedIntGlobal.Handle.class)
+            .with(NumberType.I64, LinkedReadOnlyLongGlobal.Handle.class, LinkedLongGlobal.Handle.class)
+            .with(NumberType.F32, LinkedReadOnlyFloatGlobal.Handle.class, LinkedFloatGlobal.Handle.class)
+            .with(NumberType.F64, LinkedReadOnlyDoubleGlobal.Handle.class, LinkedDoubleGlobal.Handle.class)
+            .withDefault(LinkedReadOnlyObjectGlobal.Handle.class, LinkedObjectGlobal.Handle.class);
+
     private final Map<JavaType, ReadWriteSelector> mapping;
     private ReadWriteSelector defaultSelector;
 

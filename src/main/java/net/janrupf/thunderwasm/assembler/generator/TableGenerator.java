@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.assembler.generator;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.emitter.ClassEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
@@ -194,6 +195,26 @@ public interface TableGenerator {
      * @throws WasmAssemblerException if an error occurs
      */
     void emitDropElement(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Make a table exportable.
+     *
+     * @param i the index of the table to make exportable
+     * @param type the type of the table
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void makeTableExportable(LargeArrayIndex i, TableType type, ClassEmitContext context) throws WasmAssemblerException;
+
+    /**
+     * Emit the code to load an export of a table.
+     *
+     * @param i the index of the table to load
+     * @param type the type of the table
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitLoadTableExport(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException;
 
     /**
      * Retrieves the underlying table type.

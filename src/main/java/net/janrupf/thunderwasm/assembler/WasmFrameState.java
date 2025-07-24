@@ -17,6 +17,15 @@ public final class WasmFrameState {
     private final List<ValueType> blockReturnTypes;
     private boolean isReachable;
 
+    public WasmFrameState() throws WasmAssemblerException {
+        this(
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
+    }
+
     public WasmFrameState(
             List<ValueType> argumentTypes,
             List<ValueType> locals,

@@ -22,7 +22,7 @@ public class ExportSectionTest {
         MemorySection memorySection = TestUtil.getSection(module, (byte) 5);
         GlobalSection globalSection = TestUtil.getSection(module, (byte) 6);
         ExportSection exportSection = TestUtil.getSection(module, (byte) 7);
-        LargeArray<Export> exports = exportSection.getExports();
+        LargeArray<Export<?>> exports = exportSection.getExports();
 
         Assertions.assertEquals(4, exports.length());
 

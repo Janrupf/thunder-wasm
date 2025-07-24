@@ -175,14 +175,9 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         boolean isConst = im.getDescription().getType().getMutability() == GlobalType.Mutability.CONST;
 
-        // Push the arguments for the method invocation, we expect the linker to be on top of the stack already
-
         emitter.loadConstant(im.getModule());
-
         emitter.loadConstant(im.getName());
-
         CommonBytecodeGenerator.loadTypeReference(emitter, type);
-
         emitter.loadConstant(isConst);
 
         emitter.invoke(
@@ -615,6 +610,74 @@ public class DefaultImportGenerator implements ImportGenerator {
                 InvokeType.SPECIAL,
                 false
         );
+    }
+
+    @Override
+    public void makeFunctionExportable(Import<TypeImportDescription> im, ClassEmitContext context) {
+        // No-op, import and export types are the same
+    }
+
+    @Override
+    public void emitLoadFunctionExport(Import<TypeImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                LINKED_FUNCTION_TYPE,
+                false,
+                false
+        );
+    }
+
+    @Override
+    public void makeGlobalExportable(Import<GlobalImportDescription> im, ClassEmitContext context) {
+        // No-op, import and export types are the same
+    }
+
+    @Override
+    public void emitLoadGlobalExport(Import<GlobalImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        ValueType type = im.getDescription().getType().getValueType();
+        CodeEmitter emitter = context.getEmitter();
+
+        boolean isConst = im.getDescription().getType().getMutability() == GlobalType.Mutability.CONST;
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldName(im),
+                DefaultFieldTypeLookup.GLOBAL_IMPORT.select(type, isConst).getType(),
+                false,
+                false
+        );
+    }
+
+    @Override
+    public void makeMemoryExportable(Import<MemoryImportDescription> im, ClassEmitContext context) {
+        // No-op, import and export types are the same
+    }
+
+    @Override
+    public void emitLoadMemoryExport(Import<MemoryImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                emitter.getOwner(),
+                generateImportFieldNameForAttachment(im, "linked"),
+                LINKED_MEMORY_TYPE,
+                false,
+                false
+        );
+    }
+
+    @Override
+    public void makeTableExportable(Import<TableImportDescription> im, ClassEmitContext context) {
+        // No-op, import and export types are the same
+    }
+
+    @Override
+    public void emitLoadTableExport(Import<TableImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
+        tableGeneratorFor(im).emitLoadTableExport(null, im.getDescription().getType(), context);
     }
 
     @Override

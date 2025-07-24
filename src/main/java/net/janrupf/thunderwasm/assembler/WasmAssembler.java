@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.assembler;
 
+import com.sun.tools.javac.jvm.Code;
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
@@ -8,9 +9,11 @@ import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.eval.EvalContext;
+import net.janrupf.thunderwasm.exports.Export;
 import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
@@ -24,6 +27,7 @@ import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.DataSegmentMode;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
+import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.*;
 
 import java.util.Collections;
@@ -42,8 +46,9 @@ public final class WasmAssembler {
     private final ElementLookups elementLookups;
     private final EnumSet<ProcessedSections> onceProcessedSections;
 
+    private final ClassEmitContext classEmitContext;
+
     private final WasmGenerators generators;
-    private final WasmAssemblerStatistics statistics;
 
     public WasmAssembler(
             WasmModule module,
@@ -51,17 +56,27 @@ public final class WasmAssembler {
             String packageName,
             String className,
             WasmGenerators generators
-    ) throws WasmAssemblerException {
+    ) {
         this.packageName = packageName;
         this.className = className;
 
         this.module = module;
-        this.emitter = emitterFactory.createFor(packageName, className);
+        this.emitter = emitterFactory.createFor(
+                packageName,
+                className,
+                ObjectType.OBJECT,
+                Collections.singletonList(generators.getExportGenerator().getExportInterface())
+        );
 
         this.lookups = new ModuleLookups(module);
         this.elementLookups = new ElementLookups(lookups);
         this.onceProcessedSections = EnumSet.noneOf(ProcessedSections.class);
-        this.statistics = WasmAssemblerStatistics.calculate(lookups);
+
+        this.classEmitContext = new ClassEmitContext(
+                elementLookups,
+                emitter,
+                generators
+        );
 
         this.generators = generators;
     }
@@ -211,7 +226,7 @@ public final class WasmAssembler {
 
         // Initializes globals if any
         if (globalSection != null) {
-            emitGlobalInitializers(globalSection, code, frameState, localVariables);
+            emitGlobalInitializers(globalSection, emitContext);
         }
 
         // Initializes tables if any
@@ -348,9 +363,7 @@ public final class WasmAssembler {
 
     private void emitGlobalInitializers(
             GlobalSection section,
-            CodeEmitter code,
-            WasmFrameState frameState,
-            LocalVariables localVariables
+            CodeEmitContext context
     ) throws WasmAssemblerException {
         LargeArray<Global> globals = section.getGlobals();
 
@@ -361,14 +374,22 @@ public final class WasmAssembler {
             Object globalValue = evalContext.evalSingleValue(global.getInit(), true, global.getType().getValueType());
 
             // Emit the setter
-            code.loadConstant(globalValue);
-            generators.getGlobalGenerator().emitSetGlobal(i, global, new CodeEmitContext(
-                    elementLookups,
-                    code,
-                    frameState,
-                    generators,
-                    localVariables
-            ));
+            if (globalValue instanceof UnresolvedFunctionReference) {
+                int functionIndex = ((UnresolvedFunctionReference) globalValue).getFunctionIndex();
+                FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
+                        LargeArrayIndex.fromU32(functionIndex));
+                FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
+
+                if (functionTypeIndex.isImport()) {
+                    context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
+                } else {
+                    context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
+                }
+            } else {
+                context.getEmitter().loadConstant(globalValue);
+            }
+
+            generators.getGlobalGenerator().emitSetGlobal(i, global, context);
         }
     }
 
@@ -386,6 +407,8 @@ public final class WasmAssembler {
             processMemorySection((MemorySection) section);
         } else if (section instanceof DataSection) {
             processDataSection((DataSection) section);
+        } else if (section instanceof ExportSection) {
+            processExportSection((ExportSection) section);
         }
     }
 
@@ -417,11 +440,7 @@ public final class WasmAssembler {
 
         LargeArray<Function> functions = section.getFunctions();
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(functions.largeLength()) < 0; i = i.add(1)) {
-            processFunction(i, functions.get(i), new ClassEmitContext(
-                    elementLookups,
-                    emitter,
-                    generators
-            ));
+            processFunction(i, functions.get(i), classEmitContext);
         }
     }
 
@@ -450,6 +469,17 @@ public final class WasmAssembler {
             DataSegment segment = segments.get(i);
             generators.getMemoryGenerator().addDataSegment(i, segment, emitter);
         }
+    }
+
+    private void processExportSection(ExportSection section) throws WasmAssemblerException {
+        markAsProcessed(ProcessedSections.EXPORT);
+
+        LargeArray<Export<?>> exports = section.getExports();
+        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(exports.largeLength()) < 0; i = i.add(1)) {
+            generators.getExportGenerator().addExport(i, exports.get(i), classEmitContext);
+        }
+
+        generators.getExportGenerator().emitExportImplementation(exports, classEmitContext);
     }
 
     /**

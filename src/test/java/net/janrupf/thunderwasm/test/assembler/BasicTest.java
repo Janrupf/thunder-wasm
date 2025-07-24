@@ -8,6 +8,7 @@ import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.runtime.Table;
+import net.janrupf.thunderwasm.runtime.WasmModuleExports;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
@@ -25,6 +26,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.function.Function;
 
 public class BasicTest {
@@ -58,23 +60,17 @@ public class BasicTest {
         LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 20));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        double result = (double) TestUtil.callCodeMethod(
-                moduleInstance,
-                1,
-                new Class<?>[]{ int.class, int.class, double.class },
-                new Object[]{ 0, 1, 2.0 }
-        );
+        // int result = (int) TestUtil.callCodeMethod(
+        //         moduleInstance,
+        //         0,
+        //         new Class<?>[]{ int.class },
+        //         new Object[]{ 1}
+        // );
+//
+        // System.out.println("Result (1): " + result);
 
-        System.out.println("Result (1): " + result);
-
-        double result2 = (double) TestUtil.callCodeMethod(
-                moduleInstance,
-                2,
-                new Class<?>[]{},
-                new Object[]{}
-        );
-
-        System.out.println("Result (2): " + result2);
+        Map<String, Object> exports = ((WasmModuleExports)  moduleInstance).getExports();
+        System.out.println("Export count: " + exports.size());
     }
 
     private static final class TestLinker implements RuntimeLinker {
@@ -89,12 +85,8 @@ public class BasicTest {
         }
 
         @Override
-        public LinkedGlobal linkGlobal(String moduleName, String importName, ValueType type, boolean readOnly) throws ThunderWasmException {
-            if (moduleName.equals("env") && importName.equals("test-global")) {
-                return new SlotExternrefGlobal();
-            }
-
-            throw new ThunderWasmException("No such global " + moduleName + "::" + importName);
+        public LinkedGlobal linkGlobal(String moduleName, String importName, ValueType type, boolean readOnly) {
+            return new SlotExternrefGlobal();
         }
 
         @SuppressWarnings("unchecked")
@@ -112,6 +104,7 @@ public class BasicTest {
         public LinkedFunction linkFunction(String moduleName, String importName, FunctionType type) throws ThunderWasmException {
             switch (importName) {
                 case "hello":
+                case "func":
                     return functions.hello;
 
                 default:
