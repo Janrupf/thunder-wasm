@@ -27,6 +27,6 @@ public final class F32Le extends PlainNumeric {
                 ComparisonResult.LESS_THAN_OR_EQUAL
         );
 
-        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

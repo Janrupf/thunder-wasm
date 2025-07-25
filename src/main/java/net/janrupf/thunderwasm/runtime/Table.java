@@ -61,6 +61,12 @@ public final class Table<T> implements LinkedTable<T> {
 
     @Override
     public void fill(int i, T value, int n) {
+        if (i + n > elements.length) {
+            throw new ArrayIndexOutOfBoundsException(
+                    "Copying " + n + " elements from position " + i + " into length " + elements.length
+            );
+        }
+
         for (int j = 0; j < n; j++) {
             elements[i + j] = value;
         }

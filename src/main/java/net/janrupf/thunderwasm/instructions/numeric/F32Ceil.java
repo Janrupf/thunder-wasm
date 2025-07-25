@@ -25,8 +25,7 @@ public final class F32Ceil extends PlainNumeric {
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
 
-        frameState.popOperand(NumberType.F32);
-        frameState.pushOperand(NumberType.F64);
+        frameState.requireOperand(NumberType.F32);
 
         emitter.op(Op.F2D);
 
@@ -40,8 +39,5 @@ public final class F32Ceil extends PlainNumeric {
         );
 
         emitter.op(Op.D2F);
-
-        frameState.popOperand(NumberType.F64);
-        frameState.pushOperand(NumberType.F32);
     }
 }

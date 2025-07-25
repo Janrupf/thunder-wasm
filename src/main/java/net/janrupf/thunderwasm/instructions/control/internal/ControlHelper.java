@@ -70,6 +70,31 @@ public final class ControlHelper {
     public static void emitPushBlock(CodeEmitContext context, BlockType blockType, boolean resolveLabel)
             throws WasmAssemblerException {
         FunctionType functionType = expandBlockType(context, blockType);
+        emitPushBlock(context, functionType, resolveLabel);
+    }
+
+    /**
+     * Emit the required sequence to push a block.
+     *
+     * @param context      the context to use
+     * @param functionType the function type to push
+     * @throws WasmAssemblerException if the block can not be pushed
+     */
+    public static void emitPushBlock(CodeEmitContext context, FunctionType functionType)
+            throws WasmAssemblerException {
+        emitPushBlock(context, functionType, false);
+    }
+
+    /**
+     * Emit the required sequence to push a block.
+     *
+     * @param context      the context to use
+     * @param functionType the function type to push
+     * @param resolveLabel whether to resolve the block jump label to the start of the block
+     * @throws WasmAssemblerException if the block can not be pushed
+     */
+    public static void emitPushBlock(CodeEmitContext context, FunctionType functionType, boolean resolveLabel)
+            throws WasmAssemblerException {
         CodeLabel label = context.getEmitter().newLabel();
 
         WasmPushedLabel pushedLabel;
@@ -138,7 +163,7 @@ public final class ControlHelper {
         if (resolveLabel) {
             context.getFrameState().markReachable();
             context.getEmitter().resolveLabel(blockJumpLabel.getCodeLabel(), fixed);
-        } else if(fixed != null) { // See comment from above for why we inject a label here
+        } else if (fixed != null) { // See comment from above for why we inject a label here
             CodeLabel fixupLabel = context.getEmitter().newLabel();
             context.getEmitter().resolveLabel(fixupLabel, fixed);
         }
@@ -148,9 +173,9 @@ public final class ControlHelper {
      * Emit the instructions required to clean the stack before jumping to a label.
      *
      * @param context the context to use
-     * @param depth how many labels to go up
-     * @throws WasmAssemblerException if the instructions can not be emitted
+     * @param depth   how many labels to go up
      * @return the label to jump to
+     * @throws WasmAssemblerException if the instructions can not be emitted
      */
     public static CodeLabel emitCleanStackForBlockLabel(CodeEmitContext context, int depth) throws WasmAssemblerException {
         WasmFrameState frameState = context.getFrameState();

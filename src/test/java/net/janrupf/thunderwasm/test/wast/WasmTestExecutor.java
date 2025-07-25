@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assumptions;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
@@ -40,6 +41,8 @@ import java.util.Map;
  * Manages module loading, compilation, instantiation, and execution of WAST commands.
  */
 public class WasmTestExecutor {
+    private static final Object VOID = new Object();
+
     private static final InstructionRegistry BASE_INSTRUCTION_REGISTRY = InstructionRegistry.builder()
             .with(InstructionSet.BASE)
             .build();
@@ -325,8 +328,14 @@ public class WasmTestExecutor {
         LinkedFunction function = getExport(LinkedFunction.class, targetModule, action.getField());
         List<Object> javaArguments = this.valueConverter.convertToJavaValues(targetModule, action.getArgs());
 
-        // Invoke the function
-        return function.asMethodHandle().invokeWithArguments(javaArguments.toArray());
+        MethodHandle handle = function.asMethodHandle();
+
+        if (handle.type().returnType().equals(void.class)) {
+            handle.invokeWithArguments(javaArguments.toArray());
+            return VOID;
+        }
+
+        return handle.invokeWithArguments(javaArguments.toArray());
     }
 
     private Object executeGetAction(Object targetModule, GetAction action) {
@@ -365,7 +374,7 @@ public class WasmTestExecutor {
         List<Object> expectedJavaValues = this.valueConverter.convertToJavaValues(module, expectedValues);
 
         List<Object> returnedValues;
-        if (returnValue == null) {
+        if (returnValue == VOID) {
             // A null return is equivalent to not returning any value - "null" references
             // still return a function or extern reference wrapper object
             returnedValues = Collections.emptyList();

@@ -345,7 +345,7 @@ public class DefaultImportGenerator implements ImportGenerator {
 
         DefaultFieldTypeLookup.Selected selectedStorage = DefaultFieldTypeLookup.GLOBAL_IMPORT.select(
                 im.getDescription().getType().getValueType(),
-                false
+                true
         );
 
         JavaType argType;
@@ -679,7 +679,7 @@ public class DefaultImportGenerator implements ImportGenerator {
      * @return the generated field name
      */
     private String generateImportFieldName(Import<?> im) {
-        return "import$" + makeJavaIdentifier(im.getModule()) + "$" + makeJavaIdentifier(im.getName());
+        return "import$" + makeJavaIdentifier(im.getModule()) + "$" + makeJavaIdentifier(im.getName()) + "$" + im.getCounter();
     }
 
     /**

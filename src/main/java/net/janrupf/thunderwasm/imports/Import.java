@@ -7,11 +7,13 @@ public final class Import<T extends ImportDescription> {
     private final String module;
     private final String name;
     private final T description;
+    private final int counter;
 
-    public Import(String module, String name, T description) {
+    public Import(String module, String name, T description, int counter) {
         this.module = module;
         this.name = name;
         this.description = description;
+        this.counter = counter;
     }
 
     /**
@@ -39,6 +41,20 @@ public final class Import<T extends ImportDescription> {
      */
     public T getDescription() {
         return description;
+    }
+
+    /**
+     * Retrieves the import index counter.
+     * <p>
+     * This is mainly useful for generating unique import names.
+     * Having the same import twice is valid, but creates a situation where
+     * naming the field becomes difficult. Thus we also have this counter,
+     * which has no semantic meaning but helps uniquely identifying imports.
+     *
+     * @return the import counter
+     */
+    public int getCounter() {
+        return counter;
     }
 
     /**

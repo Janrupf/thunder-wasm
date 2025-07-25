@@ -121,14 +121,8 @@ public final class CodeEmitContext {
 
     /**
      * Pop a block.
-     *
-     * @throws WasmAssemblerException if the block can not be popped
      */
-    public void popBlock() throws WasmAssemblerException {
-        if (frameStates.size() < 2) {
-            throw new WasmAssemblerException("Can't pop the top level block");
-        }
-
+    public void popBlock() {
         frameStates.remove(frameStates.size() - 1);
         blockJumpLabels.remove(frameStates.size() - 1);
     }
@@ -176,5 +170,14 @@ public final class CodeEmitContext {
 
         // The emitter doesn't do anything special with the stack, just use it as is
         return new JavaFrameSnapshot(snapshot.getStack(), newLocals);
+    }
+
+    /**
+     * Restore a previous frame state after the previous one was invalidated by a branch.
+     *
+     * @param state the state to restore to
+     */
+    public void restoreFrameStateAfterBranch(WasmFrameState state) {
+        frameStates.set(frameStates.size() - 1, state);
     }
 }

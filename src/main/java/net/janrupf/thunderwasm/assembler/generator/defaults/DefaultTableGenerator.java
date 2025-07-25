@@ -90,6 +90,10 @@ public class DefaultTableGenerator implements TableGenerator {
         if (limits.getMax() == null) {
             emitter.loadConstant(-1);
         } else {
+            if (Integer.compareUnsigned(limits.getMin(), limits.getMax()) > 0) {
+                throw new WasmAssemblerException("Table limits min was larger than max");
+            }
+
             emitter.loadConstant(limits.getMax());
         }
 
@@ -228,8 +232,8 @@ public class DefaultTableGenerator implements TableGenerator {
                 "copy",
                 new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, LINKED_TABLE_TYPE},
                 PrimitiveType.VOID,
-                invokeType(),
-                invokeType() == InvokeType.INTERFACE
+                InvokeType.INTERFACE,
+                true
         );
 
         // Clean up the stack
@@ -324,12 +328,12 @@ public class DefaultTableGenerator implements TableGenerator {
         );
 
         emitter.invoke(
-                this.tableType,
+                LINKED_TABLE_TYPE,
                 "init",
                 new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, new ArrayType(ObjectType.OBJECT)},
                 PrimitiveType.VOID,
-                invokeType(),
-                invokeType() == InvokeType.INTERFACE
+                InvokeType.INTERFACE,
+                true
         );
 
     }

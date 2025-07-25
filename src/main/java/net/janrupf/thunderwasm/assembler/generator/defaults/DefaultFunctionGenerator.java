@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
+import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
@@ -111,8 +112,20 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 localVariables
         );
 
+        CodeLabel returnLabel = codeEmitter.newLabel();
+        WasmPushedLabel topLevelLabel = new WasmPushedLabel(returnLabel, functionType.getOutputs());
+        codeEmitContext.pushBlock(frameState, topLevelLabel);
+
         for (InstructionInstance instruction : function.getExpr().getInstructions()) {
             this.processInstruction(instruction, codeEmitContext);
+        }
+
+        codeEmitContext.popBlock();
+
+        if (returnLabel.isReachable()) {
+            // Only resolve if its reachable either way
+            codeEmitter.resolveLabel(returnLabel);
+            frameState.markReachable();
         }
 
         this.processFunctionEpilogue(codeEmitContext);

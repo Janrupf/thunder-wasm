@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.instructions.control;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
@@ -27,6 +28,8 @@ public final class BrIf extends WasmInstruction<LabelData> {
     public void emitCode(CodeEmitContext context, LabelData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
 
+        WasmFrameState branched = context.getFrameState().branch();
+
         CodeLabel zeroLabel = context.getEmitter().newLabel();
         context.getEmitter().jump(JumpCondition.INT_EQUAL_ZERO, zeroLabel);
 
@@ -34,6 +37,7 @@ public final class BrIf extends WasmInstruction<LabelData> {
         CodeLabel branchTarget = ControlHelper.emitCleanStackForBlockLabel(context, data.getLabelIndex());
         context.getEmitter().jump(JumpCondition.ALWAYS, branchTarget);
 
+        context.restoreFrameStateAfterBranch(branched);
         context.getEmitter().resolveLabel(zeroLabel);
     }
 }

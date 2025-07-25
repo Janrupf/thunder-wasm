@@ -17,12 +17,12 @@ public final class WasmFrameState {
     private final List<ValueType> blockReturnTypes;
     private boolean isReachable;
 
-    public WasmFrameState() throws WasmAssemblerException {
+    public WasmFrameState() {
         this(
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList()
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>()
         );
     }
 
@@ -31,7 +31,7 @@ public final class WasmFrameState {
             List<ValueType> locals,
             List<ValueType> returnTypes,
             List<ValueType> blockReturnTypes
-    ) throws WasmAssemblerException {
+    ) {
         this.operandStack = new ArrayList<>();
 
         this.locals = new ArrayList<>();
@@ -262,5 +262,21 @@ public final class WasmFrameState {
         }
 
         return new JavaFrameSnapshot(javaOperands, javaLocals);
+    }
+
+    /**
+     * Branch the frame state.
+     *
+     * @return the branched frame state
+     */
+    public WasmFrameState branch() {
+        WasmFrameState clone = new WasmFrameState();
+        clone.operandStack.addAll(operandStack);
+        clone.locals.addAll(locals);
+        clone.returnTypes.addAll(returnTypes);
+        clone.blockReturnTypes.addAll(blockReturnTypes);
+        clone.isReachable = isReachable;
+
+        return clone;
     }
 }

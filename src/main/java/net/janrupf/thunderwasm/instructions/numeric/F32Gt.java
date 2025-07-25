@@ -25,6 +25,6 @@ public final class F32Gt extends PlainNumeric {
                 ComparisonResult.GREATER_THAN
         );
 
-        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

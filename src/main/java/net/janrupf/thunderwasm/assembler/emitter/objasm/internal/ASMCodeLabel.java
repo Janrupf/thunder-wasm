@@ -68,4 +68,9 @@ public final class ASMCodeLabel implements CodeLabel {
     public Label getInner() {
         return inner;
     }
+
+    @Override
+    public boolean isReachable() {
+        return this.knownFrameSnapshot != null;
+    }
 }

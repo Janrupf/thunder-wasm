@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.instructions.control;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
@@ -68,10 +69,16 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
             int depth = entry.getKey();
             CodeLabel codeLabel = entry.getValue();
 
+            WasmFrameState preBranchFrameState = context.getFrameState().branch();
+
             emitter.resolveLabel(codeLabel);
             CodeLabel jumpTarget = ControlHelper.emitCleanStackForBlockLabel(context, depth);
             emitter.jump(JumpCondition.ALWAYS, jumpTarget);
+
+            context.restoreFrameStateAfterBranch(preBranchFrameState);
         }
+
+        context.getFrameState().markUnreachable();
     }
 
     public static final class Data implements WasmInstruction.Data {

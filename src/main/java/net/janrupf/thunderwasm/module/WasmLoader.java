@@ -19,7 +19,8 @@ import net.janrupf.thunderwasm.util.ObjectUtil;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
+import java.nio.charset.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -27,12 +28,18 @@ import java.util.List;
 public class WasmLoader {
     private final InputStream stream;
     private final InstructionRegistry instructionRegistry;
+    private final CharsetDecoder utf8Decoder;
+    private int importCounter;
     private Byte buffered;
     private long cursorPos;
 
     public WasmLoader(InputStream stream, InstructionRegistry instructionRegistry) {
         this.stream = contentStream(stream);
         this.instructionRegistry = instructionRegistry;
+        this.utf8Decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        this.importCounter = 0;
         this.buffered = null;
         this.cursorPos = 0;
     }
@@ -356,6 +363,8 @@ public class WasmLoader {
                 int tableIndex = this.readU32();
                 Expr offsetExpr = Expr.read(this);
 
+                this.expectByte((byte) 0x00);
+
                 referenceType = ReferenceType.FUNCREF;
                 init = this.readVec(Expr.class, functionIndexAsExpr);
                 mode = new ElementSegmentMode.Active(tableIndex, offsetExpr);
@@ -533,7 +542,7 @@ public class WasmLoader {
             }
         }
 
-        return new Import<>(module, name, description);
+        return new Import<>(module, name, description, importCounter++);
     }
 
     /**
@@ -1010,7 +1019,7 @@ public class WasmLoader {
      * @return the read name
      * @throws IOException if an I/O error occurs
      */
-    public String readName() throws IOException {
+    public String readName() throws IOException, InvalidModuleException {
         LargeByteArray array = this.readByteVec();
         byte[] raw = array.asFlatArray();
 
@@ -1018,7 +1027,11 @@ public class WasmLoader {
             throw new IOException("Name is too large");
         }
 
-        return new String(raw, StandardCharsets.UTF_8);
+        try {
+            return this.utf8Decoder.decode(ByteBuffer.wrap(raw)).toString();
+        } catch (CharacterCodingException e) {
+            throw new InvalidModuleException("Invalid name", e);
+        }
     }
 
     /**

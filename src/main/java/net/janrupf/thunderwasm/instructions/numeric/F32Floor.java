@@ -26,7 +26,6 @@ public final class F32Floor extends PlainNumeric {
         CodeEmitter emitter = context.getEmitter();
 
         frameState.popOperand(NumberType.F32);
-        frameState.pushOperand(NumberType.F64);
 
         emitter.op(Op.F2D);
         emitter.invoke(
@@ -39,7 +38,6 @@ public final class F32Floor extends PlainNumeric {
         );
         emitter.op(Op.D2F);
 
-        frameState.popOperand(NumberType.F64);
         frameState.pushOperand(NumberType.F32);
     }
 }

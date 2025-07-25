@@ -8,6 +8,7 @@ import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
+import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 
@@ -31,6 +32,7 @@ public final class RefIsNull extends WasmInstruction<EmptyInstructionData> {
                 context.getEmitter(),
                 JumpCondition.IS_NULL
         );
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 
     @Override
