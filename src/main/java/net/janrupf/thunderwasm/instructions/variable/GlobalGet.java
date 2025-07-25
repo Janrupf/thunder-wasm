@@ -5,12 +5,14 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
+import net.janrupf.thunderwasm.imports.Import;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.GlobalIndexData;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.runtime.ImportedGlobalValueReference;
 import net.janrupf.thunderwasm.types.GlobalType;
 import net.janrupf.thunderwasm.types.ValueType;
 
@@ -65,7 +67,12 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
         );
 
         if (gElement.isImport()) {
-            throw new WasmAssemblerException("Cannot evaluate imported global");
+            Import<GlobalImportDescription> importedGlobal = gElement.getImport();
+
+           context.getFrameState().push(
+                   importedGlobal.getDescription().getType().getValueType(),
+                   new ImportedGlobalValueReference(importedGlobal)
+           );
         } else {
             Global g = gElement.getElement();
 

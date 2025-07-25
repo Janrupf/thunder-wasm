@@ -26,6 +26,7 @@ import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.DataSegmentMode;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
+import net.janrupf.thunderwasm.runtime.ImportedGlobalValueReference;
 import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.*;
 
@@ -384,6 +385,11 @@ public final class WasmAssembler {
                 } else {
                     context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
                 }
+            } else if (globalValue instanceof ImportedGlobalValueReference) {
+                context.getGenerators().getImportGenerator().emitGetGlobal(
+                        ((ImportedGlobalValueReference) globalValue).getImportDescription(),
+                        context
+                );
             } else {
                 context.getEmitter().loadConstant(globalValue);
             }
