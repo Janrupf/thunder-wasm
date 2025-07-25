@@ -56,16 +56,12 @@ public final class ActionCommand extends WastCommand {
     public boolean expectsVoid() {
         return expected.isEmpty();
     }
-    
-    /**
-     * Checks if this action has expected return values.
-     *
-     * @return true if return values are expected, false otherwise
-     */
-    public boolean hasExpected() {
-        return !expected.isEmpty();
+
+    @Override
+    public String getTestDisplayMeta() {
+        return action.toString();
     }
-    
+
     @Override
     public String toString() {
         if (expectsVoid()) {

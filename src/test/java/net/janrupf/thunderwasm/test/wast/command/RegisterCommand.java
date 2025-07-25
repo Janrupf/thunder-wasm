@@ -37,4 +37,13 @@ public final class RegisterCommand extends WastCommand {
     public String getAs() {
         return as;
     }
+
+    @Override
+    public String getTestDisplayMeta() {
+        if (name == null) {
+            return "<current> as " + as;
+        }
+
+        return getName() + " as " + as;
+    }
 }

@@ -128,16 +128,22 @@ public class WasmTestExecutor {
      * Loads and instantiates a WASM module.
      */
     private void executeModuleCommand(ModuleCommand command) throws Exception {
-        WasmAssembler assembler = loadAndMakeAssembler(command.getFilename());
+        try {
+            WasmAssembler assembler = loadAndMakeAssembler(command.getFilename());
 
-        byte[] clazz = assembler.assembleToModule();
-        Class<?> moduleClazz = testClassLoader.loadFromBytes(null, clazz);
+            byte[] clazz = assembler.assembleToModule();
+            Class<?> moduleClazz = testClassLoader.loadFromBytes(null, clazz);
 
-        Constructor<?> constructor = moduleClazz.getConstructor(RuntimeLinker.class);
-        this.currentModule = constructor.newInstance(new WastEnvironmentLinker(environment, this.namedModules));
+            Constructor<?> constructor = moduleClazz.getConstructor(RuntimeLinker.class);
+            this.currentModule = constructor.newInstance(new WastEnvironmentLinker(environment, this.namedModules));
 
-        if (command.isNamed()) {
-            namedModules.put(command.getName(), this.currentModule);
+            if (command.isNamed()) {
+                namedModules.put(command.getName(), this.currentModule);
+            }
+        } catch (Throwable t) {
+            // This is unrecoverable
+            markBroken();
+            throw t;
         }
     }
 

@@ -43,34 +43,12 @@ public final class AssertUnlinkableCommand extends WastCommand {
     public String getText() {
         return text;
     }
-    
-    /**
-     * Gets the module type being tested.
-     *
-     * @return the module type ("text" for .wat files, "binary" for .wasm files)
-     */
-    public String getModuleType() {
-        return moduleType;
+
+    @Override
+    public String getTestDisplayMeta() {
+        return text;
     }
-    
-    /**
-     * Checks if this is testing a text format module (.wat file).
-     *
-     * @return true if testing a text format module, false otherwise
-     */
-    public boolean isTextModule() {
-        return "text".equals(moduleType);
-    }
-    
-    /**
-     * Checks if this is testing a binary format module (.wasm file).
-     *
-     * @return true if testing a binary format module, false otherwise
-     */
-    public boolean isBinaryModule() {
-        return "binary".equals(moduleType);
-    }
-    
+
     @Override
     public String toString() {
         return "assert_unlinkable " + filename + " (" + moduleType + ") - " + text + " at line " + getLine();

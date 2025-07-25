@@ -52,25 +52,12 @@ public final class AssertMalformedCommand extends WastCommand {
     public String getModuleType() {
         return moduleType;
     }
-    
-    /**
-     * Checks if this is testing a text format module (.wat file).
-     *
-     * @return true if testing a text format module, false otherwise
-     */
-    public boolean isTextModule() {
-        return "text".equals(moduleType);
+
+    @Override
+    public String getTestDisplayMeta() {
+        return text;
     }
-    
-    /**
-     * Checks if this is testing a binary format module (.wasm file).
-     *
-     * @return true if testing a binary format module, false otherwise
-     */
-    public boolean isBinaryModule() {
-        return "binary".equals(moduleType);
-    }
-    
+
     @Override
     public String toString() {
         return "assert_malformed " + filename + " (" + moduleType + ") - " + text + " at line " + getLine();

@@ -31,6 +31,15 @@ public abstract class WastAction {
     public abstract String getField();
 
     /**
+     * Retrieves the name of the action.
+     *
+     * @return the name of the action
+     */
+    public String getActionName() {
+        return actionName;
+    }
+
+    /**
      * Retrieves the module name this action targets.
      *
      * @return the module name targeted, or null, if the current module is the target

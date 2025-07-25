@@ -37,4 +37,13 @@ public abstract class WastCommand {
     public int getLine() {
         return line;
     }
+
+    /**
+     * Additional data to display in the test name.
+     *
+     * @return additional name data to display
+     */
+    public String getTestDisplayMeta() {
+        return null;
+    }
 }

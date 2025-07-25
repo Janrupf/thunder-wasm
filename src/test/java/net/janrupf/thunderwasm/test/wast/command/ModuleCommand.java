@@ -48,7 +48,16 @@ public final class ModuleCommand extends WastCommand {
     public boolean isNamed() {
         return name != null && !name.isEmpty();
     }
-    
+
+    @Override
+    public String getTestDisplayMeta() {
+        if (name == null) {
+            return getFilename();
+        } else {
+            return getFilename() + " (as " + name + ")";
+        }
+    }
+
     @Override
     public String toString() {
         if (isNamed()) {

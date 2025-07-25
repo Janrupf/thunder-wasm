@@ -44,36 +44,12 @@ public final class AssertReturnCommand extends WastCommand {
     public List<WastValue> getExpected() {
         return expected;
     }
-    
-    /**
-     * Gets the number of expected return values.
-     *
-     * @return the expected result count
-     */
-    public int getExpectedCount() {
-        return expected.size();
+
+    @Override
+    public String getTestDisplayMeta() {
+        return action.toString();
     }
-    
-    /**
-     * Gets a specific expected return value by index.
-     *
-     * @param index the result index
-     * @return the expected WastValue at the specified index
-     * @throws IndexOutOfBoundsException if index is out of range
-     */
-    public WastValue getExpected(int index) {
-        return expected.get(index);
-    }
-    
-    /**
-     * Checks if this assertion expects no return values (void return).
-     *
-     * @return true if no return values are expected, false otherwise
-     */
-    public boolean expectsVoid() {
-        return expected.isEmpty();
-    }
-    
+
     @Override
     public String toString() {
         return "assert_return " + action + " expects " + expected.size() + " values at line " + getLine();

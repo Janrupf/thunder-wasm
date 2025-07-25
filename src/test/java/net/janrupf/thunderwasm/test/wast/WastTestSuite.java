@@ -60,21 +60,28 @@ public class WastTestSuite {
     private DynamicContainer processCollection(WastTestCollection collection) throws UncheckedIOException {
         // Create a test executor with runtime linker
         WasmTestExecutor executor = new WasmTestExecutor(collection);
-        
+
         return DynamicContainer.dynamicContainer(
                 collection.getName(),
                 collection.getManifest().getCommands().stream()
                         .map(command -> createTestForCommand(command, executor))
         );
     }
-    
+
     /**
      * Creates a JUnit dynamic test for a single WAST command.
      */
     private DynamicTest createTestForCommand(WastCommand command, WasmTestExecutor executor) {
-        String testName = String.format("%s (line %d)", 
-                                       command.getClass().getSimpleName().replace("Command", ""), 
-                                       command.getLine());
+        String displayMeta = "";
+        if (command.getTestDisplayMeta() != null) {
+            displayMeta = " [" + command.getTestDisplayMeta() + "]";
+        }
+
+        String testName = String.format("%s (line %d)%s",
+                command.getClass().getSimpleName().replace("Command", ""),
+                command.getLine(),
+                displayMeta
+        );
         return DynamicTest.dynamicTest(testName, () -> runTestCommand(command, executor));
     }
 
@@ -86,12 +93,6 @@ public class WastTestSuite {
         }
 
         Assumptions.assumeFalse(executor.isBroken(), "Previous test has failed");
-
-        try {
-            executor.executeCommand(command);
-        } catch (Throwable t) {
-            executor.markBroken();
-            throw t;
-        }
+        executor.executeCommand(command);
     }
 }

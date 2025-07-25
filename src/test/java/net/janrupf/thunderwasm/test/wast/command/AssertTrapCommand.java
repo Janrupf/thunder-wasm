@@ -58,27 +58,12 @@ public final class AssertTrapCommand extends WastCommand {
     public List<WastValue> getExpected() {
         return expected;
     }
-    
-    /**
-     * Gets the number of expected return types.
-     *
-     * @return the expected result type count
-     */
-    public int getExpectedCount() {
-        return expected.size();
+
+    @Override
+    public String getTestDisplayMeta() {
+        return text + " -> " + action.toString();
     }
-    
-    /**
-     * Gets a specific expected return type by index.
-     *
-     * @param index the result index
-     * @return the expected WastValue type at the specified index
-     * @throws IndexOutOfBoundsException if index is out of range
-     */
-    public WastValue getExpected(int index) {
-        return expected.get(index);
-    }
-    
+
     @Override
     public String toString() {
         return "assert_trap " + action + " with message \"" + text + "\" at line " + getLine();
