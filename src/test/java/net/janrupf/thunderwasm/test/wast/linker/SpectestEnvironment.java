@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.test.wast.linker;
 
 import net.janrupf.thunderwasm.data.Limits;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.runtime.Table;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.*;
@@ -32,7 +31,7 @@ public class SpectestEnvironment {
     private final LinkedFunction printF64F64;
 
     private final LinkedMemory memory;
-    private final LinkedTable<FunctionReference> table;
+    private final LinkedTable<LinkedFunction> table;
 
     public SpectestEnvironment() {
         this.lookup = MethodHandles.lookup();

@@ -1,8 +1,6 @@
 package net.janrupf.thunderwasm.runtime.linker.table;
 
-import net.janrupf.thunderwasm.runtime.ElementReference;
-
-public interface LinkedTable<T extends ElementReference> {
+public interface LinkedTable<T> {
     /**
      * Set the element at the given index.
      *

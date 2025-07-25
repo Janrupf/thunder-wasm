@@ -1,8 +1,6 @@
 package net.janrupf.thunderwasm.test.wast;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.runtime.ExternReference;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.test.wast.value.*;
@@ -66,24 +64,22 @@ public class WastValueConverter {
             // References need a bit of special handling
             if (type.equals(ReferenceType.EXTERNREF)) {
                 if (wastValue.getValue() == null) {
-                    return new ExternReference(null);
+                    return null;
                 }
 
                 int id = (int) wastValue.getValue();
 
-                WastExternReferenceValue testValue = this.definedExternReferences.computeIfAbsent(id, WastExternReferenceValue::new);
-                return new ExternReference(testValue);
+                return this.definedExternReferences.computeIfAbsent(id, WastExternReferenceValue::new);
             } else if (type.equals(ReferenceType.FUNCREF)) {
                 if (wastValue.getValue() == null) {
-                    return new FunctionReference(null);
+                    return null;
                 }
 
                 if (module == null) {
                     throw new IllegalStateException("Can't convert a function reference if the module is unknown");
                 }
 
-                LinkedFunction function = obtainFunctionReference(module, (UnresolvedFunctionReference) wastValue.getValue());
-                return new FunctionReference(function);
+                return obtainFunctionReference(module, (UnresolvedFunctionReference) wastValue.getValue());
             } else {
                 throw new IllegalArgumentException("Unknown reference type " + type);
             }

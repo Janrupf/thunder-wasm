@@ -2,7 +2,6 @@ package net.janrupf.thunderwasm.test.wast.linker;
 
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.data.Limits;
-import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.WasmModuleExports;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
@@ -47,7 +46,7 @@ public class WastEnvironmentLinker implements RuntimeLinker {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T extends ElementReference> LinkedTable<T> linkTable(
+    public <T> LinkedTable<T> linkTable(
             String moduleName,
             String importName,
             ReferenceType type,

@@ -9,7 +9,6 @@ import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.types.*;
 
 import java.lang.invoke.MethodHandle;
@@ -623,46 +622,6 @@ public class CommonBytecodeGenerator {
                 InvokeType.STATIC,
                 false
         );
-    }
-
-    /**
-     * Load a constant value.
-     * <p>
-     * This is mostly equivalent to {@link CodeEmitter#loadConstant(Object)} but also supports
-     * {@link net.janrupf.thunderwasm.runtime.ExternReference} values.
-     *
-     * @param emitter the code emitter
-     * @param type    the type of the value
-     * @param value   the value to load
-     * @throws WasmAssemblerException if the constant type is not supported
-     */
-    public static void loadConstant(
-            CodeEmitter emitter,
-            ValueType type,
-            Object value
-    ) throws WasmAssemblerException {
-        if (value instanceof ExternReference) {
-            if (!type.equals(ReferenceType.EXTERNREF)) {
-                throw new WasmAssemblerException("Invalid type for extern reference: " + type);
-            }
-
-            ObjectType externReferenceType = ObjectType.of(ExternReference.class);
-
-            emitter.doNew(externReferenceType);
-            emitter.duplicate();
-            loadConstant(emitter, type, ((ExternReference) value).getReferent());
-            emitter.invoke(
-                    externReferenceType,
-                    "<init>",
-                    new JavaType[]{ObjectType.OBJECT},
-                    PrimitiveType.VOID,
-                    InvokeType.SPECIAL,
-                    false
-            );
-            return;
-        }
-
-        emitter.loadConstant(value);
     }
 
     /**

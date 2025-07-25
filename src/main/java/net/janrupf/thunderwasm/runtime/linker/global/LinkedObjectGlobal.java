@@ -1,5 +1,7 @@
 package net.janrupf.thunderwasm.runtime.linker.global;
 
+import net.janrupf.thunderwasm.types.ValueType;
+
 import java.lang.invoke.MethodHandle;
 
 public interface LinkedObjectGlobal<T> extends LinkedReadOnlyObjectGlobal<T>, LinkedGlobal {
@@ -8,8 +10,8 @@ public interface LinkedObjectGlobal<T> extends LinkedReadOnlyObjectGlobal<T>, Li
     class Handle<T> extends LinkedReadOnlyObjectGlobal.Handle<T> implements LinkedObjectGlobal<T> {
         private final MethodHandle set;
 
-        public Handle(MethodHandle get, MethodHandle set) {
-            super(get);
+        public Handle(ValueType type, MethodHandle get, MethodHandle set) {
+            super(type, get);
             this.set = set;
         }
 

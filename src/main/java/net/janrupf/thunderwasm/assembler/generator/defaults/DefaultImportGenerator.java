@@ -17,10 +17,8 @@ import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
-import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobalBase;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
@@ -591,24 +589,12 @@ public class DefaultImportGenerator implements ImportGenerator {
     public void emitLoadFunctionReference(Import<TypeImportDescription> im, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        emitter.doNew(ObjectType.of(FunctionReference.class));
-        emitter.duplicate();
-
         emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldName(im),
                 LINKED_FUNCTION_TYPE,
                 false,
-                false
-        );
-
-        emitter.invoke(
-                ObjectType.of(FunctionReference.class),
-                "<init>",
-                new JavaType[]{LINKED_FUNCTION_TYPE},
-                PrimitiveType.VOID,
-                InvokeType.SPECIAL,
                 false
         );
     }

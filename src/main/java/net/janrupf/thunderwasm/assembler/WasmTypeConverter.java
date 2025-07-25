@@ -3,9 +3,7 @@ package net.janrupf.thunderwasm.assembler;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
-import net.janrupf.thunderwasm.runtime.ExternReference;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
-import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
+import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -36,10 +34,10 @@ public final class WasmTypeConverter {
         REVERSE_LOOKUP.put(PrimitiveType.DOUBLE, NumberType.F64);
 
         // Objects
-        LOOKUP.put(ReferenceType.EXTERNREF, ObjectType.of(ExternReference.class));
-        REVERSE_LOOKUP.put(ObjectType.of(ExternReference.class), ReferenceType.EXTERNREF);
-        LOOKUP.put(ReferenceType.FUNCREF, ObjectType.of(FunctionReference.class));
-        REVERSE_LOOKUP.put(ObjectType.of(FunctionReference.class), ReferenceType.FUNCREF);
+        LOOKUP.put(ReferenceType.EXTERNREF, ObjectType.OBJECT);
+        REVERSE_LOOKUP.put(ObjectType.OBJECT, ReferenceType.EXTERNREF);
+        LOOKUP.put(ReferenceType.FUNCREF, ObjectType.of(LinkedFunction.class));
+        REVERSE_LOOKUP.put(ObjectType.of(LinkedFunction.class), ReferenceType.FUNCREF);
     }
 
     /**

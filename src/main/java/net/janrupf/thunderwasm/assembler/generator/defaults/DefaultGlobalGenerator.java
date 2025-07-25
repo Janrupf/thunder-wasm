@@ -14,6 +14,8 @@ import net.janrupf.thunderwasm.types.GlobalType;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DefaultGlobalGenerator implements GlobalGenerator {
     @Override
@@ -73,14 +75,23 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
         CodeEmitter emitter = context.getEmitter();
         ValueType globalType = global.getType().getValueType();
 
-        ObjectType selectedHandleType = DefaultFieldTypeLookup.GLOBAL_HANDLE.select(
+        DefaultFieldTypeLookup.Selected selected = DefaultFieldTypeLookup.GLOBAL_HANDLE.select(
                 globalType,
                 global.getType().getMutability() == GlobalType.Mutability.CONST
-        ).getType();
+        );
+
+        ObjectType selectedHandleType = selected.getType();
 
         emitter.doNew(selectedHandleType);
         emitter.duplicate();
 
+        List<JavaType> parameterTypes = new ArrayList<>();
+        if (selected.isGeneric()) {
+            parameterTypes.add(ObjectType.of(ValueType.class));
+            CommonBytecodeGenerator.loadTypeReference(emitter, globalType);
+        }
+
+        parameterTypes.add(ObjectType.of(MethodHandle.class));
         emitter.loadConstant(new JavaFieldHandle(
                 emitter.getOwner(),
                 getGlobalFieldName(index),
@@ -93,9 +104,8 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
         CommonBytecodeGenerator.bindMethodHandle(emitter);
 
 
-        JavaType[] parameterTypes;
         if (global.getType().getMutability() == GlobalType.Mutability.VAR) {
-            parameterTypes = new JavaType[] { ObjectType.of(MethodHandle.class), ObjectType.of(MethodHandle.class) };
+            parameterTypes.add(ObjectType.of(MethodHandle.class));
 
             emitter.loadConstant(new JavaFieldHandle(
                     emitter.getOwner(),
@@ -107,14 +117,11 @@ public class DefaultGlobalGenerator implements GlobalGenerator {
             ));
             emitter.loadLocal(context.getLocalVariables().getThis());
             CommonBytecodeGenerator.bindMethodHandle(emitter);
-        } else {
-            parameterTypes = new JavaType[] { ObjectType.of(MethodHandle.class) };
         }
-
         emitter.invoke(
                 selectedHandleType,
                 "<init>",
-                parameterTypes,
+                parameterTypes.toArray(new JavaType[0]),
                 PrimitiveType.VOID,
                 InvokeType.SPECIAL,
                 false

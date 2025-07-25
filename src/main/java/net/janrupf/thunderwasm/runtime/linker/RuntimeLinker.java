@@ -2,7 +2,6 @@ package net.janrupf.thunderwasm.runtime.linker;
 
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.data.Limits;
-import net.janrupf.thunderwasm.runtime.ElementReference;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.*;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
@@ -10,8 +9,6 @@ import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
-
-import java.nio.ByteBuffer;
 
 public interface RuntimeLinker {
     /**
@@ -42,7 +39,7 @@ public interface RuntimeLinker {
      * @return the linked table
      * @throws ThunderWasmException if the table could not be linked
      */
-    default <T extends ElementReference> LinkedTable<T> linkTable(
+    default <T> LinkedTable<T> linkTable(
             String moduleName,
             String importName,
             ReferenceType type,

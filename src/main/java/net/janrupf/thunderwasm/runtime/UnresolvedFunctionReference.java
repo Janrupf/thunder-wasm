@@ -8,21 +8,15 @@ import net.janrupf.thunderwasm.types.ReferenceType;
  * actual function has not been linked or defined yet, mostly during
  * constant evaluation or early stages of module assembly.
  */
-public final class UnresolvedFunctionReference extends ElementReference {
+public final class UnresolvedFunctionReference {
     private final Integer functionIndex;
 
     private UnresolvedFunctionReference(Integer functionIndex) {
         this.functionIndex = functionIndex;
     }
 
-    @Override
     public boolean isNull() {
         return functionIndex == null;
-    }
-
-    @Override
-    public ReferenceType getType() {
-        return ReferenceType.FUNCREF;
     }
 
     /**

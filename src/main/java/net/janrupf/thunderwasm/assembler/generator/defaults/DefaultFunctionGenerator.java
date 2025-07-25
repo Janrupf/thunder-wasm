@@ -17,7 +17,6 @@ import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
-import net.janrupf.thunderwasm.runtime.FunctionReference;
 import net.janrupf.thunderwasm.runtime.WasmDynamicDispatch;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.types.FunctionType;
@@ -35,7 +34,6 @@ import java.util.List;
 public class DefaultFunctionGenerator implements FunctionGenerator {
     private static final ObjectType LINKED_FUNCTION_TYPE = ObjectType.of(LinkedFunction.class);
     private static final ObjectType SIMPLE_LINKED_FUNCTION_TYPE = ObjectType.of(LinkedFunction.Simple.class);
-    private static final ObjectType FUNCTION_REFERENCE_TYPE = ObjectType.of(FunctionReference.class);
     private static final ObjectType DYNAMIC_DISPATCH_HELPER_TYPE = ObjectType.of(WasmDynamicDispatch.class);
     private static final ObjectType METHOD_HANDLE_TYPE = ObjectType.of(MethodHandle.class);
     private static final ObjectType METHOD_HANDLES_HELPER_TYPE = ObjectType.of(MethodHandles.class);
@@ -51,8 +49,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
 
         MethodEmitter methodEmitter = classEmitter.method(
                 determineMethodName(i),
-                // TODO: Exports...
-                Visibility.PUBLIC,
+                Visibility.PRIVATE,
                 true,
                 false,
                 signature.getJavaReturnType(),
@@ -207,7 +204,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         emitter.invoke(
                 DYNAMIC_DISPATCH_HELPER_TYPE,
                 "prepareCallIndirect",
-                new JavaType[] { ObjectType.of(FunctionReference.class) },
+                new JavaType[] { LINKED_FUNCTION_TYPE },
                 METHOD_HANDLE_TYPE,
                 InvokeType.STATIC,
                 false
@@ -242,21 +239,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
 
     @Override
     public void emitLoadFunctionReference(LargeArrayIndex i, FunctionType functionType, CodeEmitContext context) throws WasmAssemblerException {
-        CodeEmitter emitter = context.getEmitter();
-
         emitLoadLinkedFunction(i, functionType, context);
-
-        emitter.doNew(FUNCTION_REFERENCE_TYPE);
-        emitter.duplicate(1, 1);
-        emitter.op(Op.SWAP);
-        emitter.invoke(
-                FUNCTION_REFERENCE_TYPE,
-                "<init>",
-                new JavaType[] { LINKED_FUNCTION_TYPE },
-                PrimitiveType.VOID,
-                InvokeType.SPECIAL,
-                false
-        );
     }
 
     @Override

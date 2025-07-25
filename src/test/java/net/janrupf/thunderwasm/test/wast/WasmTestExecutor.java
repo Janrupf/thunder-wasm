@@ -7,6 +7,7 @@ import net.janrupf.thunderwasm.assembler.emitter.WasmGenerators;
 import net.janrupf.thunderwasm.assembler.emitter.objasm.ObjectWebASMClassFileEmitterFactory;
 import net.janrupf.thunderwasm.instructions.InstructionRegistry;
 import net.janrupf.thunderwasm.instructions.InstructionSet;
+import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.runtime.WasmModuleExports;
@@ -24,6 +25,7 @@ import net.janrupf.thunderwasm.test.wast.value.WastValue;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -111,7 +113,7 @@ public class WasmTestExecutor {
             executeAssertUninstantiableCommand((AssertUninstantiableCommand) command);
         } else if (command instanceof AssertUnlinkableCommand) {
             executeAssertUnlinkableCommand((AssertUnlinkableCommand) command);
-        } else if(command instanceof AssertExhaustionCommand) {
+        } else if (command instanceof AssertExhaustionCommand) {
             executeAssertExhaustionCommand((AssertExhaustionCommand) command);
         } else if (command instanceof RegisterCommand) {
             executeRegisterCommand((RegisterCommand) command);
@@ -133,12 +135,12 @@ public class WasmTestExecutor {
 
         Constructor<?> constructor = moduleClazz.getConstructor(RuntimeLinker.class);
         this.currentModule = constructor.newInstance(new WastEnvironmentLinker(environment, this.namedModules));
-        
+
         if (command.isNamed()) {
             namedModules.put(command.getName(), this.currentModule);
         }
     }
-    
+
     /**
      * Executes an action and validates the return values.
      */
@@ -146,7 +148,7 @@ public class WasmTestExecutor {
         Object result = executeAction(command.getAction());
         checkExpectedReturn(currentModule, result, command.getExpected());
     }
-    
+
     /**
      * Executes an action and validates that it traps with the expected message.
      */
@@ -163,19 +165,24 @@ public class WasmTestExecutor {
         Assertions.assertNotNull(thrownException, "expected to trap (" + command.getText() + ")");
         WastExceptionMatcher.checkTrap(thrownException, command.getText());
     }
-    
+
     /**
      * Validates that a module fails to load as invalid.
      */
     private void executeAssertInvalidCommand(AssertInvalidCommand command) throws Exception {
         WasmAssembler assembler = loadAndMakeAssembler(command.getFilename());
 
+        if (command.getText().equals("multiple memories")) {
+            Assumptions.abort("Thunder WASM intentionally supports multiple memories");
+        }
+
         try {
             assembler.assembleToModule();
             Assertions.fail("expected assembleToModule to throw (" + command.getText() + ")");
-        } catch (WasmAssemblerException ignored) {}
+        } catch (WasmAssemblerException ignored) {
+        }
     }
-    
+
     /**
      * Validates that a module fails to load as malformed.
      */
@@ -192,10 +199,13 @@ public class WasmTestExecutor {
 
         try {
             loadModuleFromResource(command.getFilename());
-            Assertions.fail("Expected WasmLoader.load() to throw");
-        } catch (WasmAssemblerException e) {}
+            Assertions.fail("Expected WasmLoader.load() to throw (" + command.getText() + ")");
+        } catch (WasmAssemblerException e) {
+        } catch (EOFException e) {
+        } catch (InvalidModuleException e) {
+        }
     }
-    
+
     /**
      * Validates that a module fails to instantiate.
      */
@@ -216,7 +226,7 @@ public class WasmTestExecutor {
             WastExceptionMatcher.checkTrap(e.getTargetException(), command.getText());
         }
     }
-    
+
     /**
      * Validates that a module fails to link.
      */
@@ -258,11 +268,11 @@ public class WasmTestExecutor {
         if (moduleToRegister == null) {
             throw new IllegalStateException("No current module to register");
         }
-        
+
         // Register the module with the given name
         namedModules.put(command.getAs(), moduleToRegister);
     }
-    
+
     /**
      * Executes a standalone action command.
      */
@@ -301,14 +311,14 @@ public class WasmTestExecutor {
             throw new UnsupportedOperationException("Unsupported action type: " + action.getClass().getSimpleName());
         }
     }
-    
+
     /**
      * Executes a function call action.
      */
     private Object executeInvokeAction(Object targetModule, InvokeAction action) throws Throwable {
         LinkedFunction function = getExport(LinkedFunction.class, targetModule, action.getField());
         List<Object> javaArguments = this.valueConverter.convertToJavaValues(targetModule, action.getArgs());
-        
+
         // Invoke the function
         return function.asMethodHandle().invokeWithArguments(javaArguments.toArray());
     }
@@ -365,7 +375,7 @@ public class WasmTestExecutor {
     }
 
     private WasmModule loadModuleFromResource(String fileName) throws ThunderWasmException, IOException {
-        try(InputStream stream = this.collection.readResource(fileName)) {
+        try (InputStream stream = this.collection.readResource(fileName)) {
             WasmLoader loader = new WasmLoader(stream, BASE_INSTRUCTION_REGISTRY);
 
             return loader.load();

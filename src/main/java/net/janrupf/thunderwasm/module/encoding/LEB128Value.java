@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.module.encoding;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -27,7 +28,7 @@ public class LEB128Value {
         do {
             current = stream.read();
             if (current == -1) {
-                throw new IOException("Unexpected end of stream while reading LEB128 value");
+                throw new EOFException("Unexpected end of stream while reading LEB128 value");
             }
 
             result |= ((long) (current & 0x7F)) << shift;

@@ -7,7 +7,7 @@ import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
  *
  * @param <T> the type of the elements in the table
  */
-public final class Table<T extends ElementReference> implements LinkedTable<T> {
+public final class Table<T> implements LinkedTable<T> {
     private T[] elements;
     private final int limit;
 
@@ -18,7 +18,7 @@ public final class Table<T extends ElementReference> implements LinkedTable<T> {
             throw new UnsupportedOperationException("Table limits too large");
         }
 
-        this.elements = (T[]) new ElementReference[min];
+        this.elements = (T[]) new Object[min];
         this.limit = limit;
     }
 
@@ -48,7 +48,7 @@ public final class Table<T extends ElementReference> implements LinkedTable<T> {
 
         int oldSize = elements.length;
 
-        T[] newElements = (T[]) new ElementReference[newSize];
+        T[] newElements = (T[]) new Object[newSize];
         System.arraycopy(elements, 0, newElements, 0, elements.length);
         for (int i = elements.length; i < newSize; i++) {
             newElements[i] = initValue;

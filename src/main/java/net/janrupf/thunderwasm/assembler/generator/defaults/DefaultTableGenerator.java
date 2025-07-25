@@ -15,6 +15,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
 import net.janrupf.thunderwasm.runtime.*;
+import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
@@ -145,7 +146,8 @@ public class DefaultTableGenerator implements TableGenerator {
                     context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
                 }
             } else {
-                CommonBytecodeGenerator.loadConstant(emitter, segment.getType(), initValues[j]);
+                // TODO: Handle null in a typed manner
+                emitter.loadConstant(initValues[j]);
             }
             emitter.storeArrayElement();
 
@@ -177,7 +179,7 @@ public class DefaultTableGenerator implements TableGenerator {
                 tableType,
                 "get",
                 new JavaType[]{PrimitiveType.INT},
-                ObjectType.of(ElementReference.class),
+                ObjectType.OBJECT,
                 invokeType(),
                 invokeType() == InvokeType.INTERFACE
         );
@@ -202,7 +204,7 @@ public class DefaultTableGenerator implements TableGenerator {
         emitter.invoke(
                 tableType,
                 "set",
-                new JavaType[]{PrimitiveType.INT, ObjectType.of(ElementReference.class)},
+                new JavaType[]{PrimitiveType.INT, ObjectType.OBJECT},
                 PrimitiveType.VOID,
                 invokeType(),
                 invokeType() == InvokeType.INTERFACE
@@ -247,7 +249,7 @@ public class DefaultTableGenerator implements TableGenerator {
         emitter.invoke(
                 tableType,
                 "grow",
-                new JavaType[]{ObjectType.of(ElementReference.class), PrimitiveType.INT},
+                new JavaType[]{ObjectType.OBJECT, PrimitiveType.INT},
                 PrimitiveType.INT,
                 invokeType(),
                 invokeType() == InvokeType.INTERFACE
@@ -291,7 +293,7 @@ public class DefaultTableGenerator implements TableGenerator {
         emitter.invoke(
                 tableType,
                 "fill",
-                new JavaType[]{PrimitiveType.INT, ObjectType.of(ElementReference.class), PrimitiveType.INT},
+                new JavaType[]{PrimitiveType.INT, ObjectType.OBJECT, PrimitiveType.INT},
                 PrimitiveType.VOID,
                 invokeType(),
                 invokeType() == InvokeType.INTERFACE
@@ -324,7 +326,7 @@ public class DefaultTableGenerator implements TableGenerator {
         emitter.invoke(
                 this.tableType,
                 "init",
-                new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, new ArrayType(ObjectType.of(ElementReference.class))},
+                new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, new ArrayType(ObjectType.OBJECT)},
                 PrimitiveType.VOID,
                 invokeType(),
                 invokeType() == InvokeType.INTERFACE
@@ -424,9 +426,9 @@ public class DefaultTableGenerator implements TableGenerator {
 
     protected ObjectType objectTypeFor(ReferenceType type) throws WasmAssemblerException {
         if (type.equals(ReferenceType.EXTERNREF)) {
-            return ObjectType.of(ExternReference.class);
+            return ObjectType.OBJECT;
         } else if (type.equals(ReferenceType.FUNCREF)) {
-            return ObjectType.of(FunctionReference.class);
+            return ObjectType.of(LinkedFunction.class);
         } else {
             throw new WasmAssemblerException("Unsupported reference type: " + type);
         }

@@ -18,14 +18,12 @@ public final class WasmDynamicDispatch {
      * @param reference      the function reference to call
      * @return a method handle that can be invoked
      */
-    public static MethodHandle prepareCallIndirect(FunctionReference reference) {
-        LinkedFunction linkedFunction = reference.getFunction();
-
-        if (linkedFunction == null) {
-            throw new IllegalStateException("Attempted to invoke a null function");
+    public static MethodHandle prepareCallIndirect(LinkedFunction reference) {
+        if (reference == null) {
+            throw new NullPointerException("Attempted to invoke a null function");
         }
 
-        MethodHandle methodHandle = linkedFunction.asMethodHandle();
+        MethodHandle methodHandle = reference.asMethodHandle();
         if (methodHandle == null) {
             throw new IllegalStateException("Method handle for linked function is null");
         }

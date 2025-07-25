@@ -5,8 +5,6 @@ import net.janrupf.thunderwasm.assembler.WasmAssembler;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.module.WasmModule;
-import net.janrupf.thunderwasm.runtime.ElementReference;
-import net.janrupf.thunderwasm.runtime.ExternReference;
 import net.janrupf.thunderwasm.runtime.Table;
 import net.janrupf.thunderwasm.runtime.WasmModuleExports;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
@@ -21,13 +19,11 @@ import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Test;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.function.Function;
 
 public class BasicTest {
     @Test
@@ -91,7 +87,7 @@ public class BasicTest {
 
         @SuppressWarnings("unchecked")
         @Override
-        public <T extends ElementReference> LinkedTable<T> linkTable(String moduleName, String importName, ReferenceType type, Limits limits) throws ThunderWasmException {
+        public <T> LinkedTable<T> linkTable(String moduleName, String importName, ReferenceType type, Limits limits) throws ThunderWasmException {
             return (LinkedTable<T>) table;
         }
 
@@ -113,16 +109,16 @@ public class BasicTest {
         }
     }
 
-    private static final class SlotExternrefGlobal implements LinkedObjectGlobal<ExternReference> {
-        private ExternReference value = new ExternReference("Hello, World!");
+    private static final class SlotExternrefGlobal implements LinkedObjectGlobal<String> {
+        private String value = "Hello, World!";
 
         @Override
-        public ExternReference get() {
+        public String get() {
             return value;
         }
 
         @Override
-        public void set(ExternReference value) {
+        public void set(String value) {
             this.value = value;
         }
 
