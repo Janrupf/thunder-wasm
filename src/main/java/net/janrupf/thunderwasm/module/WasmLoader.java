@@ -614,7 +614,17 @@ public class WasmLoader {
      */
     public ValueType readValueType() throws IOException, InvalidModuleException {
         byte valueType = this.requireByte();
+        return constructValueType(valueType);
+    }
 
+    /**
+     * Construct the value type from the raw byte.
+     *
+     * @param valueType the value type byte
+     * @return the real value type
+     * @throws InvalidModuleException if the value type code is invalid
+     */
+    public ValueType constructValueType(byte valueType) throws InvalidModuleException {
         switch (valueType) {
             case 0x7F:
                 return NumberType.I32;
@@ -1130,18 +1140,15 @@ public class WasmLoader {
      * @throws InvalidModuleException if the module is invalid
      */
     public BlockType readBlockType() throws IOException, InvalidModuleException {
-        byte type = this.peekByte();
+        long code = this.readS64();
 
-        if (type == 0x40) {
-            this.requireByte();
+        if (code >= 0) {
+            return new BlockType.TypeIndex((int) code);
+        } else if (code == -64 /* 0x40 */) {
             return BlockType.Empty.INSTANCE;
-        } else if ((type & 0x80) == 0) {
-            // This technically reads a 64bit LEB128 integer, but we only need the lower 32 bits
-            // (upper is sign bit)
-            int value = (int) (this.readS64() & 0xFFFFFFFFL);
-            return new BlockType.TypeIndex(value);
         } else {
-            return new BlockType.Value(this.readValueType());
+            ValueType type = constructValueType((byte) (code & 0x7F));
+            return new BlockType.Value(type);
         }
     }
 
