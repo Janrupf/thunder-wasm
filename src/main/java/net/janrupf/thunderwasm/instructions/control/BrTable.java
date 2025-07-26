@@ -44,9 +44,22 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
             throw new WasmAssemblerException("Too many branch labels");
         }
 
+        int defaultDepth = data.getDefaultLabel();
+        WasmFrameState preBranchFrameState = context.getFrameState().branch();
+
+        if (branchLabels.length < 1) {
+            // Apparently we only have a default branch, this behaves like an unconditional branch
+            emitter.pop(); // Need to drop the condition, it is irrelevant
+
+            CodeLabel label = ControlHelper.emitCleanStackForBlockLabel(context, defaultDepth);
+            context.getEmitter().jump(JumpCondition.ALWAYS, label);
+
+            context.getFrameState().markUnreachable();
+            return;
+        }
+
         Map<Integer, CodeLabel> targetLabels = new HashMap<>();
 
-        int defaultDepth = data.getDefaultLabel();
         targetLabels.put(defaultDepth, emitter.newLabel());
 
         CodeLabel defaultCodeLabel = targetLabels.get(defaultDepth);
@@ -68,8 +81,6 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
         for (Map.Entry<Integer, CodeLabel> entry : targetLabels.entrySet()) {
             int depth = entry.getKey();
             CodeLabel codeLabel = entry.getValue();
-
-            WasmFrameState preBranchFrameState = context.getFrameState().branch();
 
             emitter.resolveLabel(codeLabel);
             CodeLabel jumpTarget = ControlHelper.emitCleanStackForBlockLabel(context, depth);

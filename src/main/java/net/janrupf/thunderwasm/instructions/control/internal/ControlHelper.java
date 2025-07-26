@@ -208,7 +208,7 @@ public final class ControlHelper {
         // We potentially need to discard multiple layers of blocks from here - gather the
         // entire stack state that needs to be dropped
         List<ValueType> completeOperandStack = new ArrayList<>();
-        for (int i = 0; i <= depth; i++) {
+        for (int i = depth; i >= 0; i--) {
             completeOperandStack.addAll(context.getFrameState(i).getOperandStack());
         }
 
