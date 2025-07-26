@@ -214,14 +214,14 @@ public final class WasmFrameState {
     }
 
     /**
-     * Moves this frame to the state after the block and
-     * returns a new frame which represents the frame inside the block.
+     * Moves this frame to the state where another block is being executed
+     * from it.
      *
      * @param type the function type of the block
      * @return the frame inside the block
      * @throws WasmAssemblerException if the block can not be executed
      */
-    public WasmFrameState executeBlock(FunctionType type) throws WasmAssemblerException {
+    public WasmFrameState beginBlock(FunctionType type) throws WasmAssemblerException {
         WasmFrameState newFrameState = new WasmFrameState(
                 Collections.emptyList(),
                 locals,
@@ -234,11 +234,19 @@ public final class WasmFrameState {
             newFrameState.pushOperand(input);
         }
 
+        return newFrameState;
+    }
+
+    /**
+     * Moves this frame to the state where a block finished.
+     *
+     * @param type the function type of the block
+     * @throws WasmAssemblerException if the block can not be executed
+     */
+    public void endBlock(FunctionType type) throws WasmAssemblerException {
         for (ValueType output : type.getOutputs()) {
             pushOperand(output);
         }
-
-        return newFrameState;
     }
 
     /**

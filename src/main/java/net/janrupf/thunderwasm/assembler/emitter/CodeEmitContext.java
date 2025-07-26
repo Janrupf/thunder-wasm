@@ -31,11 +31,30 @@ public final class CodeEmitContext {
             WasmGenerators generators,
             LocalVariables localVariables
     ) {
+        this(
+                lookups,
+                emitter,
+                frameState,
+                null,
+                generators,
+                localVariables
+        );
+    }
+
+    public CodeEmitContext(
+            ElementLookups lookups,
+            CodeEmitter emitter,
+            WasmFrameState frameState,
+            WasmPushedLabel endLabel,
+            WasmGenerators generators,
+            LocalVariables localVariables
+    ) {
         this.lookups = lookups;
         this.emitter = emitter;
         this.frameStates = new ArrayList<>();
         this.frameStates.add(frameState);
         this.blockJumpLabels = new ArrayList<>();
+        this.blockJumpLabels.add(endLabel);
         this.generators = generators;
         this.localVariables = localVariables;
     }
@@ -64,7 +83,17 @@ public final class CodeEmitContext {
      * @return the frame state
      */
     public WasmFrameState getFrameState() {
-        return frameStates.get(frameStates.size() - 1);
+        return getFrameState(0);
+    }
+
+    /**
+     * Retrieves the frame state of the context at a given depth.
+     *
+     * @param depth the frame state at the given depth
+     * @return the frame state
+     */
+    public WasmFrameState getFrameState(int depth) {
+        return frameStates.get(frameStates.size() - 1 - depth);
     }
 
     /**
@@ -124,7 +153,7 @@ public final class CodeEmitContext {
      */
     public void popBlock() {
         frameStates.remove(frameStates.size() - 1);
-        blockJumpLabels.remove(frameStates.size() - 1);
+        blockJumpLabels.remove(blockJumpLabels.size() - 1);
     }
 
     /**

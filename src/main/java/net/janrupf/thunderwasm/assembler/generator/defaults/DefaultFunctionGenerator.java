@@ -11,9 +11,8 @@ import net.janrupf.thunderwasm.assembler.generator.FunctionGenerator;
 import net.janrupf.thunderwasm.assembler.part.TranslatedFunctionSignature;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Function;
-import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.Local;
-import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
@@ -23,7 +22,6 @@ import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.TableType;
 import net.janrupf.thunderwasm.types.ValueType;
-import net.janrupf.thunderwasm.util.ObjectUtil;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -104,23 +102,19 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 null
         );
 
+        CodeLabel returnLabel = codeEmitter.newLabel();
+        WasmPushedLabel topLevelLabel = new WasmPushedLabel(returnLabel, functionType.getOutputs());
+
         CodeEmitContext codeEmitContext = new CodeEmitContext(
                 context.getLookups(),
                 codeEmitter,
                 frameState,
+                topLevelLabel,
                 context.getGenerators(),
                 localVariables
         );
 
-        CodeLabel returnLabel = codeEmitter.newLabel();
-        WasmPushedLabel topLevelLabel = new WasmPushedLabel(returnLabel, functionType.getOutputs());
-        codeEmitContext.pushBlock(frameState, topLevelLabel);
-
-        for (InstructionInstance instruction : function.getExpr().getInstructions()) {
-            this.processInstruction(instruction, codeEmitContext);
-        }
-
-        codeEmitContext.popBlock();
+        ControlHelper.emitExpression(codeEmitContext, function.getExpr());
 
         if (returnLabel.isReachable()) {
             // Only resolve if its reachable either way
@@ -133,20 +127,6 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         // Finish code generation
         codeEmitter.finish();
         methodEmitter.finish();
-    }
-
-    private void processInstruction(
-            InstructionInstance instruction,
-            CodeEmitContext context
-    ) throws WasmAssemblerException {
-        WasmInstruction<? extends WasmInstruction.Data> wasmInstruction = instruction.getInstruction();
-        WasmInstruction.Data data = instruction.getData();
-
-        try {
-            wasmInstruction.emitCode(context, ObjectUtil.forceCast(data));
-        } catch (WasmAssemblerException e) {
-            throw new WasmAssemblerException("Could not process instruction " + wasmInstruction.getName(), e);
-        }
     }
 
     private void processFunctionEpilogue(

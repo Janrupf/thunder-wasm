@@ -2,9 +2,7 @@ package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
 import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
-import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import org.objectweb.asm.Label;
 
 public final class ASMCodeLabel implements CodeLabel {
@@ -12,10 +10,12 @@ public final class ASMCodeLabel implements CodeLabel {
     private boolean resolved;
 
     private JavaFrameSnapshot knownFrameSnapshot;
+    private Throwable resolvedAt;
 
     public ASMCodeLabel() {
         this.inner = new Label();
         this.resolved = false;
+        this.resolvedAt = null;
     }
 
     /**
@@ -23,6 +23,7 @@ public final class ASMCodeLabel implements CodeLabel {
      */
     public void markResolved() {
         this.resolved = true;
+        this.resolvedAt = new Throwable("LABEL FIRST RESOLVED HERE");
     }
 
     /**
@@ -32,7 +33,7 @@ public final class ASMCodeLabel implements CodeLabel {
      */
     public void checkNotResolved() throws WasmAssemblerException {
         if (this.resolved) {
-            throw new WasmAssemblerException("Label is already resolved");
+            throw new WasmAssemblerException("Label is already resolved, see cause for where", resolvedAt);
         }
     }
 

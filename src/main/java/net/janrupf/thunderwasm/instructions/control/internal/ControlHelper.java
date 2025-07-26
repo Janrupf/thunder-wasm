@@ -16,6 +16,7 @@ import net.janrupf.thunderwasm.types.BlockType;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ControlHelper {
@@ -105,29 +106,55 @@ public final class ControlHelper {
             pushedLabel = new WasmPushedLabel(label, functionType.getOutputs());
         }
 
-        WasmFrameState newFrameState = context.getFrameState().executeBlock(functionType);
+        WasmFrameState newFrameState = context.getFrameState().beginBlock(functionType);
         context.pushBlock(newFrameState, pushedLabel);
     }
 
     /**
      * Emit the required sequence to pop a block.
      *
-     * @param context the context to use
+     * @param context   the context to use
+     * @param blockType the block type to pop
      * @throws WasmAssemblerException if the block can not be popped
      */
-    public static void emitPopBlock(CodeEmitContext context) throws WasmAssemblerException {
-        emitPopBlock(context, false);
+    public static void emitPopBlock(CodeEmitContext context, BlockType blockType) throws WasmAssemblerException {
+        emitPopBlock(context, blockType, false);
+    }
+
+    /**
+     * Emit the required sequence to pop a block.
+     *
+     * @param context   the context to use
+     * @param blockType the block type to pop
+     * @throws WasmAssemblerException if the block can not be popped
+     */
+    public static void emitPopBlock(CodeEmitContext context, BlockType blockType, boolean resolveLabel) throws WasmAssemblerException {
+        FunctionType functionType = expandBlockType(context, blockType);
+        emitPopBlock(context, functionType, resolveLabel);
+    }
+
+    /**
+     * Emit the required sequence to pop a block.
+     *
+     * @param context the context to use
+     * @param type    the block type to pop
+     * @throws WasmAssemblerException if the block can not be popped
+     */
+    public static void emitPopBlock(CodeEmitContext context, FunctionType type) throws WasmAssemblerException {
+        emitPopBlock(context, type, false);
     }
 
     /**
      * Emit the required sequence to pop a block.
      *
      * @param context      the context to use
+     * @param type         the block type to pop
      * @param resolveLabel whether to resolve the block jump label to the end of the block
      * @throws WasmAssemblerException if the block can not be popped
      */
-    public static void emitPopBlock(CodeEmitContext context, boolean resolveLabel) throws WasmAssemblerException {
-        if (context.getFrameState().isReachable()) {
+    public static void emitPopBlock(CodeEmitContext context, FunctionType type, boolean resolveLabel) throws WasmAssemblerException {
+        boolean isReachable = context.getFrameState().isReachable();
+        if (isReachable) {
             emitBlockExit(context);
         }
 
@@ -138,39 +165,31 @@ public final class ControlHelper {
 
         context.popBlock();
 
-        JavaFrameSnapshot fixed = null;
-        if (context.getEmitter().getStackFrameState() == null) {
-            // This probably requires a bit of explanation...
-            //
-            // If we get here the emitter has lost track of what the state of the frame
-            // currently is. This happens when the WASM code is unreachable after a block
-            // as the emitter has no reference what the current Java stack frame should
-            // look like (after all, nothing jumped there, so the state may be whatever).
-            //
-            // We need to fix this situation by taking the WASM state and transforming it
-            // back into Java state. Easier said than done - the assembler may decide to
-            // inject, re-order and otherwise mangle with the locals and operands. So
-            // we infer a "pure" view of Java state from the WASM state ("pure" as in
-            // doesn't account for emitter specific changes) and then ask the assembler
-            // to re-do its changes on the stack frame.
-            //
-            // TODO: This wont work with an unreachable block inside another block
-            //       because the frame state only takes into account the most inner frame
-            JavaFrameSnapshot inferred = context.getFrameState().inferJavaFrameSnapshot();
-            fixed = context.fixupInferredFrameSnapshot(inferred);
+        if (resolveLabel) {
+            CodeLabel label = blockJumpLabel.getCodeLabel();
+
+            if (label.isReachable() || isReachable /* <- sanity check */) {
+                context.getFrameState().markReachable();
+                context.getEmitter().resolveLabel(label);
+
+                isReachable = true;
+            }
         }
 
-        if (resolveLabel) {
+        context.getFrameState().endBlock(type);
+
+        if (isReachable) {
             context.getFrameState().markReachable();
-            context.getEmitter().resolveLabel(blockJumpLabel.getCodeLabel(), fixed);
-        } else if (fixed != null) { // See comment from above for why we inject a label here
-            CodeLabel fixupLabel = context.getEmitter().newLabel();
-            context.getEmitter().resolveLabel(fixupLabel, fixed);
+        } else {
+            context.getFrameState().markUnreachable();
         }
     }
 
     /**
      * Emit the instructions required to clean the stack before jumping to a label.
+     * <p>
+     * Note that the frame state becomes essentially unusable after this and
+     * jump is expected to follow immediately afterward.
      *
      * @param context the context to use
      * @param depth   how many labels to go up
@@ -186,11 +205,17 @@ public final class ControlHelper {
             throw new WasmAssemblerException("Not enough labels on the stack to pop " + depth + " labels");
         }
 
-        List<ValueType> operandStack = frameState.getOperandStack();
+        // We potentially need to discard multiple layers of blocks from here - gather the
+        // entire stack state that needs to be dropped
+        List<ValueType> completeOperandStack = new ArrayList<>();
+        for (int i = 0; i <= depth; i++) {
+            completeOperandStack.addAll(context.getFrameState(i).getOperandStack());
+        }
+
         LargeArray<ValueType> blockReturnTypes = blockJumpLabel.getStackOperands();
 
         int returnCount = (int) blockReturnTypes.length();
-        int discardCount = operandStack.size() - returnCount;
+        int discardCount = completeOperandStack.size() - returnCount;
 
         if (discardCount < 1) {
             // No need to emit java instructions, the stack is already in the correct state
@@ -204,7 +229,7 @@ public final class ControlHelper {
             // Check if we can go a fast path where we only need to swap and then drop the top value
 
             JavaType javaReturnType = WasmTypeConverter.toJavaType(blockReturnTypes.get(LargeArrayIndex.ZERO));
-            JavaType javaDiscardType = WasmTypeConverter.toJavaType(operandStack.get(operandStack.size() - 2));
+            JavaType javaDiscardType = WasmTypeConverter.toJavaType(completeOperandStack.get(completeOperandStack.size() - 2));
             if (javaReturnType.getSlotCount() < 2 && javaDiscardType.getSlotCount() < 2) {
                 // Single slot value which needs to be discarded, swap and drop
                 frameState.popOperand(blockReturnTypes.get(LargeArrayIndex.ZERO));
@@ -268,6 +293,11 @@ public final class ControlHelper {
      */
     public static void emitExpression(CodeEmitContext context, Expr expr) throws WasmAssemblerException {
         for (InstructionInstance instructionInstance : expr.getInstructions()) {
+            if (!context.getFrameState().isReachable()) {
+                // Later instructions can't suddenly make the frame reachable again, stop here
+                break;
+            }
+
             emitInstruction(context, instructionInstance.getInstruction(), instructionInstance.getData());
         }
     }

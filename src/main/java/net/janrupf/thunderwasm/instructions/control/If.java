@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.instructions.control;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
@@ -38,19 +39,26 @@ public final class If extends WasmInstruction<BlockData> {
         CodeLabel endLabel = emitter.newLabel();
         CodeLabel falseLabel = falseExpr == null ? endLabel : emitter.newLabel();
 
+        WasmFrameState beforeFirstBranch = context.getFrameState().branch();
+
         emitter.jump(JumpCondition.INT_EQUAL_ZERO, falseLabel);
 
         ControlHelper.emitPushBlock(context, data.getType());
         ControlHelper.emitExpression(context, trueExpr);
-        ControlHelper.emitPopBlock(context, true);
+        ControlHelper.emitPopBlock(context, data.getType(), true);
 
         if (falseExpr != null) {
-            emitter.jump(JumpCondition.ALWAYS, endLabel);
+            if (context.getFrameState().isReachable()) {
+                emitter.jump(JumpCondition.ALWAYS, endLabel);
+            }
             emitter.resolveLabel(falseLabel);
+
+            // Reset the stack state to before the branch, it never happened in this timeline
+            context.restoreFrameStateAfterBranch(beforeFirstBranch);
 
             ControlHelper.emitPushBlock(context, data.getType());
             ControlHelper.emitExpression(context, falseExpr);
-            ControlHelper.emitPopBlock(context, true);
+            ControlHelper.emitPopBlock(context, data.getType(), true);
         }
 
         emitter.resolveLabel(endLabel);
