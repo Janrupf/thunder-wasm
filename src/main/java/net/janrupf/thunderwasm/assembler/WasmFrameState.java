@@ -198,7 +198,7 @@ public final class WasmFrameState {
     /**
      * Retrieve the current frame's block return types.
      *
-     * @return the frame's block return types, or null, if not inside a block
+     * @return the frame's block return types
      */
     public List<ValueType> getBlockReturnTypes() {
         return blockReturnTypes;

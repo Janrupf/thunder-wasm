@@ -41,7 +41,7 @@ public final class Table<T> implements LinkedTable<T> {
     @Override
     public int grow(T initValue, int n) {
         int newSize = elements.length + n;
-        if (newSize < 0 || (newSize > limit && limit != -1)) {
+        if (n < 0 || newSize < 0 || (newSize > limit && limit != -1)) {
             // Growing the table failed
             return -1;
         }

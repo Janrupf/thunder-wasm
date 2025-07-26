@@ -62,5 +62,9 @@ public final class If extends WasmInstruction<BlockData> {
         }
 
         emitter.resolveLabel(endLabel);
+
+        if (endLabel.isReachable()) {
+            context.getFrameState().markReachable();
+        }
     }
 }

@@ -218,12 +218,6 @@ public final class ControlHelper {
         int discardCount = completeOperandStack.size() - returnCount;
 
         if (discardCount < 1) {
-            // No need to emit java instructions, the stack is already in the correct state
-            // (or underflown, but then popOperand below will throw)
-            for (ValueType returnType : blockReturnTypes) {
-                frameState.popOperand(returnType);
-            }
-
             return blockJumpLabel.getCodeLabel();
         } else if (discardCount == 1 && returnCount == 1) {
             // Check if we can go a fast path where we only need to swap and then drop the top value
@@ -232,7 +226,6 @@ public final class ControlHelper {
             JavaType javaDiscardType = WasmTypeConverter.toJavaType(completeOperandStack.get(completeOperandStack.size() - 2));
             if (javaReturnType.getSlotCount() < 2 && javaDiscardType.getSlotCount() < 2) {
                 // Single slot value which needs to be discarded, swap and drop
-                frameState.popOperand(blockReturnTypes.get(LargeArrayIndex.ZERO));
 
                 emitter.op(Op.SWAP);
                 emitter.pop();

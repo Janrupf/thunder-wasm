@@ -38,15 +38,15 @@ public final class Select extends WasmInstruction<Select.SelectData> {
                 loader::readValueType
         );
 
-        if (types.length() != 1) {
-            throw new InvalidModuleException("Expected exactly 1 type, got " + types.length());
-        }
-
         return new SelectData(types);
     }
 
     @Override
     public void emitCode(CodeEmitContext context, SelectData data) throws WasmAssemblerException {
+        if (data.getTypes() != null && data.getTypes().length() != 1) {
+            throw new WasmAssemblerException("Expected exactly 1 type, got " + data.getTypes().length());
+        }
+
         WasmFrameState frameState = context.getFrameState();
         LargeArray<ValueType> types = data.getTypes();
 

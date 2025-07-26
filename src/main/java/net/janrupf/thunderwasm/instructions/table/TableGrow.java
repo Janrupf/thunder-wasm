@@ -53,5 +53,7 @@ public final class TableGrow extends WasmInstruction<TableIndexData> {
             );
             context.getFrameState().popOperand(element.getElement().getElementType());
         }
+
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

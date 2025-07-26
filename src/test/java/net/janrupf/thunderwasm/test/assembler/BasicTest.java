@@ -37,7 +37,7 @@ public class BasicTest {
     @Test
     public void playground() throws Exception {
         long loadStartTime = System.currentTimeMillis();
-        WasmModule module = TestUtil.load("testsuite-88e97b0f742f4c3ee01fea683da130f344dd7b02/br_if.0.wasm");
+        WasmModule module = TestUtil.load("testsuite-88e97b0f742f4c3ee01fea683da130f344dd7b02/table_get.0.wasm");
         long loadEndTime = System.currentTimeMillis();
 
         System.out.println("Loading took " + (loadEndTime - loadStartTime) + "ms");

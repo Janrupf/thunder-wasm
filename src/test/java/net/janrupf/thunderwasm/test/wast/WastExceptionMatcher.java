@@ -24,10 +24,12 @@ public class WastExceptionMatcher {
         KNOWN_TRAPS.put("out of bounds memory access", Collections.singletonList(IndexOutOfBoundsException.class));
         KNOWN_TRAPS.put("undefined element", Collections.singletonList(IndexOutOfBoundsException.class));
         KNOWN_TRAPS.put("uninitialized element", Collections.singletonList(NullPointerException.class));
+        KNOWN_TRAPS.put("uninitialized element 2", Collections.singletonList(NullPointerException.class));
         KNOWN_TRAPS.put("integer divide by zero", Collections.singletonList(ArithmeticException.class));
         KNOWN_TRAPS.put("call stack exhausted", Collections.singletonList(StackOverflowError.class));
         KNOWN_TRAPS.put("indirect call type mismatch", Collections.singletonList(WrongMethodTypeException.class));
         KNOWN_TRAPS.put("out of bounds table access", Collections.singletonList(IndexOutOfBoundsException.class));
+        KNOWN_TRAPS.put("unreachable", Collections.singletonList(IllegalStateException.class));
     }
 
     public static void checkTrap(Throwable actual, String wastMessage) {

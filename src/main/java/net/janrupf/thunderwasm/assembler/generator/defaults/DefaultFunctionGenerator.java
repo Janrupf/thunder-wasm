@@ -99,7 +99,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 Arrays.asList(functionType.getInputs().asFlatArray()),
                 expandedLocals,
                 signature.getWasmReturnTypes(),
-                null
+                signature.getWasmReturnTypes()
         );
 
         CodeLabel returnLabel = codeEmitter.newLabel();
@@ -143,13 +143,14 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         // We have no trailing return instruction, insert one!
         if (wasmOutputs.size() > 1) {
             throw new WasmAssemblerException("Only one output is supported for now");
-        } else if (wasmOutputs.isEmpty()) {
-            codeEmitter.doReturn();
-            return;
         }
 
         for (ValueType output : wasmOutputs) {
             frameState.popOperand(output);
+        }
+
+        if (!frameState.getOperandStack().isEmpty()) {
+            throw new WasmAssemblerException("Expected stack to be empty at implicit return, found " + frameState.getOperandStack().size() + " values");
         }
 
         codeEmitter.doReturn();

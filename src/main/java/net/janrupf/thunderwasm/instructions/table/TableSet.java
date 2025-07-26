@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.TableType;
 
 import java.io.IOException;
@@ -44,5 +45,7 @@ public final class TableSet extends WasmInstruction<TableIndexData> {
             );
             context.getFrameState().popOperand(element.getElement().getElementType());
         }
+
+        context.getFrameState().popOperand(NumberType.I32);
     }
 }
