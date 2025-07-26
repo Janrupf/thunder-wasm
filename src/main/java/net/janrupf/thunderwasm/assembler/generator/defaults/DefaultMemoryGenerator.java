@@ -20,6 +20,8 @@ import net.janrupf.thunderwasm.types.*;
 import java.lang.invoke.MethodHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 public class DefaultMemoryGenerator implements MemoryGenerator {
@@ -52,7 +54,8 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     }
 
     @Override
-    public void addDataSegment(LargeArrayIndex i, DataSegment segment, ClassFileEmitter emitter) {
+    public void addDataSegment(LargeArrayIndex i, DataSegment segment, ClassFileEmitter emitter)
+            throws WasmAssemblerException {
         emitter.field(
                 generateDataSegmentFieldName(i),
                 Visibility.PRIVATE,
@@ -61,6 +64,79 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 DATA_SEGMENT_TYPE,
                 null
         );
+
+        MethodEmitter initMethodEmitter = emitter.method(
+                generateDataSegmentHelperName(i, "init"),
+                Visibility.PRIVATE,
+                true,
+                false,
+                new ArrayType(PrimitiveType.BYTE),
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
+
+        CodeEmitter codeEmitter = initMethodEmitter.code();
+
+        byte[] data = segment.getInit().asFlatArray();
+
+        if (data == null) {
+            throw new WasmAssemblerException("Data segment is too large: " + segment.getInit().length());
+        }
+
+        JavaLocal dataLocal = codeEmitter.allocateLocal(new ArrayType(PrimitiveType.BYTE));
+
+        // Create a new byte array for the data segment
+        codeEmitter.loadConstant(data.length);
+        codeEmitter.doNew(DATA_SEGMENT_TYPE);
+        codeEmitter.storeLocal(dataLocal);
+
+        int chunkOffset = 0;
+        while (chunkOffset < data.length) {
+            int chunkSize = Math.min(16000, data.length - chunkOffset);
+
+            String stringifiedChunk = new String(data, chunkOffset, chunkSize, StandardCharsets.ISO_8859_1);
+
+            // Load the chunk and copy it into the array
+            codeEmitter.loadConstant(stringifiedChunk);
+            codeEmitter.accessField(
+                    ObjectType.of(StandardCharsets.class),
+                    "ISO_8859_1",
+                    ObjectType.of(Charset.class),
+                    true,
+                    false
+            );
+            codeEmitter.invoke(
+                    ObjectType.of(String.class),
+                    "getBytes",
+                    new JavaType[] { ObjectType.of(Charset.class) },
+                    new ArrayType(PrimitiveType.BYTE),
+                    InvokeType.VIRTUAL,
+                    false
+            );
+
+            // And array-copy it into the appropriate locatin...
+            codeEmitter.loadConstant(chunkOffset);
+            codeEmitter.loadLocal(dataLocal);
+            codeEmitter.loadConstant(0);
+            codeEmitter.loadConstant(chunkSize);
+            codeEmitter.invoke(
+                    ObjectType.of(System.class),
+                    "arraycopy",
+                    new JavaType[] { ObjectType.OBJECT, PrimitiveType.INT, ObjectType.OBJECT, PrimitiveType.INT, PrimitiveType.INT },
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+
+
+            chunkOffset += chunkSize;
+        }
+
+        codeEmitter.loadLocal(dataLocal);
+        codeEmitter.doReturn();
+
+        codeEmitter.finish();
+        initMethodEmitter.finish();
     }
 
     @Override
@@ -93,25 +169,17 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
             throw new WasmAssemblerException("Data segment is too large: " + data.length());
         }
 
-        // Create a new byte array for the data segment
-
-        emitter.loadConstant((int) data.length());
-
-        emitter.doNew(DATA_SEGMENT_TYPE);
-
-
-        for (LargeArrayIndex j = LargeArrayIndex.ZERO; j.compareTo(data.largeLength()) < 0; j = j.add(1)) {
-            emitter.duplicate();
-
-            // Load the byte value from the data segment
-            emitter.loadConstant(j.getElementIndex());
-            emitter.loadConstant(data.get(j));
-            emitter.storeArrayElement();
-        }
-
-
         emitter.loadLocal(context.getLocalVariables().getThis());
-        emitter.op(Op.SWAP);
+
+        emitter.invoke(
+                emitter.getOwner(),
+                generateDataSegmentHelperName(i, "init"),
+                new JavaType[0],
+                new ArrayType(PrimitiveType.BYTE),
+                InvokeType.STATIC,
+                false
+        );
+
         emitter.accessField(
                 context.getEmitter().getOwner(),
                 generateDataSegmentFieldName(i),
@@ -474,6 +542,14 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 InvokeType.VIRTUAL,
                 false
         );
+        emitter.invoke(
+                MEMORY_TYPE,
+                "clear",
+                new JavaType[] {},
+                MEMORY_TYPE,
+                InvokeType.VIRTUAL,
+                false
+        );
 
         emitAccessMemoryField(i, true, context);
 
@@ -578,6 +654,8 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                     false
             );
 
+            emitter.pop();
+
         } else if (targetMemoryType.equals(BYTE_ARRAY_TYPE) && sourceMemoryType.equals(MEMORY_TYPE)) {
             // Use the ByteBuffer API to copy the memory to a byte array
             emitter.loadLocal(sourceMemoryLocal);
@@ -599,6 +677,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                     false
             );
 
+            emitter.pop();
         } else {
             throw new WasmAssemblerException("Memory copy not supported for types " + sourceMemoryType + " and " + targetMemoryType);
         }
@@ -757,6 +836,10 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
         return "data_" + i;
+    }
+
+    protected String generateDataSegmentHelperName(LargeArrayIndex i, String purpose) {
+        return "$data_" + i + "$" + purpose;
     }
 
     protected String generateMemoryHelperName(LargeArrayIndex i, String purpose) {

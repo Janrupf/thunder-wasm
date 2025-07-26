@@ -20,9 +20,12 @@ import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.ThrowingConsumer;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestUtil {
@@ -48,6 +51,13 @@ public class TestUtil {
     public static WasmModule load(String name) throws IOException, InvalidModuleException {
         WasmLoader loader = TestUtil.loaderFor(name);
         return loader.load();
+    }
+
+    public static WasmModule loadFromFile(String path) throws IOException, InvalidModuleException {
+        try (InputStream in = new BufferedInputStream(Files.newInputStream(Paths.get(path)))) {
+            WasmLoader loader = new WasmLoader(in, BASE_INSTRUCTION_REGISTRY);
+            return loader.load();
+        }
     }
 
     @SuppressWarnings("unchecked")

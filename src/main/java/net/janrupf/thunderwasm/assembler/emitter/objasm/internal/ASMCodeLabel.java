@@ -23,7 +23,7 @@ public final class ASMCodeLabel implements CodeLabel {
      */
     public void markResolved() {
         this.resolved = true;
-        this.resolvedAt = new Throwable("LABEL FIRST RESOLVED HERE");
+        // this.resolvedAt = new Throwable("LABEL FIRST RESOLVED HERE");
     }
 
     /**

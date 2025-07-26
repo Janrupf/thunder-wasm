@@ -35,9 +35,9 @@ public class BasicTest {
     }
 
     @Test
-    public void playground() throws Exception {
+    public void playground() throws Throwable {
         long loadStartTime = System.currentTimeMillis();
-        WasmModule module = TestUtil.load("testsuite-88e97b0f742f4c3ee01fea683da130f344dd7b02/table_get.0.wasm");
+        WasmModule module = TestUtil.loadFromFile("/projects/public/asmble/examples/rust-regex/target/wasm32-unknown-unknown/release/rust_regex.wasm");
         long loadEndTime = System.currentTimeMillis();
 
         System.out.println("Loading took " + (loadEndTime - loadStartTime) + "ms");
@@ -56,16 +56,12 @@ public class BasicTest {
         LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 20));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        // int result = (int) TestUtil.callCodeMethod(
-        //         moduleInstance,
-        //         0,
-        //         new Class<?>[]{ int.class },
-        //         new Object[]{ 1}
-        // );
-//
-        // System.out.println("Result (1): " + result);
-
         Map<String, Object> exports = ((WasmModuleExports)  moduleInstance).getExports();
+
+        int result = (int) ((LinkedFunction) exports.get("8u_good3")).asMethodHandle().invoke(-1);
+
+        System.out.println("Result (1): " + result);
+
         System.out.println("Export count: " + exports.size());
     }
 

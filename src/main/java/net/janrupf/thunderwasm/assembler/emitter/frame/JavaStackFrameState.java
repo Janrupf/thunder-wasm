@@ -31,6 +31,8 @@ public final class JavaStackFrameState {
 
     private int currentStackSize;
 
+    private int vacantMiddleSlotCount = 0;
+
     public JavaStackFrameState() {
         this.locals = new ArrayList<>();
         this.operandStack = new ArrayList<>();
@@ -39,6 +41,8 @@ public final class JavaStackFrameState {
         this.maxStackSize = 0;
 
         this.currentStackSize = 0;
+
+        this.vacantMiddleSlotCount = 0;
     }
 
     /**
@@ -53,29 +57,35 @@ public final class JavaStackFrameState {
         JavaLocal local;
         int i;
 
-        for (i = 0; i < locals.size(); i++) {
-            JavaLocalSlot slot = locals.get(i);
+        if (vacantMiddleSlotCount > 0) {
+            for (i = 0; i < locals.size(); i++) {
+                JavaLocalSlot slot = locals.get(i);
 
-            if (slot instanceof JavaLocalSlot.Vacant) {
-                if (type.getSlotCount() > 1) {
-                    // Check if the following slot is also available
-                    // NOTE: The following slot always has to exist, otherwise
-                    //       we wouldn't have a Vacant entry
-                    if (!(locals.get(i + 1) instanceof JavaLocalSlot.Vacant)) {
-                        i++; // No need to check it
-                        continue;
+                if (slot instanceof JavaLocalSlot.Vacant) {
+                    if (type.getSlotCount() > 1) {
+                        // Check if the following slot is also available
+                        // NOTE: The following slot always has to exist, otherwise
+                        //       we wouldn't have a Vacant entry
+                        if (!(locals.get(i + 1) instanceof JavaLocalSlot.Vacant)) {
+                            i++; // No need to check it
+                            continue;
+                        }
                     }
+
+                    local = new JavaLocal(this, i, type);
+                    locals.set(i, JavaLocalSlot.used(local));
+
+                    if (type.getSlotCount() > 1) {
+                        vacantMiddleSlotCount--;
+                        locals.set(i + 1, JavaLocalSlot.continuation());
+                    }
+
+                    vacantMiddleSlotCount--;
+                    return local;
                 }
-
-                local = new JavaLocal(this, i, type);
-                locals.set(i, JavaLocalSlot.used(local));
-
-                if (type.getSlotCount() > 1) {
-                    locals.set(i + 1, JavaLocalSlot.continuation());
-                }
-
-                return local;
             }
+        } else {
+            i = locals.size();
         }
 
         local = new JavaLocal(this, i, type);
@@ -99,14 +109,17 @@ public final class JavaStackFrameState {
      */
     void freeLocal(JavaLocal local) {
         this.locals.set(local.getSlot(), JavaLocalSlot.vacant());
+        vacantMiddleSlotCount++;
 
         if (local.getType().getSlotCount() > 1) {
             this.locals.set(local.getSlot() + 1, JavaLocalSlot.vacant());
+            vacantMiddleSlotCount++;
         }
 
         // Clean up all unused slots that can be free without creating a hole
         while (!locals.isEmpty() && locals.get(locals.size() - 1) instanceof JavaLocalSlot.Vacant) {
             locals.remove(locals.size() - 1);
+            vacantMiddleSlotCount--;
         }
     }
 
