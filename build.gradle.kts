@@ -23,7 +23,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 
-    implementation("org.ow2.asm:asm:9.7")
+    implementation("org.ow2.asm:asm:9.8")
+    implementation("org.ow2.asm:asm-tree:9.8")
 
     testImplementation("com.fasterxml.jackson.core:jackson-core:2.19.2")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")

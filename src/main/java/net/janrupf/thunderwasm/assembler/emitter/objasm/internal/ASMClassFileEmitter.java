@@ -11,11 +11,12 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.ClassNode;
 
 import java.util.List;
 
 public final class ASMClassFileEmitter implements ClassFileEmitter {
-    private final ClassWriter writer;
+    private final ClassNode classNode;
     private final ObjectType owner;
 
     public ASMClassFileEmitter(
@@ -24,11 +25,11 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
             ObjectType superType,
             List<ObjectType> interfaces
     ) {
-        writer = new ClassWriter(0);
+        classNode = new ClassNode(Opcodes.ASM9);
         owner = new ObjectType(packageName, className);
 
         // Generate a Java 8 class
-        writer.visit(
+        classNode.visit(
                 Opcodes.V1_8,
                 Opcodes.ACC_PUBLIC,
                 ASMConverter.convertType(owner).getInternalName(),
@@ -55,7 +56,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
         int access = ASMConverter.toAccessModifiers(visibility, isStatic, isFinal);
         Type asmType = ASMConverter.convertType(type);
 
-        writer.visitField(
+        classNode.visitField(
                 access,
                 fieldName,
                 asmType.getDescriptor(),
@@ -80,7 +81,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
 
         String descriptor = Type.getMethodDescriptor(asmReturnType, asmParameterTypes);
 
-        MethodVisitor mVisitor = writer.visitMethod(
+        MethodVisitor mVisitor = classNode.visitMethod(
                 access,
                 methodName,
                 descriptor,
@@ -93,7 +94,11 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
 
     @Override
     public byte[] finish() {
-        writer.visitEnd();
+        classNode.visitEnd();
+
+        ClassWriter writer = new ClassWriter(0);
+        classNode.accept(writer);
+
         return writer.toByteArray();
     }
 }

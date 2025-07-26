@@ -6,6 +6,15 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
 import java.util.List;
 
+/**
+ * Abstraction layer for replacing the underlying code generation
+ * framework.
+ * <p>
+ * Note that this is <b>not a strict visitor pattern</b>. This means
+ * it is valid to call {@link #field} or any other member except
+ * {@link #finish} while a method is not finalized yet, including
+ * nesting calls to {@link #method}.
+ */
 public interface ClassFileEmitter {
     /**
      * Retrieve the type of the class being emitted.
