@@ -1,5 +1,7 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaFrameSnapshot;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
@@ -63,6 +65,18 @@ public interface ClassFileEmitter {
             List<JavaType> parameterTypes,
             List<JavaType> thrownTypes
     );
+
+    /**
+     * Create a new code emitter, that is not bound to a specific method.
+     * <p>
+     * These can generally be used to generate jump pads, gadget and code islands
+     * and later prepend or append them to other emitters.
+     *
+     * @param initialState the initial state of the frame
+     * @param returnType the return type, or null, if not known
+     * @return the new unbound emitter
+     */
+    CodeEmitter unboundCode(JavaFrameSnapshot initialState, JavaType returnType);
 
     /**
      * Finalizes the class file and returns the bytecode.

@@ -23,6 +23,37 @@ public interface CodeEmitter {
     JavaStackFrameState getStackFrameState();
 
     /**
+     * Create a new code emitter that can be used to generate code islands.
+     * <p>
+     * The emitter is bound to the method that this emitter is bound to.
+     *
+     * @return the new emitter
+     */
+    CodeEmitter codeIsland(JavaFrameSnapshot initialState);
+
+    /**
+     * Insert the code of another emitter at the beginning.
+     * <p>
+     * The emitter that supplies the instructions for prepending
+     * is effectively cleared and should not be used again.
+     *
+     * @param emitter the emitter to insert the code from
+     * @throws WasmAssemblerException if the code can not be prepended
+     */
+    void prepend(CodeEmitter emitter) throws WasmAssemblerException;
+
+    /**
+     * Insert the code of another emitter at the end.
+     * <p>
+     * The emitter that supplies the instructions for prepending
+     * is effectively cleared and should not be used again.
+     *
+     * @param emitter the emitter to insert the code from
+     * @throws WasmAssemblerException if the code cannot be appended
+     */
+    void append(CodeEmitter emitter) throws WasmAssemblerException;
+
+    /**
      * Creates a new, not yet resolved label.
      *
      * @return the new label

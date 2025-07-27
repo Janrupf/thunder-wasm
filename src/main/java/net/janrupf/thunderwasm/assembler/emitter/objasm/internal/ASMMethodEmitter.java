@@ -6,13 +6,13 @@ import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
-import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ASMMethodEmitter implements MethodEmitter {
-    private final MethodVisitor visitor;
+    private final MethodNode visitor;
     private final ObjectType owner;
     private final JavaType returnType;
     private final JavaStackFrameState stackFrameState;
@@ -21,7 +21,7 @@ public final class ASMMethodEmitter implements MethodEmitter {
     private final List<JavaLocal> argumentLocals;
 
     ASMMethodEmitter(
-            MethodVisitor visitor,
+            MethodNode visitor,
             boolean isStatic,
             ObjectType owner,
             JavaType returnType,

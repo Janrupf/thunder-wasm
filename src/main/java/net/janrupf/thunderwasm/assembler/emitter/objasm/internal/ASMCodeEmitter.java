@@ -8,6 +8,7 @@ import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocalSlot;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.types.*;
 import org.objectweb.asm.*;
+import org.objectweb.asm.tree.MethodNode;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -15,13 +16,14 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class ASMCodeEmitter implements CodeEmitter {
-    private final MethodVisitor visitor;
+    private final MethodNode visitor;
 
     // Java always has the this local at index 0, however, for WASM generated code this is somewhat
     // impractical because WASM has no 'this' argument and for efficiency we move it to the last
     // position in the arguments in the Java code.
     private final ObjectType owner;
     private final JavaType returnType;
+    private JavaFrameSnapshot beginningSnapshot;
     private JavaStackFrameState stackFrameState;
     private boolean noNewInstructionsSinceLastVisitFrame;
 
@@ -29,7 +31,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     private int maxStackSize;
 
     ASMCodeEmitter(
-            MethodVisitor visitor,
+            MethodNode visitor,
             ObjectType owner,
             JavaType returnType,
             JavaStackFrameState stackFrameState
@@ -37,6 +39,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         this.visitor = visitor;
         this.owner = owner;
         this.returnType = returnType;
+        this.beginningSnapshot = stackFrameState.computeSnapshot();
         this.stackFrameState = stackFrameState;
         this.noNewInstructionsSinceLastVisitFrame = false;
 
@@ -47,6 +50,65 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public ObjectType getOwner() {
         return owner;
+    }
+
+    @Override
+    public CodeEmitter codeIsland(JavaFrameSnapshot initialState) {
+        JavaStackFrameState newState = new JavaStackFrameState();
+        newState.restoreFromSnapshot(initialState);
+
+        return new ASMCodeEmitter(
+                new MethodNode(Opcodes.ASM9),
+                owner,
+                returnType,
+                newState
+        );
+    }
+
+    @Override
+    public void prepend(CodeEmitter emitter) throws WasmAssemblerException {
+        ASMCodeEmitter asmEmitter = (ASMCodeEmitter) emitter;
+
+        if (asmEmitter.getStackFrameState() != null) {
+            JavaFrameSnapshot otherSnapshot = emitter.getStackFrameState().computeSnapshot();
+
+            beginningSnapshot.checkCompatible(otherSnapshot);
+        }
+
+        beginningSnapshot = asmEmitter.beginningSnapshot;
+        visitor.instructions.insert(asmEmitter.visitor.instructions);
+
+        postProcessConcatenation(asmEmitter);
+    }
+
+    @Override
+    public void append(CodeEmitter emitter) throws WasmAssemblerException {
+        ASMCodeEmitter asmEmitter = (ASMCodeEmitter) emitter;
+
+        if (stackFrameState != null) {
+            stackFrameState.computeSnapshot().checkCompatible(asmEmitter.beginningSnapshot);
+        }
+
+        visitor.instructions.add(asmEmitter.visitor.instructions);
+        stackFrameState = asmEmitter.stackFrameState;
+
+        postProcessConcatenation(asmEmitter);
+    }
+
+    private void postProcessConcatenation(ASMCodeEmitter emitter) {
+        if (this.maxLocalsSize < emitter.maxLocalsSize) {
+            this.maxLocalsSize = emitter.maxLocalsSize;
+        }
+
+        if (this.maxStackSize < emitter.maxStackSize) {
+            this.maxStackSize = emitter.maxStackSize;
+        }
+
+        emitter.maxStackSize = 0;
+        emitter.maxLocalsSize = 0;
+        emitter.noNewInstructionsSinceLastVisitFrame = false;
+        emitter.stackFrameState = new JavaStackFrameState();
+        emitter.beginningSnapshot = stackFrameState.computeSnapshot();
     }
 
     @Override
@@ -297,6 +359,11 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public void doReturn() throws WasmAssemblerException {
         requireValidFrameSnapshot();
+
+        if (returnType == null) {
+            throw new WasmAssemblerException("Can't generate return instruction when return type is not known");
+        }
+
         markNewInstruction();
 
         if (returnType.equals(PrimitiveType.VOID)) {

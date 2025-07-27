@@ -1,18 +1,23 @@
 package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
 import net.janrupf.thunderwasm.assembler.emitter.ClassFileEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.MethodEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.Visibility;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaFrameSnapshot;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.signature.SignaturePart;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.util.ObjectUtil;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public final class ASMClassFileEmitter implements ClassFileEmitter {
@@ -81,7 +86,7 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
 
         String descriptor = Type.getMethodDescriptor(asmReturnType, asmParameterTypes);
 
-        MethodVisitor mVisitor = classNode.visitMethod(
+        MethodNode mVisitor = (MethodNode) classNode.visitMethod(
                 access,
                 methodName,
                 descriptor,
@@ -90,6 +95,21 @@ public final class ASMClassFileEmitter implements ClassFileEmitter {
         );
 
         return new ASMMethodEmitter(mVisitor, isStatic, owner, returnType, parameterTypes);
+    }
+
+    @Override
+    public CodeEmitter unboundCode(JavaFrameSnapshot initialState, JavaType returnType) {
+        MethodNode node = new MethodNode(Opcodes.ASM9);
+
+        JavaStackFrameState frameState = new JavaStackFrameState();
+        frameState.restoreFromSnapshot(initialState);
+
+        return new ASMCodeEmitter(
+                node,
+                owner,
+                returnType,
+                frameState
+        );
     }
 
     @Override
