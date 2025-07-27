@@ -17,6 +17,7 @@ import net.janrupf.thunderwasm.test.TestUtil;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandles;
@@ -45,7 +46,13 @@ public class BasicTest {
         WasmAssembler assembler = TestUtil.makeAssembler(module);
 
         long assemblyStartTime = System.currentTimeMillis();
-        byte[] classBytes = assembler.assembleToModule();
+        byte[] classBytes = null;
+        try {
+            classBytes = assembler.assembleToModule();
+        } catch (Exception e) {
+            long assemblyEndTime = System.currentTimeMillis();
+            Assertions.fail("Assembling the module failed after " + (assemblyEndTime - assemblyStartTime) + "ms", e);
+        }
         long assemblyEndTime = System.currentTimeMillis();
 
         System.out.println("Assembling took " + (assemblyEndTime - assemblyStartTime) + "ms");

@@ -741,7 +741,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 growCodeEmitter,
                 new WasmFrameState(),
                 context.getGenerators(),
-                new LocalVariables(thisLocal, Collections.singletonList(growCountLocal))
+                new LocalVariables(growCodeEmitter, thisLocal)
         ));
 
         // Returns the old size or -1 on failure - we need to convert

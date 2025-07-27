@@ -1,15 +1,18 @@
 package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
-import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocalSlot;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.types.*;
 import org.objectweb.asm.*;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public final class ASMCodeEmitter implements CodeEmitter {
     private final MethodVisitor visitor;
@@ -87,12 +90,16 @@ public final class ASMCodeEmitter implements CodeEmitter {
         visitor.visitLabel(asmLabel.getInner());
 
         if (!noNewInstructionsSinceLastVisitFrame) {
-            int localCount = frame.getLocals().size();
+            List<Object> locals = new ArrayList<>();
 
-            Object[] locals = new Object[localCount];
+            for (JavaLocalSlot slot : frame.getLocals()) {
+                if (slot instanceof JavaLocalSlot.Used) {
+                    locals.add(this.javaTypeToFrameType(((JavaLocalSlot.Used) slot).getLocal().getType()));
+                } else if (slot instanceof JavaLocalSlot.Vacant) {
+                    locals.add(Opcodes.TOP);
+                }
 
-            for (int i = 0; i < localCount; i++) {
-                locals[i] = this.javaTypeToFrameType(frame.getLocals().get(i));
+                // ASM automatically handles continuation slots, so we don't add them here explicitly
             }
 
             Object[] stack = new Object[frame.getStack().size()];
@@ -102,8 +109,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
             visitor.visitFrame(
                     Opcodes.F_FULL,
-                    locals.length,
-                    locals,
+                    locals.size(),
+                    locals.toArray(),
                     stack.length,
                     stack
             );

@@ -137,14 +137,6 @@ public final class WasmAssembler {
 
         CodeEmitter code = staticConstructor.code();
 
-        CodeEmitContext context = new CodeEmitContext(
-                elementLookups,
-                code,
-                new WasmFrameState(Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null),
-                generators,
-                new LocalVariables(null, Collections.emptyList())
-        );
-
         code.doReturn();
         code.finish();
         staticConstructor.finish();
@@ -198,11 +190,12 @@ public final class WasmAssembler {
                 Collections.singletonList(ObjectType.of(ThunderWasmException.class))
         );
 
+        CodeEmitter code = constructor.code();
+
         LocalVariables localVariables = new LocalVariables(
-                constructor.getThisLocal(), constructor.getArgumentLocals());
+                code, constructor.getThisLocal());
 
         // Emit a call to the super constructor
-        CodeEmitter code = constructor.code();
         code.loadLocal(localVariables.getThis());
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
 

@@ -1,6 +1,5 @@
 package net.janrupf.thunderwasm.assembler.emitter.frame;
 
-import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
@@ -274,12 +273,7 @@ public final class JavaStackFrameState {
      */
     public JavaFrameSnapshot computeSnapshot() {
         List<JavaType> operands = new ArrayList<>(this.operandStack);
-        List<JavaType> locals = new ArrayList<>(this.locals.size());
-        for (JavaLocalSlot slot : this.locals) {
-            if (slot instanceof JavaLocalSlot.Used) {
-                locals.add(((JavaLocalSlot.Used) slot).getLocal().getType());
-            }
-        }
+        List<JavaLocalSlot> locals = new ArrayList<>(this.locals);
 
         return new JavaFrameSnapshot(
                 operands,
@@ -297,36 +291,14 @@ public final class JavaStackFrameState {
 
         // TODO: This doesn't work nicely with local invalidation
 
-        for (JavaType local : snapshot.getLocals()) {
-            this.allocateLocal(local);
+        this.locals.addAll(snapshot.getLocals());
+        if (this.maxLocalsSize < this.locals.size()) {
+            this.maxLocalsSize = this.locals.size();
         }
 
         for (JavaType operand : snapshot.getStack()) {
             this.pushOperand(operand);
         }
-    }
-
-    /**
-     * Find a local by index (not slot count!).
-     *
-     * @param i the index of the local
-     * @return the local at the given index
-     * @throws WasmAssemblerException if there is no local at that index
-     */
-    public JavaLocal findLocal(int i) throws WasmAssemblerException {
-        int searchIndex = i;
-
-        for (JavaLocalSlot localSlot : this.locals) {
-            if (localSlot instanceof JavaLocalSlot.Used) {
-                if (i == 0) {
-                    return ((JavaLocalSlot.Used) localSlot).getLocal();
-                }
-
-                i--;
-            }
-        }
-
-        throw new WasmAssemblerException("Local index " + searchIndex + " is vacant");
     }
 
     public JavaType remapForStackFrame(JavaType type) {

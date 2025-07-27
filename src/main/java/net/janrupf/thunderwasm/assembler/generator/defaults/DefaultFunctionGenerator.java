@@ -61,7 +61,9 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         // Purposefully not using `thisLocal` here - we emit a static function that may very well
         // not have `this` at position 0.
         JavaLocal thisLocal = methodEmitter.getArgumentLocals().get(signature.getOwnerArgumentIndex());
-        List<JavaLocal> staticLocals = new ArrayList<>();
+        List<JavaLocal> argumentLocals = new ArrayList<>();
+
+        LocalVariables localVariables = new LocalVariables(codeEmitter, thisLocal);
 
         for (int argIndex = 0; argIndex < signature.getJavaArgumentTypes().size(); argIndex++) {
             if (argIndex == signature.getOwnerArgumentIndex()) {
@@ -69,11 +71,15 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             }
 
             JavaLocal argumentLocal = methodEmitter.getArgumentLocals().get(signature.getArgumentIndex(argIndex));
-            staticLocals.add(argumentLocal);
+            argumentLocals.add(argumentLocal);
+
+            localVariables.registerKnownLocal(signature.getArgumentIndex(argIndex), argumentLocal);
         }
 
         // Expand WASM locals
         List<ValueType> expandedLocals = new ArrayList<>();
+
+        int localId = argumentLocals.size();
         for (Local local : locals.asFlatArray()) {
             if (expandedLocals.size() + local.getCount() > 65535) {
                 throw new WasmAssemblerException(
@@ -85,15 +91,13 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 expandedLocals.add(local.getType());
 
                 JavaType javaType = WasmTypeConverter.toJavaType(local.getType());
-                JavaLocal javaLocal = codeEmitter.allocateLocal(javaType);
-                staticLocals.add(javaLocal);
+                JavaLocal javaLocal = localVariables.writeLocal(localId++, javaType);
 
                 codeEmitter.loadConstant(javaType.getDefaultValue());
                 codeEmitter.storeLocal(javaLocal);
             }
         }
 
-        LocalVariables localVariables = new LocalVariables(thisLocal, staticLocals);
 
         WasmFrameState frameState = new WasmFrameState(
                 Arrays.asList(functionType.getInputs().asFlatArray()),

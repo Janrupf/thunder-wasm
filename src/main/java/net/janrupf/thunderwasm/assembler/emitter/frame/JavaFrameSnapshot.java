@@ -1,5 +1,6 @@
-package net.janrupf.thunderwasm.assembler;
+package net.janrupf.thunderwasm.assembler.emitter.frame;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 
 import java.util.List;
@@ -10,11 +11,11 @@ import java.util.Objects;
  */
 public final class JavaFrameSnapshot {
     private final List<JavaType> stack;
-    private final List<JavaType> locals;
+    private final List<JavaLocalSlot> locals;
 
     public JavaFrameSnapshot(
             List<JavaType> stack,
-            List<JavaType> locals
+            List<JavaLocalSlot> locals
     ) {
         this.stack = stack;
         this.locals = locals;
@@ -34,7 +35,7 @@ public final class JavaFrameSnapshot {
      *
      * @return the state of the locals
      */
-    public List<JavaType> getLocals() {
+    public List<JavaLocalSlot> getLocals() {
         return locals;
     }
 
@@ -71,7 +72,15 @@ public final class JavaFrameSnapshot {
                 localsBuilder.append(", ");
             }
 
-            localsBuilder.append(locals.get(i).toJvmDescriptor());
+            JavaLocalSlot slot = locals.get(i);
+
+            if (slot instanceof JavaLocalSlot.Used) {
+                localsBuilder.append(((JavaLocalSlot.Used) slot).getLocal().getType().toJvmDescriptor());
+            } else if (slot instanceof JavaLocalSlot.Vacant) {
+                localsBuilder.append("<EMPTY>");
+            } else if (slot instanceof JavaLocalSlot.Continuation) {
+                localsBuilder.append("<CONTINUATION>");
+            }
         }
         localsBuilder.append("}");
 

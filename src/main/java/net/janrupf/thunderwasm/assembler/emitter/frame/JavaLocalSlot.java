@@ -1,6 +1,8 @@
 package net.janrupf.thunderwasm.assembler.emitter.frame;
 
-interface JavaLocalSlot {
+import java.util.Objects;
+
+public interface JavaLocalSlot {
     /**
      * Create a vacant local slot.
      *
@@ -46,6 +48,18 @@ interface JavaLocalSlot {
         }
 
         @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof Used)) return false;
+            Used used = (Used) o;
+            return Objects.equals(local, used.local);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(local);
+        }
+
+        @Override
         public String toString() {
             return "<used " + local.toString() + ">";
         }
@@ -55,7 +69,15 @@ interface JavaLocalSlot {
      * A local slot that is currently not in sure, but has other locals stacked above it.
      */
     final class Vacant implements JavaLocalSlot {
-        public static Vacant INSTANCE = new Vacant();
+        public static final Vacant INSTANCE = new Vacant();
+
+        private Vacant() {}
+
+        @SuppressWarnings("EqualsDoesntCheckParameterClass")
+        @Override
+        public boolean equals(Object obj) {
+            return obj == INSTANCE;
+        }
 
         @Override
         public String toString() {
@@ -67,7 +89,15 @@ interface JavaLocalSlot {
      * A local that is being occupied by the slot below.
      */
     final class Continuation implements JavaLocalSlot {
-        public static Continuation INSTANCE = new Continuation();
+        public static final Continuation INSTANCE = new Continuation();
+
+        private Continuation() {}
+
+        @SuppressWarnings("EqualsDoesntCheckParameterClass")
+        @Override
+        public boolean equals(Object obj) {
+            return obj == INSTANCE;
+        }
 
         @Override
         public String toString() {

@@ -2,8 +2,14 @@ package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
+import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Helper class for managing local variables in the context of code emission.
@@ -12,17 +18,51 @@ import java.util.List;
  * don't really apply in the context of WASM code generation. For example, the
  * argument order can be different and the 'this' local is not always the first
  * argument.
+ * <p>
+ * This also helps tracking the usage of locals across nested blocks if block
+ * splitting occurs.
  */
 public final class LocalVariables {
+    private final CodeEmitter codeEmitter;
     private final JavaLocal thisLocal;
-    private final List<JavaLocal> staticLocals;
+    private final Map<Integer, LocalUsage> usage;
+    private final LocalVariables parent;
 
     public LocalVariables(
-            JavaLocal thisLocal,
-            List<JavaLocal> staticLocals
+            CodeEmitter codeEmitter,
+            JavaLocal thisLocal
     ) {
+        this(codeEmitter, thisLocal, null);
+    }
+
+    public LocalVariables(
+            CodeEmitter codeEmitter,
+            JavaLocal thisLocal,
+            LocalVariables parent
+    ) {
+        this.codeEmitter = codeEmitter;
+        this.usage = new HashMap<>();
+
+
         this.thisLocal = thisLocal;
-        this.staticLocals = staticLocals;
+        this.parent = parent;
+    }
+
+    /**
+     * Register a local that already exists and for which the ID is known.
+     * <p>
+     * This is required for being able to register the existing function argument locals.
+     *
+     * @param id the id of the local
+     * @param local the existing local
+     * @throws WasmAssemblerException if a local with the given ID is already registered
+     */
+    public void registerKnownLocal(int id, JavaLocal local) throws WasmAssemblerException {
+        if (this.usage.containsKey(id)) {
+            throw new WasmAssemblerException("Local with id " + id + " is registered already");
+        }
+
+        this.usage.put(id, new LocalUsage(local, true, true));
     }
 
     /**
@@ -37,29 +77,122 @@ public final class LocalVariables {
     }
 
     /**
-     * Retrieve all static local variables.
+     * Mark a local as being read.
      *
-     * @return the list of all static local variables
+     * @param id the id of the local being read
+     * @param type the type of the local
+     * @return the local
+     * @throws WasmAssemblerException if the local could not be allocated
      */
-    public List<JavaLocal> getAllStatic() {
-        return staticLocals;
+    public JavaLocal readLocal(int id, JavaType type) throws WasmAssemblerException {
+        LocalUsage usage = useLocal(id, type);
+        usage.markRead();
+
+        return usage.getLocal();
     }
 
     /**
-     * Retrieve the static local variable for the given index.
-     * <p>
-     * 'static' in this context means a local variable that is valid for the entire
-     * duration of the function, not just for a specific block or scope.
+     * Mark a local as being written.
      *
-     * @param index the index of the static local, starting at 0
-     * @return the static local variable for the given index
-     * @throws WasmAssemblerException if the index is out of bounds
+     * @param id the id of the local being written
+     * @param type the type of the local
+     * @return the local
+     * @throws WasmAssemblerException if the local could not be allocated
      */
-    public JavaLocal getStatic(int index) throws WasmAssemblerException {
-        if (index < 0 || index >= staticLocals.size()) {
-            throw new WasmAssemblerException("Static local index out of bounds: " + index);
+    public JavaLocal writeLocal(int id, JavaType type) throws WasmAssemblerException {
+        LocalUsage usage = useLocal(id, type);
+        usage.markWrite();
+
+        return usage.getLocal();
+    }
+
+    /**
+     * Ensure that the local usage for a given local is recorded.
+     * <p>
+     * This also recursively populates the usage upwards.
+     *
+     * @param id the id of the local to get a usage tracker for
+     * @param type the type of the local
+     * @return the user tracker for the given local id
+     * @throws WasmAssemblerException if the local could not be allocated
+     */
+    private LocalUsage useLocal(int id, JavaType type) throws WasmAssemblerException {
+        if (!this.usage.containsKey(id)) {
+            this.usage.put(id, new LocalUsage(this.codeEmitter.allocateLocal(type)));
         }
 
-        return staticLocals.get(index);
+        if (parent != null) {
+            parent.useLocal(id, type);
+        }
+
+        LocalUsage usage = this.usage.get(id);
+        JavaType existingType = usage.getLocal().getType();
+        if (!existingType.equals(type) && !(type instanceof ObjectType && existingType instanceof ObjectType) ||
+                (existingType instanceof ArrayType && !(type instanceof ArrayType))
+        ) {
+            throw new WasmAssemblerException("Local type mismatch detected, expected " + existingType + " but found " + type);
+        }
+
+        return usage;
+    }
+
+    /**
+     * Tracker for how a local is used inside a function.
+     */
+    public static final class LocalUsage {
+        private final JavaLocal local;
+        private boolean read;
+        private boolean write;
+
+        private LocalUsage(JavaLocal local) {
+            this(local, false, false);
+        }
+
+        private LocalUsage(JavaLocal local, boolean read, boolean write) {
+            this.local = local;
+            this.read = read;
+            this.write = write;
+        }
+
+        /**
+         * Retrieve the actual local that is being tracked.
+         *
+         * @return the local that is being tracked
+         */
+        public JavaLocal getLocal() {
+            return local;
+        }
+
+        /**
+         * Mark the local as being read.
+         */
+        public void markRead() {
+            this.read = true;
+        }
+
+        /**
+         * Mark the local as being written.
+         */
+        public void markWrite() {
+            this.write = true;
+        }
+
+        /**
+         * Determines whether the local was read.
+         *
+         * @return true if the local was read, false otherwise
+         */
+        public boolean isRead() {
+            return this.read;
+        }
+
+        /**
+         * Determines whether the local was written.
+         *
+         * @return true if the local was written, false otherwise
+         */
+        public boolean isWritten() {
+            return this.write;
+        }
     }
 }

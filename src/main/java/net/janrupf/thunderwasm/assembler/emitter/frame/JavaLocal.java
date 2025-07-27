@@ -50,12 +50,12 @@ public final class JavaLocal {
     public boolean equals(Object o) {
         if (!(o instanceof JavaLocal)) return false;
         JavaLocal javaLocal = (JavaLocal) o;
-        return slot == javaLocal.slot && Objects.equals(frameState, javaLocal.frameState) && Objects.equals(type, javaLocal.type);
+        return slot == javaLocal.slot && Objects.equals(type, javaLocal.type);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(frameState, slot, type);
+        return Objects.hash(slot, type);
     }
 
     /**

@@ -1,6 +1,6 @@
 package net.janrupf.thunderwasm.assembler.emitter.objasm.internal;
 
-import net.janrupf.thunderwasm.assembler.JavaFrameSnapshot;
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaFrameSnapshot;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import org.objectweb.asm.Label;
