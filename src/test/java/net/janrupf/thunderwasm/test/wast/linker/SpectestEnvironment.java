@@ -214,14 +214,14 @@ public class SpectestEnvironment {
     private static final class F32Global implements LinkedReadOnlyFloatGlobal {
         @Override
         public float get() {
-            return 666.0f;
+            return 666.6f;
         }
     }
 
     private static final class F64Global implements LinkedReadOnlyDoubleGlobal {
         @Override
         public double get() {
-            return 666.0;
+            return 666.6;
         }
     }
 }
