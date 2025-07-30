@@ -115,9 +115,9 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
             );
 
             // And array-copy it into the appropriate locatin...
-            codeEmitter.loadConstant(chunkOffset);
-            codeEmitter.loadLocal(dataLocal);
             codeEmitter.loadConstant(0);
+            codeEmitter.loadLocal(dataLocal);
+            codeEmitter.loadConstant(chunkOffset);
             codeEmitter.loadConstant(chunkSize);
             codeEmitter.invoke(
                     ObjectType.of(System.class),
