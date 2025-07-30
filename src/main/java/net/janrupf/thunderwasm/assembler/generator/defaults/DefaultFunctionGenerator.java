@@ -143,7 +143,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         if (returnLabel.isReachable()) {
             // Only resolve if its reachable either way
             codeEmitter.resolveLabel(returnLabel);
-            frameState.markReachable();
+            codeEmitContext.getFrameState().markReachable();
         }
 
         this.processFunctionEpilogue(codeEmitContext);

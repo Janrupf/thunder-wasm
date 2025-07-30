@@ -91,8 +91,13 @@ public final class BlockHelper {
             // This is not necessarily the same as the block end being reachable -
             // here we handle the fallthrough case where the block expression
             // reaches the end without a jump
-            for (ValueType output : type.getOutputs()) {
-                blockFrameState.popOperand(output);
+            List<ValueType> flatOutputs = type.getOutputs().asFlatList();
+            if (flatOutputs == null) {
+                throw new WasmAssemblerException("Block has too many outputs");
+            }
+
+            for (int i = flatOutputs.size() - 1; i >= 0; i--) {
+                blockFrameState.popOperand(flatOutputs.get(i));
             }
 
             if (!blockFrameState.getOperandStack().isEmpty()) {

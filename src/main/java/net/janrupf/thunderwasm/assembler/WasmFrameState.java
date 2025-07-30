@@ -228,8 +228,16 @@ public final class WasmFrameState {
                 Arrays.asList(type.getOutputs().asFlatArray())
         );
 
+        List<ValueType> flatInputs = type.getInputs().asFlatList();
+        if (flatInputs == null) {
+            throw new WasmAssemblerException("Too many inputs for block");
+        }
+
+        for (int i = flatInputs.size() - 1; i >= 0; i--) {
+            popOperand(flatInputs.get(i));
+        }
+
         for (ValueType input : type.getInputs()) {
-            popOperand(input);
             newFrameState.pushOperand(input);
         }
 
