@@ -25,7 +25,7 @@ public final class Loop extends WasmInstruction<BlockData> {
 
     @Override
     public void emitCode(CodeEmitContext context, BlockData data) throws WasmAssemblerException {
-        BlockHelper.emitInvokeSplitBlock(context, data, true, true);
+        BlockHelper.emitInvokeBlock(context, data, true, true);
     }
 
     @Override

@@ -28,6 +28,95 @@ public final class BlockHelper {
     }
 
     /**
+     * Emit the code required to invoke a block.
+     *
+     * @param context          the context to use
+     * @param block            the block to invoke
+     * @param primary          whether to use the primary or secondary expression
+     * @param selfLabelAtStart whether the block's own label is at the start or end
+     * @throws WasmAssemblerException if the code could not be emitted
+     */
+    public static void emitInvokeBlock(
+            CodeEmitContext context,
+            BlockData block,
+            boolean primary,
+            boolean selfLabelAtStart
+    ) throws WasmAssemblerException {
+        Expr expr = primary ? block.getPrimaryExpression() : block.getSecondaryExpression();
+
+        if (context.getAnalysisResult().shouldSplitBlock(expr)) {
+            emitInvokeSplitBlock(context, block, primary, selfLabelAtStart);
+        } else {
+            emitInvokeNonSplitBlock(context, block, primary, selfLabelAtStart);
+        }
+    }
+
+    /**
+     * Emit the code required to invoke a block inline.
+     *
+     * @param context          the context to use
+     * @param block            the block to invoke
+     * @param primary          whether to use the primary or secondary expression
+     * @param selfLabelAtStart whether the block's own label is at the start or end
+     * @throws WasmAssemblerException if the code could not be emitted
+     */
+    private static void emitInvokeNonSplitBlock(
+            CodeEmitContext context,
+            BlockData block,
+            boolean primary,
+            boolean selfLabelAtStart
+    ) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+        Expr expr = primary ? block.getPrimaryExpression() : block.getSecondaryExpression();
+
+        FunctionType type = ControlHelper.expandBlockType(context, block.getType());
+
+        CodeLabel blockSelfLabel = emitter.newLabel();
+
+        WasmFrameState originalFrameState = context.getFrameState();
+        context.pushBlock(originalFrameState.beginBlock(type), new WasmPushedLabel(
+                blockSelfLabel,
+                selfLabelAtStart ? type.getInputs() : type.getOutputs(),
+                false
+        ));
+
+        if (selfLabelAtStart) {
+            emitter.resolveLabel(blockSelfLabel);
+        }
+
+        ControlHelper.emitExpression(context, expr);
+
+        WasmFrameState blockFrameState = context.getFrameState();
+        if (blockFrameState.isReachable()) {
+            // This is not necessarily the same as the block end being reachable -
+            // here we handle the fallthrough case where the block expression
+            // reaches the end without a jump
+            for (ValueType output : type.getOutputs()) {
+                blockFrameState.popOperand(output);
+            }
+
+            if (!blockFrameState.getOperandStack().isEmpty()) {
+                throw new WasmAssemblerException("Block expression left values on the stack, expected empty stack after block: "
+                        + blockFrameState.getOperandStack());
+            }
+        }
+
+        boolean blockEndReachable = blockFrameState.isReachable() || (!selfLabelAtStart && blockSelfLabel.isReachable());
+        if (!selfLabelAtStart && blockEndReachable) {
+            emitter.resolveLabel(blockSelfLabel);
+        }
+
+        if (blockEndReachable) {
+            originalFrameState.markReachable();
+        } else {
+            originalFrameState.markUnreachable();
+        }
+
+        context.popBlock();
+        originalFrameState.endBlock(type);
+    }
+
+    /**
      * Emit the code required to invoke a block as a split function.
      *
      * @param context          the context to use
@@ -36,7 +125,7 @@ public final class BlockHelper {
      * @param selfLabelAtStart whether the block's own label is at the start or end
      * @throws WasmAssemblerException if the code could not be emitted
      */
-    public static void emitInvokeSplitBlock(
+    private static void emitInvokeSplitBlock(
             CodeEmitContext context,
             BlockData block,
             boolean primary,

@@ -9,17 +9,33 @@ import java.util.Map;
 import java.util.Set;
 
 public final class AnalysisResult {
+    private static final int BLOCK_SPLIT_INSTRUCTION_THRESHOLD = 2000;
+    private static final int BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE = 100;
+
     private final Map<Expr, LocalVariableUsage> localVariableUsage;
     private final Set<Expr> directReturns;
+    private final Set<Expr> blockSplitTargets;
 
     private AnalysisResult() {
         this.localVariableUsage = new IdentityHashMap<>();
         this.directReturns = Collections.newSetFromMap(new IdentityHashMap<>());
+        this.blockSplitTargets = Collections.newSetFromMap(new IdentityHashMap<>());
     }
 
-    private void processContext(AnalysisContext analysisContext) {
+    private void processContext(AnalysisContext analysisContext, int unsplitInstructionCount) {
+        int ownSize = analysisContext.getCurrentExpr().getInstructions().size();
+        int totalInstructionCount = ownSize + unsplitInstructionCount;
+
+        boolean doBlockSplit = totalInstructionCount >= BLOCK_SPLIT_INSTRUCTION_THRESHOLD &&
+                (ownSize > BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE ||
+                        totalInstructionCount > BLOCK_SPLIT_INSTRUCTION_THRESHOLD + BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE);
+
+        if (doBlockSplit) {
+            blockSplitTargets.add(analysisContext.getCurrentExpr());
+        }
+
         for (AnalysisContext subcontext : analysisContext.getSubContexts()) {
-            processContext(subcontext);
+            processContext(subcontext, doBlockSplit ? 0 : totalInstructionCount);
         }
 
         this.localVariableUsage.put(analysisContext.getCurrentExpr(), analysisContext.getLocalVariableUsage());
@@ -55,6 +71,16 @@ public final class AnalysisResult {
     }
 
     /**
+     * Determine whether the expression block should be split into an extra method.
+     *
+     * @param expr the expression to check
+     * @return true if the block should be split, false otherwise
+     */
+    public boolean shouldSplitBlock(Expr expr) {
+        return this.blockSplitTargets.contains(expr);
+    }
+
+    /**
      * Compile the result from the given analysis context.
      *
      * @param analysisContext the context to compile the result from
@@ -62,7 +88,7 @@ public final class AnalysisResult {
      */
     public static AnalysisResult compileFromContext(AnalysisContext analysisContext) {
         AnalysisResult result = new AnalysisResult();
-        result.processContext(analysisContext);
+        result.processContext(analysisContext, 0);
 
         return result;
     }

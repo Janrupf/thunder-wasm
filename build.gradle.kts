@@ -218,6 +218,9 @@ tasks {
         //     "-Xcomp",
         //     "-XX:PrintAssemblyOptions=intel,mpad=10,cpad=10,code"
         // )
+        jvmArgs(
+            "-Xmx2G"
+        )
         environment("LD_LIBRARY_PATH" to "/home/janrupf/Downloads")
     }
 }

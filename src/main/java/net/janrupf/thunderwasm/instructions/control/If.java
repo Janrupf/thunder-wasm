@@ -43,7 +43,7 @@ public final class If extends WasmInstruction<BlockData> {
 
         emitter.jump(JumpCondition.INT_EQUAL_ZERO, falseLabel);
 
-        BlockHelper.emitInvokeSplitBlock(context, data, true, false);
+        BlockHelper.emitInvokeBlock(context, data, true, false);
 
         if (falseExpr != null) {
             if (context.getFrameState().isReachable()) {
@@ -54,7 +54,7 @@ public final class If extends WasmInstruction<BlockData> {
             // Reset the stack state to before the branch, it never happened in this timeline
             context.restoreFrameStateAfterBranch(beforeFirstBranch);
 
-            BlockHelper.emitInvokeSplitBlock(context, data, false, false);
+            BlockHelper.emitInvokeBlock(context, data, false, false);
         }
 
         emitter.resolveLabel(endLabel);

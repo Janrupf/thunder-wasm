@@ -96,14 +96,20 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 );
             }
 
+            JavaType javaType = WasmTypeConverter.toJavaType(local.getType());
+            codeEmitter.loadConstant(javaType.getDefaultValue());
+
             for (int localIndex = 0; localIndex < local.getCount(); localIndex++) {
                 expandedLocals.add(local.getType());
 
-                JavaType javaType = WasmTypeConverter.toJavaType(local.getType());
                 JavaLocal javaLocal = codeEmitter.allocateLocal(javaType);
 
                 localVariables.registerKnownLocal(localId++, javaLocal);
-                codeEmitter.loadConstant(javaType.getDefaultValue());
+
+                if (localIndex + 1 != local.getCount()) {
+                    codeEmitter.duplicate();
+                }
+
                 codeEmitter.storeLocal(javaLocal);
             }
         }
