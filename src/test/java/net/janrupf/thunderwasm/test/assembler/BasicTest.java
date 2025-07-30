@@ -40,7 +40,7 @@ public class BasicTest {
         long loadStartTime = System.currentTimeMillis();
         // WasmModule module = TestUtil.load("testsuite-88e97b0f742f4c3ee01fea683da130f344dd7b02/unwind.0.wasm");
         // WasmModule module = TestUtil.load("assembler/simple.wasm");
-        WasmModule module = TestUtil.loadFromFile("/projects/public/asmble/examples/rust-regex/target/wasm32-unknown-unknown/debug/rust_regex.wasm");
+        WasmModule module = TestUtil.loadFromFile("/projects/public/asmble/examples/rust-regex/target/wasm32-unknown-unknown/release/rust_regex.wasm");
         long loadEndTime = System.currentTimeMillis();
 
         System.out.println("Loading took " + (loadEndTime - loadStartTime) + "ms");

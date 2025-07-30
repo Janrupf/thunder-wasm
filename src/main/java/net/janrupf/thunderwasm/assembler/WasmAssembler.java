@@ -352,6 +352,28 @@ public final class WasmAssembler {
             }
         }
 
+        // Call the start function if it exists
+        StartSection startSection = lookups.findSingleSection(StartSection.LOCATOR);
+        if (startSection != null) {
+            int startFunctionIndex = startSection.getIndex();
+            FoundElement<Integer, TypeImportDescription> functionTypeIndex = elementLookups.requireFunctionTypeIndex(
+                    LargeArrayIndex.fromU32(startFunctionIndex));
+            FunctionType functionType = elementLookups.resovleFunctionType(functionTypeIndex);
+
+            if (functionTypeIndex.isImport()) {
+                generators.getImportGenerator().emitInvokeFunction(
+                        functionTypeIndex.getImport(),
+                        emitContext
+                );
+            } else {
+                generators.getFunctionGenerator().emitInvokeFunction(
+                        functionTypeIndex.getIndex(),
+                        functionType,
+                        emitContext
+                );
+            }
+        }
+
         code.doReturn();
         code.finish();
     }
