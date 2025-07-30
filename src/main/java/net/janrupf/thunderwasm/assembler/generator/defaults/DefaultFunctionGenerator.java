@@ -15,6 +15,7 @@ import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.instructions.Local;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
+import net.janrupf.thunderwasm.instructions.control.internal.MultiValueHelper;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
@@ -163,17 +164,23 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             return;
         }
 
-        // We have no trailing return instruction, insert one!
-        if (wasmOutputs.size() > 1) {
-            throw new WasmAssemblerException("Only one output is supported for now");
-        }
-
-        for (ValueType output : wasmOutputs) {
-            frameState.popOperand(output);
+        for (int i = wasmOutputs.size() - 1; i >= 0; i--) {
+            frameState.popOperand(wasmOutputs.get(i));
         }
 
         if (!frameState.getOperandStack().isEmpty()) {
             throw new WasmAssemblerException("Expected stack to be empty at implicit return, found " + frameState.getOperandStack().size() + " values");
+        }
+
+        if (!wasmOutputs.isEmpty() && wasmOutputs.size() > 1) {
+            List<JavaType> javaTypes = Arrays.asList(WasmTypeConverter.toJavaTypes(wasmOutputs.toArray(new ValueType[0])));
+            // Package up the return values into a MultiValue
+            MultiValueHelper.emitCreateMultiValue(codeEmitter, javaTypes);
+            MultiValueHelper.emitSaveStack(
+                    codeEmitter,
+                    javaTypes,
+                    true
+            );
         }
 
         codeEmitter.doReturn();
@@ -194,6 +201,15 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 InvokeType.STATIC,
                 false
         );
+
+        if (function.getOutputs().length() > 1) {
+            MultiValueHelper.emitRestoreStack(
+                    emitter,
+                    Arrays.asList(WasmTypeConverter.toJavaTypes(function.getOutputs().asFlatArray())),
+                    null,
+                    false
+            );
+        }
     }
 
     @Override
@@ -252,6 +268,15 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 InvokeType.VIRTUAL,
                 false
         );
+
+        if (functionType.getOutputs().length() > 1) {
+            MultiValueHelper.emitRestoreStack(
+                    emitter,
+                    Arrays.asList(WasmTypeConverter.toJavaTypes(functionType.getOutputs().asFlatArray())),
+                    null,
+                    false
+            );
+        }
     }
 
     @Override
@@ -304,11 +329,59 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             );
         }
 
+        if (type.getOutputs().length() <= 1) {
+            // Can use automatic inference
+            emitter.invoke(
+                    SIMPLE_LINKED_FUNCTION_TYPE,
+                    "inferFromMethodHandle",
+                    new JavaType[] { ObjectType.of(MethodHandle.class) },
+                    SIMPLE_LINKED_FUNCTION_TYPE,
+                    InvokeType.STATIC,
+                    false
+            );
+        } else {
+            // Manually pass the types
+            emitter.doNew(SIMPLE_LINKED_FUNCTION_TYPE);
+            emitter.duplicate(1, 1);
+            emitter.op(Op.SWAP);
+            loadValueTypeList(context, type.getInputs());
+            loadValueTypeList(context, type.getOutputs());
+            emitter.invoke(
+                    SIMPLE_LINKED_FUNCTION_TYPE,
+                    "<init>",
+                    new JavaType[] { METHOD_HANDLE_TYPE, ObjectType.of(List.class), ObjectType.of(List.class) },
+                    PrimitiveType.VOID,
+                    InvokeType.SPECIAL,
+                    false
+            );
+        }
+    }
+
+    private void loadValueTypeList(
+            CodeEmitContext context,
+            LargeArray<ValueType> types
+    ) throws WasmAssemblerException {
+        ValueType[] flat = types.asFlatArray();
+        if (flat == null) {
+            throw new WasmAssemblerException("Too many value types to load");
+        }
+
+        CodeEmitter emitter = context.getEmitter();
+        emitter.loadConstant(flat.length);
+        emitter.doNew(new ArrayType(ObjectType.of(ValueType.class)));
+
+        for (int i = 0; i < flat.length; i++) {
+            emitter.duplicate();
+            emitter.loadConstant(i);
+            CommonBytecodeGenerator.loadTypeReference(emitter, flat[i]);
+            emitter.storeArrayElement();
+        }
+
         emitter.invoke(
-                SIMPLE_LINKED_FUNCTION_TYPE,
-                "inferFromMethodHandle",
-                new JavaType[] { ObjectType.of(MethodHandle.class) },
-                SIMPLE_LINKED_FUNCTION_TYPE,
+                ObjectType.of(Arrays.class),
+                "asList",
+                new JavaType[] { new ArrayType(ObjectType.OBJECT) },
+                ObjectType.of(List.class),
                 InvokeType.STATIC,
                 false
         );

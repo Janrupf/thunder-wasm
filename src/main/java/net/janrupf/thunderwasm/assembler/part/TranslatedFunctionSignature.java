@@ -7,6 +7,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.runtime.state.MultiValue;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
 
@@ -126,20 +127,6 @@ public final class TranslatedFunctionSignature {
             );
         }
 
-        // Somewhat arbitrary limit, but we need to limit the number of outputs...
-        // besides that, if you need more than 255 outputs, you're doing something wrong
-        if (Long.compareUnsigned(outputs.length(), 255) > 0) {
-            throw new WasmAssemblerException(
-                    "Function has too many outputs, maximum is 255"
-            );
-        }
-
-        if (Long.compareUnsigned(outputs.length(), 1) > 0) {
-            throw new WasmAssemblerException(
-                    "Function has too many outputs, currently only 1 is supported"
-            );
-        }
-
         List<JavaType> javaArgumentTypes = new ArrayList<>(Arrays.asList(WasmTypeConverter.toJavaTypes(inputs.asFlatArray())));
 
         // The owner (this) becomes the last argument
@@ -148,12 +135,19 @@ public final class TranslatedFunctionSignature {
         }
 
         JavaType returnType;
-        if (outputs.length() != 0) {
-            // 1 output
-            returnType = WasmTypeConverter.toJavaType(outputs.get(LargeArrayIndex.ZERO));
-        } else {
-            // 0 outputs
-            returnType = PrimitiveType.VOID;
+        switch ((int) outputs.length()) {
+            case 0:
+                // No outputs
+                returnType = PrimitiveType.VOID;
+                break;
+            case 1:
+                // 1 output
+                returnType = WasmTypeConverter.toJavaType(outputs.get(LargeArrayIndex.ZERO));
+                break;
+            default:
+                // Multiple outputs
+                returnType = ObjectType.of(MultiValue.class);
+                break;
         }
 
         List<ValueType> wasmArgumentTypes = Arrays.asList(inputs.asFlatArray());

@@ -621,7 +621,7 @@ public final class BlockHelper {
             // Top level method (ie. not a block), return directly
             if (returnTypes.size() > 1) {
                 MultiValueHelper.emitCreateMultiValue(emitter, javaReturnTypes);
-                MultiValueHelper.emitRestoreStack(emitter, javaReturnTypes, null, true);
+                MultiValueHelper.emitSaveStack(emitter, javaReturnTypes, true);
             }
 
             emitter.doReturn();

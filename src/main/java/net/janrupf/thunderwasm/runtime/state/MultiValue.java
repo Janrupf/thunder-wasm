@@ -1,5 +1,7 @@
 package net.janrupf.thunderwasm.runtime.state;
 
+import java.util.Objects;
+
 /**
  * Helper used by the generated code to move around multiple values.
  */

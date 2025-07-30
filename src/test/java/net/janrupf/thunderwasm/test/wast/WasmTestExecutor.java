@@ -14,6 +14,7 @@ import net.janrupf.thunderwasm.runtime.WasmModuleExports;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.*;
+import net.janrupf.thunderwasm.runtime.state.MultiValue;
 import net.janrupf.thunderwasm.test.TestClassLoader;
 import net.janrupf.thunderwasm.test.wast.action.GetAction;
 import net.janrupf.thunderwasm.test.wast.action.InvokeAction;
@@ -22,6 +23,8 @@ import net.janrupf.thunderwasm.test.wast.command.*;
 import net.janrupf.thunderwasm.test.wast.linker.SpectestEnvironment;
 import net.janrupf.thunderwasm.test.wast.linker.WastEnvironmentLinker;
 import net.janrupf.thunderwasm.test.wast.value.WastValue;
+import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 
@@ -31,10 +34,7 @@ import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Core test execution engine for WASM test suite.
@@ -373,16 +373,33 @@ public class WasmTestExecutor {
     private void checkExpectedReturn(Object module, Object returnValue, List<WastValue> expectedValues) {
         List<Object> expectedJavaValues = this.valueConverter.convertToJavaValues(module, expectedValues);
 
-        List<Object> returnedValues;
+        List<Object> expectedReturnValue;
         if (returnValue == VOID) {
-            // A null return is equivalent to not returning any value - "null" references
-            // still return a function or extern reference wrapper object
-            returnedValues = Collections.emptyList();
+            expectedReturnValue = Collections.emptyList();
+        } else if (expectedValues.size() == 1) {
+            expectedReturnValue = Collections.singletonList(returnValue);
         } else {
-            returnedValues = Collections.singletonList(returnValue);
+            Assertions.assertInstanceOf(MultiValue.class, returnValue);
+            MultiValue m = (MultiValue) returnValue;
+
+            expectedReturnValue = new ArrayList<>();
+
+            for (WastValue wastValue : expectedValues) {
+                if (wastValue.getType().equals(NumberType.I32)) {
+                    expectedReturnValue.add(m.popInt());
+                } else if (wastValue.getType().equals(NumberType.I64)) {
+                    expectedReturnValue.add(m.popLong());
+                } else if (wastValue.getType().equals(NumberType.F32)) {
+                    expectedReturnValue.add(m.popFloat());
+                } else if (wastValue.getType().equals(NumberType.F64)) {
+                    expectedReturnValue.add(m.popDouble());
+                } else {
+                    expectedReturnValue.add(m.popObject());
+                }
+            }
         }
 
-        Assertions.assertArrayEquals(expectedJavaValues.toArray(), returnedValues.toArray());
+        Assertions.assertArrayEquals(expectedJavaValues.toArray(), expectedReturnValue.toArray());
     }
 
     private WasmAssembler loadAndMakeAssembler(String fileName) throws ThunderWasmException, IOException {
