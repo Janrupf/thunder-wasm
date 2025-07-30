@@ -14,6 +14,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public final class ASMCodeEmitter implements CodeEmitter {
     private final MethodNode visitor;
@@ -53,7 +54,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     }
 
     @Override
-    public CodeEmitter codeIsland(JavaFrameSnapshot initialState) {
+    public CodeEmitter codeGadget(JavaFrameSnapshot initialState) {
         JavaStackFrameState newState = new JavaStackFrameState();
         newState.restoreFromSnapshot(initialState);
 
@@ -1206,6 +1207,47 @@ public final class ASMCodeEmitter implements CodeEmitter {
     }
 
     @Override
+    public void lookupSwitch(CodeLabel defaultLabel, Map<Integer, CodeLabel> targets) throws WasmAssemblerException {
+        requireValidFrameSnapshot();
+
+        stackFrameState.popOperand(PrimitiveType.INT);
+        JavaFrameSnapshot snapshot = stackFrameState.computeSnapshot();
+
+        ((ASMCodeLabel) defaultLabel).attachFrameState(snapshot);
+
+        Label asmDefaultLabel = ((ASMCodeLabel) defaultLabel).getInner();
+        int[] keys = new int[targets.size()];
+        Label[] targetLabels = new Label[targets.size()];
+
+        List<Map.Entry<Integer, CodeLabel>> entries = new ArrayList<>(targets.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+
+        boolean isContiguous = true;
+        int i = 0;
+        for (Map.Entry<Integer, CodeLabel> entry : entries) {
+            keys[i] = entry.getKey();
+            targetLabels[i] = ((ASMCodeLabel) entry.getValue()).getInner();
+            ((ASMCodeLabel) entry.getValue()).attachFrameState(snapshot);
+
+            if (i > 0 && keys[i] != keys[i - 1] + 1) {
+                isContiguous = false;
+            }
+
+            i++;
+        }
+
+        if (isContiguous) {
+            // If the keys are contiguous, we can use a table switch instead of a lookup switch
+            visitor.visitTableSwitchInsn(keys[0], keys[keys.length - 1], asmDefaultLabel, targetLabels);
+        } else {
+            visitor.visitLookupSwitchInsn(asmDefaultLabel, keys, targetLabels);
+        }
+
+        markNewInstruction();
+        invalidateCurrentFrameState();
+    }
+
+    @Override
     public JavaLocal allocateLocal(JavaType type) throws WasmAssemblerException {
         requireValidFrameSnapshot();
 
@@ -1215,10 +1257,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public void loadLocal(JavaLocal local) throws WasmAssemblerException {
         requireValidFrameSnapshot();
-
-        if (!local.isValid()) {
-            throw new WasmAssemblerException("Local has been invalidated");
-        }
+        stackFrameState.checkLocal(local);
 
         JavaType type = local.getType();
 
@@ -1255,10 +1294,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
     @Override
     public void storeLocal(JavaLocal local) throws WasmAssemblerException {
         requireValidFrameSnapshot();
-
-        if (!local.isValid()) {
-            throw new WasmAssemblerException("Local has been invalidated");
-        }
+        stackFrameState.checkLocal(local);
 
         JavaType type = local.getType();
 

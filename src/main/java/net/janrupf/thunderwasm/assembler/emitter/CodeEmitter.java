@@ -7,6 +7,8 @@ import net.janrupf.thunderwasm.assembler.emitter.frame.JavaStackFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 
+import java.util.Map;
+
 public interface CodeEmitter {
     /**
      * Retrieve the type of the class being emitted.
@@ -23,13 +25,13 @@ public interface CodeEmitter {
     JavaStackFrameState getStackFrameState();
 
     /**
-     * Create a new code emitter that can be used to generate code islands.
+     * Create a new code emitter that can be used to generate gadgets.
      * <p>
      * The emitter is bound to the method that this emitter is bound to.
      *
      * @return the new emitter
      */
-    CodeEmitter codeIsland(JavaFrameSnapshot initialState);
+    CodeEmitter codeGadget(JavaFrameSnapshot initialState);
 
     /**
      * Insert the code of another emitter at the beginning.
@@ -255,6 +257,17 @@ public interface CodeEmitter {
      * @throws WasmAssemblerException if the tableswitch instruction is invalid
      */
     void tableSwitch(int base, CodeLabel defaultLabel, CodeLabel... targets) throws WasmAssemblerException;
+
+    /**
+     * Emit a lookup switch instruction.
+     * <p>
+     * The emitter is free to compile this to a tableswitch if the keys allow it.
+     *
+     * @param targets the target labels, indexed by the value to match
+     * @param defaultLabel the value to jump to if no appropriate label case is found
+     * @throws WasmAssemblerException if the lookup switch instruction is invalid
+     */
+    void lookupSwitch(CodeLabel defaultLabel, Map<Integer, CodeLabel> targets) throws WasmAssemblerException;
 
     /**
      * Finish the code generation.

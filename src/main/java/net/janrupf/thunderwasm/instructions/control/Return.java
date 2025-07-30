@@ -1,9 +1,11 @@
 package net.janrupf.thunderwasm.instructions.control;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -25,18 +27,11 @@ public final class Return extends WasmInstruction<EmptyInstructionData> {
 
     @Override
     public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        // TODO: Unify this code with the code in FunctionAssembler
+        BlockHelper.emitDirectReturn(context);
+    }
 
-        List<ValueType> returnTypes = context.getFrameState().getReturnTypes();
-        if (returnTypes.size() > 1) {
-            throw new WasmAssemblerException("Multiple return types are not supported yet");
-        }
-
-        if (!returnTypes.isEmpty()) {
-            context.getFrameState().popOperand(returnTypes.get(0));
-        }
-
-        context.getEmitter().doReturn();
-        context.getFrameState().markUnreachable();
+    @Override
+    public void runAnalysis(AnalysisContext context, EmptyInstructionData data) {
+        context.markForDirectReturn();
     }
 }

@@ -101,9 +101,9 @@ public final class ControlHelper {
         WasmPushedLabel pushedLabel;
         if (resolveLabel) {
             context.getEmitter().resolveLabel(label);
-            pushedLabel = new WasmPushedLabel(label, functionType.getInputs());
+            pushedLabel = new WasmPushedLabel(label, functionType.getInputs(), false);
         } else {
-            pushedLabel = new WasmPushedLabel(label, functionType.getOutputs());
+            pushedLabel = new WasmPushedLabel(label, functionType.getOutputs(), false);
         }
 
         WasmFrameState newFrameState = context.getFrameState().beginBlock(functionType);

@@ -4,6 +4,8 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
+import net.janrupf.thunderwasm.assembler.analysis.AnalysisResult;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.*;
@@ -43,11 +45,18 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         FunctionType functionType = determineFunctionType(i, context.getLookups());
         ClassFileEmitter classEmitter = context.getEmitter();
 
+        // Run code analysis
+        AnalysisContext analysisContext = AnalysisContext.createForFunction(function.getExpr());
+        analysisContext.run();
+
+        AnalysisResult analysisResult = AnalysisResult.compileFromContext(analysisContext);
+
         TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, classEmitter.getOwner());
         LargeArray<Local> locals = function.getLocals();
 
+        String methodName = determineMethodName(i);
         MethodEmitter methodEmitter = classEmitter.method(
-                determineMethodName(i),
+                methodName,
                 Visibility.PRIVATE,
                 true,
                 false,
@@ -63,7 +72,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         JavaLocal thisLocal = methodEmitter.getArgumentLocals().get(signature.getOwnerArgumentIndex());
         List<JavaLocal> argumentLocals = new ArrayList<>();
 
-        LocalVariables localVariables = new LocalVariables(codeEmitter, thisLocal);
+        LocalVariables localVariables = new LocalVariables(thisLocal);
 
         for (int argIndex = 0; argIndex < signature.getJavaArgumentTypes().size(); argIndex++) {
             if (argIndex == signature.getOwnerArgumentIndex()) {
@@ -91,8 +100,9 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 expandedLocals.add(local.getType());
 
                 JavaType javaType = WasmTypeConverter.toJavaType(local.getType());
-                JavaLocal javaLocal = localVariables.writeLocal(localId++, javaType);
+                JavaLocal javaLocal = codeEmitter.allocateLocal(javaType);
 
+                localVariables.registerKnownLocal(localId++, javaLocal);
                 codeEmitter.loadConstant(javaType.getDefaultValue());
                 codeEmitter.storeLocal(javaLocal);
             }
@@ -107,13 +117,16 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         );
 
         CodeLabel returnLabel = codeEmitter.newLabel();
-        WasmPushedLabel topLevelLabel = new WasmPushedLabel(returnLabel, functionType.getOutputs());
+        WasmPushedLabel topLevelLabel = new WasmPushedLabel(returnLabel, functionType.getOutputs(), false);
 
         CodeEmitContext codeEmitContext = new CodeEmitContext(
-                context.getLookups(),
+                methodName + "$block$",
+                analysisResult,
+                classEmitter,
                 codeEmitter,
+                context.getLookups(),
                 frameState,
-                topLevelLabel,
+                Collections.singletonList(topLevelLabel),
                 context.getGenerators(),
                 localVariables
         );

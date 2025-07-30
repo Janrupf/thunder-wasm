@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.NumberType;
@@ -34,8 +35,7 @@ public final class BrIf extends WasmInstruction<LabelData> {
         context.getEmitter().jump(JumpCondition.INT_EQUAL_ZERO, zeroLabel);
 
         // If not zero, branch to the indicated label block
-        CodeLabel branchTarget = ControlHelper.emitCleanStackForBlockLabel(context, data.getLabelIndex());
-        context.getEmitter().jump(JumpCondition.ALWAYS, branchTarget);
+        BlockHelper.emitBlockReturn(context, data.getLabelIndex());
 
         context.restoreFrameStateAfterBranch(branched);
         context.getEmitter().resolveLabel(zeroLabel);

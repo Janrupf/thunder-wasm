@@ -737,11 +737,14 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
 
         growCodeEmitter.loadLocal(growCountLocal);
         emitMemoryGrow(i, type, new CodeEmitContext(
-                context.getLookups(),
+                generateMemoryHelperName(i, "grow") + "$block$",
+                null,
+                context.getEmitter(),
                 growCodeEmitter,
+                context.getLookups(),
                 new WasmFrameState(),
                 context.getGenerators(),
-                new LocalVariables(growCodeEmitter, thisLocal)
+                new LocalVariables(thisLocal)
         ));
 
         // Returns the old size or -1 on failure - we need to convert

@@ -2,14 +2,8 @@ package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
-import net.janrupf.thunderwasm.assembler.emitter.types.ArrayType;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
-import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
-import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Helper class for managing local variables in the context of code emission.
@@ -23,29 +17,13 @@ import java.util.Map;
  * splitting occurs.
  */
 public final class LocalVariables {
-    private final CodeEmitter codeEmitter;
     private final JavaLocal thisLocal;
-    private final Map<Integer, LocalUsage> usage;
-    private final LocalVariables parent;
+    private final Map<Integer, JavaLocal> localsById;
 
-    public LocalVariables(
-            CodeEmitter codeEmitter,
-            JavaLocal thisLocal
-    ) {
-        this(codeEmitter, thisLocal, null);
-    }
-
-    public LocalVariables(
-            CodeEmitter codeEmitter,
-            JavaLocal thisLocal,
-            LocalVariables parent
-    ) {
-        this.codeEmitter = codeEmitter;
-        this.usage = new HashMap<>();
-
+    public LocalVariables(JavaLocal thisLocal) {
+        this.localsById = new HashMap<>();
 
         this.thisLocal = thisLocal;
-        this.parent = parent;
     }
 
     /**
@@ -58,11 +36,11 @@ public final class LocalVariables {
      * @throws WasmAssemblerException if a local with the given ID is already registered
      */
     public void registerKnownLocal(int id, JavaLocal local) throws WasmAssemblerException {
-        if (this.usage.containsKey(id)) {
+        if (this.localsById.containsKey(id)) {
             throw new WasmAssemblerException("Local with id " + id + " is registered already");
         }
 
-        this.usage.put(id, new LocalUsage(local, true, true));
+        this.localsById.put(id, local);
     }
 
     /**
@@ -77,122 +55,17 @@ public final class LocalVariables {
     }
 
     /**
-     * Mark a local as being read.
+     * Require a local variable by its id.
      *
-     * @param id the id of the local being read
-     * @param type the type of the local
-     * @return the local
-     * @throws WasmAssemblerException if the local could not be allocated
+     * @param id the id of the local variable
+     * @return the java local
+     * @throws WasmAssemblerException if there is no local variable with this id
      */
-    public JavaLocal readLocal(int id, JavaType type) throws WasmAssemblerException {
-        LocalUsage usage = useLocal(id, type);
-        usage.markRead();
-
-        return usage.getLocal();
-    }
-
-    /**
-     * Mark a local as being written.
-     *
-     * @param id the id of the local being written
-     * @param type the type of the local
-     * @return the local
-     * @throws WasmAssemblerException if the local could not be allocated
-     */
-    public JavaLocal writeLocal(int id, JavaType type) throws WasmAssemblerException {
-        LocalUsage usage = useLocal(id, type);
-        usage.markWrite();
-
-        return usage.getLocal();
-    }
-
-    /**
-     * Ensure that the local usage for a given local is recorded.
-     * <p>
-     * This also recursively populates the usage upwards.
-     *
-     * @param id the id of the local to get a usage tracker for
-     * @param type the type of the local
-     * @return the user tracker for the given local id
-     * @throws WasmAssemblerException if the local could not be allocated
-     */
-    private LocalUsage useLocal(int id, JavaType type) throws WasmAssemblerException {
-        if (!this.usage.containsKey(id)) {
-            this.usage.put(id, new LocalUsage(this.codeEmitter.allocateLocal(type)));
+    public JavaLocal requireById(int id) throws WasmAssemblerException {
+        if (!this.localsById.containsKey(id)) {
+            throw new WasmAssemblerException("Local with id " + id + " is not registered");
         }
 
-        if (parent != null) {
-            parent.useLocal(id, type);
-        }
-
-        LocalUsage usage = this.usage.get(id);
-        JavaType existingType = usage.getLocal().getType();
-        if (!existingType.equals(type) && !(type instanceof ObjectType && existingType instanceof ObjectType) ||
-                (existingType instanceof ArrayType && !(type instanceof ArrayType))
-        ) {
-            throw new WasmAssemblerException("Local type mismatch detected, expected " + existingType + " but found " + type);
-        }
-
-        return usage;
-    }
-
-    /**
-     * Tracker for how a local is used inside a function.
-     */
-    public static final class LocalUsage {
-        private final JavaLocal local;
-        private boolean read;
-        private boolean write;
-
-        private LocalUsage(JavaLocal local) {
-            this(local, false, false);
-        }
-
-        private LocalUsage(JavaLocal local, boolean read, boolean write) {
-            this.local = local;
-            this.read = read;
-            this.write = write;
-        }
-
-        /**
-         * Retrieve the actual local that is being tracked.
-         *
-         * @return the local that is being tracked
-         */
-        public JavaLocal getLocal() {
-            return local;
-        }
-
-        /**
-         * Mark the local as being read.
-         */
-        public void markRead() {
-            this.read = true;
-        }
-
-        /**
-         * Mark the local as being written.
-         */
-        public void markWrite() {
-            this.write = true;
-        }
-
-        /**
-         * Determines whether the local was read.
-         *
-         * @return true if the local was read, false otherwise
-         */
-        public boolean isRead() {
-            return this.read;
-        }
-
-        /**
-         * Determines whether the local was written.
-         *
-         * @return true if the local was written, false otherwise
-         */
-        public boolean isWritten() {
-            return this.write;
-        }
+        return  this.localsById.get(id);
     }
 }

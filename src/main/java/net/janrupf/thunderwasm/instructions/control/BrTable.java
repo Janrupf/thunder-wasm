@@ -7,6 +7,7 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -51,10 +52,7 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
             // Apparently we only have a default branch, this behaves like an unconditional branch
             emitter.pop(); // Need to drop the condition, it is irrelevant
 
-            CodeLabel label = ControlHelper.emitCleanStackForBlockLabel(context, defaultDepth);
-            context.getEmitter().jump(JumpCondition.ALWAYS, label);
-
-            context.getFrameState().markUnreachable();
+            BlockHelper.emitBlockReturn(context, defaultDepth);
             return;
         }
 
@@ -83,8 +81,7 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
             CodeLabel codeLabel = entry.getValue();
 
             emitter.resolveLabel(codeLabel);
-            CodeLabel jumpTarget = ControlHelper.emitCleanStackForBlockLabel(context, depth);
-            emitter.jump(JumpCondition.ALWAYS, jumpTarget);
+            BlockHelper.emitBlockReturn(context, depth);
 
             context.restoreFrameStateAfterBranch(preBranchFrameState);
         }

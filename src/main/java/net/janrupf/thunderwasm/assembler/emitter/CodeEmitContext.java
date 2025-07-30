@@ -1,65 +1,118 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
+import net.janrupf.thunderwasm.assembler.analysis.AnalysisResult;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Represents the context in which code is emitted.
  */
 public final class CodeEmitContext {
-    private final ElementLookups lookups;
+    private final String blockNamePrefix;
+    private final AnalysisResult analysisResult;
+    private final ClassFileEmitter classFileEmitter;
     private final CodeEmitter emitter;
+    private final ElementLookups lookups;
     private final List<WasmFrameState> frameStates;
     private final List<WasmPushedLabel> blockJumpLabels;
     private final WasmGenerators generators;
     private final LocalVariables localVariables;
+    private final List<CodeEmitter> toBePrepended;
+    private final List<CodeEmitter> toBeAppended;
+    private final LocalGadgets localGadgets;
+
+    private int blockNameCounter;
 
     public CodeEmitContext(
-            ElementLookups lookups,
+            String blockNamePrefix,
+            AnalysisResult analysisResult,
+            ClassFileEmitter classFileEmitter,
             CodeEmitter emitter,
+            ElementLookups lookups,
             WasmFrameState frameState,
             WasmGenerators generators,
             LocalVariables localVariables
     ) {
         this(
-                lookups,
+                blockNamePrefix,
+                analysisResult,
+                classFileEmitter,
                 emitter,
+                lookups,
                 frameState,
-                null,
+                Collections.emptyList(),
                 generators,
                 localVariables
         );
     }
 
     public CodeEmitContext(
-            ElementLookups lookups,
+            String blockNamePrefix,
+            AnalysisResult analysisResult,
+            ClassFileEmitter classFileEmitter,
             CodeEmitter emitter,
+            ElementLookups lookups,
             WasmFrameState frameState,
-            WasmPushedLabel endLabel,
+            List<WasmPushedLabel> alreadyPushedLabels,
             WasmGenerators generators,
             LocalVariables localVariables
     ) {
+        this.blockNamePrefix = blockNamePrefix;
+        this.analysisResult = analysisResult;
+        this.classFileEmitter = classFileEmitter;
         this.lookups = lookups;
         this.emitter = emitter;
         this.frameStates = new ArrayList<>();
-        this.frameStates.add(frameState);
+        if (frameState != null) {
+            this.frameStates.add(frameState);
+        }
         this.blockJumpLabels = new ArrayList<>();
-        this.blockJumpLabels.add(endLabel);
+        this.blockJumpLabels.addAll(alreadyPushedLabels);
         this.generators = generators;
         this.localVariables = localVariables;
+        this.toBePrepended = new ArrayList<>();
+        this.toBeAppended = new ArrayList<>();
+        this.localGadgets = new LocalGadgets();
     }
 
     /**
-     * Retrieves the lookups that are used to look up elements.
+     * Retrieves the next block name.
      *
-     * @return the lookups
+     * @return the next block name
      */
-    public ElementLookups getLookups() {
-        return lookups;
+    public String nextBlockName() {
+        if (blockNamePrefix == null) {
+            throw new IllegalStateException("Split block generation not allowed in this context");
+        }
+
+        return blockNamePrefix + blockNameCounter++;
+    }
+
+    /**
+     * Retrieves the result of the code analysis.
+     *
+     * @return the code analysis result
+     */
+    public AnalysisResult getAnalysisResult() {
+        if (analysisResult == null) {
+            throw new IllegalStateException("No analysis has been run for this context");
+        }
+
+        return analysisResult;
+    }
+
+    /**
+     * Retrieves the class file emitter that is owning the code container.
+     *
+     * @return the class file emitter
+     */
+    public ClassFileEmitter getClassFileEmitter() {
+        return classFileEmitter;
     }
 
     /**
@@ -69,6 +122,15 @@ public final class CodeEmitContext {
      */
     public CodeEmitter getEmitter() {
         return emitter;
+    }
+
+    /**
+     * Retrieves the lookups that are used to look up elements.
+     *
+     * @return the lookups
+     */
+    public ElementLookups getLookups() {
+        return lookups;
     }
 
     /**
@@ -97,6 +159,15 @@ public final class CodeEmitContext {
      */
     public WasmPushedLabel getBlockJumpLabel() {
         return getBlockJumpLabel(0);
+    }
+
+    /**
+     * Retrieves all currently available block jump labels.
+     *
+     * @return all block jump labels
+     */
+    public List<WasmPushedLabel> getAllBlockJumpLabels() {
+        return blockJumpLabels;
     }
 
     /**
@@ -157,5 +228,50 @@ public final class CodeEmitContext {
      */
     public void restoreFrameStateAfterBranch(WasmFrameState state) {
         frameStates.set(frameStates.size() - 1, state);
+    }
+
+    /**
+     * Retrieve all the code emitters that should be prepended.
+     *
+     * @return the emitters that should be prepended
+     */
+    public List<CodeEmitter> getToBePrepended() {
+        return toBePrepended;
+    }
+
+    /**
+     * Queue an emitter to be prepended to the context.
+     *
+     * @param emitter the emitter to be prepended
+     */
+    public void prependLater(CodeEmitter emitter) {
+        this.toBePrepended.add(emitter);
+    }
+
+    /**
+     * Queue an emitter to be appended to the context.
+     *
+     * @param emitter the emitter to be appended
+     */
+    public void appendLater(CodeEmitter emitter) {
+        this.toBeAppended.add(emitter);
+    }
+
+    /**
+     * Retrieve all the code emitters that should be appended.
+     *
+     * @return the emitters that should be appended
+     */
+    public List<CodeEmitter> getToBeAppended() {
+        return toBeAppended;
+    }
+
+    /**
+     * Retrieves the gadgets that are available.
+     *
+     * @return the local gadgets
+     */
+    public LocalGadgets getLocalGadgets() {
+        return localGadgets;
     }
 }

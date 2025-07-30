@@ -154,11 +154,14 @@ public class DefaultExportGenerator implements ExportGenerator {
         JavaLocal thisLocal = methodEmitter.getThisLocal();
 
         CodeEmitContext codeEmitContext = new CodeEmitContext(
-                context.getLookups(),
+                null,
+                null,
+                context.getEmitter(),
                 emitter,
+                context.getLookups(),
                 new WasmFrameState(),
                 context.getGenerators(),
-                new LocalVariables(emitter, thisLocal)
+                new LocalVariables(thisLocal)
         );
 
         emitter.doNew(ObjectType.of(HashMap.class));

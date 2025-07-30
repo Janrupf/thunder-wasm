@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.WasmLoader;
 
@@ -24,8 +25,6 @@ public final class Br extends WasmInstruction<LabelData> {
 
     @Override
     public void emitCode(CodeEmitContext context, LabelData data) throws WasmAssemblerException {
-        CodeLabel label = ControlHelper.emitCleanStackForBlockLabel(context, data.getLabelIndex());
-        context.getEmitter().jump(JumpCondition.ALWAYS, label);
-        context.getFrameState().markUnreachable();
+        BlockHelper.emitBlockReturn(context, data.getLabelIndex());
     }
 }

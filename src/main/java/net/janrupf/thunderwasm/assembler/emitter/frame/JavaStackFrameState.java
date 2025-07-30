@@ -123,6 +123,35 @@ public final class JavaStackFrameState {
     }
 
     /**
+     * Check whether a local is accessible in the current frame.
+     *
+     * @param local the local to check
+     * @throws WasmAssemblerException if the local is not accessible
+     */
+    public void checkLocal(JavaLocal local) throws WasmAssemblerException {
+        if (!local.isValid()) {
+            throw new WasmAssemblerException("Local has been invalidated");
+        }
+
+        int slotIdx = local.getSlot();
+        if (slotIdx >= locals.size()) {
+            throw new WasmAssemblerException("Local is out of bounds, requested slot " + slotIdx + " but only " + locals.size() + " slots are valid");
+        }
+
+        JavaLocalSlot slot = locals.get(slotIdx);
+        if (slot instanceof JavaLocalSlot.Used) {
+            JavaType typeInSlot = ((JavaLocalSlot.Used) slot).getLocal().getType();
+            if (!typeInSlot.equals(local.getType())) {
+                throw new WasmAssemblerException("Expected local of type " + local.getType() + " but got " + typeInSlot);
+            }
+        } else if (slot instanceof JavaLocalSlot.Continuation) {
+            throw new WasmAssemblerException("Attempted to access a continuation slot directly");
+        } else if (slot instanceof JavaLocalSlot.Vacant) {
+            throw new WasmAssemblerException("Attempted to access a vacant slot");
+        }
+    }
+
+    /**
      * Require an operand on the stack.
      *
      * @return the operand on top of the stack
@@ -147,6 +176,15 @@ public final class JavaStackFrameState {
         }
 
         return operandStack.get(operandStack.size() - 1 - depth);
+    }
+
+    /**
+     * Count the amount of operands currently on the stack.
+     *
+     * @return the amount of operands on the stack
+     */
+    public int operandStackCount() {
+        return operandStack.size();
     }
 
     /**

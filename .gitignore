@@ -38,5 +38,9 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-# Project specific
+### Project specific ###
 local-programs.properties
+
+### AI stuff ###
+.claude/
+node_modules/

@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.instructions;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
+import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
@@ -81,6 +82,7 @@ public abstract class WasmInstruction<D extends WasmInstruction.Data> {
      *
      * @param context the code emit context
      * @param data    the instruction data
+     * @throws WasmAssemblerException if emitting the code fails
      */
     public void emitCode(
             CodeEmitContext context,
@@ -90,6 +92,20 @@ public abstract class WasmInstruction<D extends WasmInstruction.Data> {
                 "Code emitter not implemented for " + getName(),
                 new UnsupportedOperationException("TODO")
         );
+    }
+
+    /**
+     * Contribute data to the code analysis.
+     *
+     * @param context the context in which the analysis happens
+     * @param data    the instruction data
+     * @throws WasmAssemblerException if analysis fails
+     */
+    public void runAnalysis(
+            AnalysisContext context,
+            D data
+    ) throws WasmAssemblerException {
+        // No-op by default
     }
 
     /**

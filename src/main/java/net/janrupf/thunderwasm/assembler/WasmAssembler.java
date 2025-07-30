@@ -192,16 +192,18 @@ public final class WasmAssembler {
 
         CodeEmitter code = constructor.code();
 
-        LocalVariables localVariables = new LocalVariables(
-                code, constructor.getThisLocal());
+        LocalVariables localVariables = new LocalVariables(constructor.getThisLocal());
 
         // Emit a call to the super constructor
         code.loadLocal(localVariables.getThis());
         code.invoke(ObjectType.OBJECT, "<init>", new JavaType[0], PrimitiveType.VOID, InvokeType.SPECIAL, false);
 
         CodeEmitContext emitContext = new CodeEmitContext(
-                elementLookups,
+                "$init$block$",
+                null,
+                classEmitContext.getEmitter(),
                 code,
+                elementLookups,
                 frameState,
                 generators,
                 localVariables
