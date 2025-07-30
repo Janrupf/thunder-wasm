@@ -1,4 +1,4 @@
-package net.janrupf.thunderwasm.test;
+package net.janrupf.thunderwasm.test.util;
 
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.WasmAssembler;
@@ -15,6 +15,7 @@ import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.section.WasmSection;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
+import net.janrupf.thunderwasm.test.TestClassLoader;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Assertions;

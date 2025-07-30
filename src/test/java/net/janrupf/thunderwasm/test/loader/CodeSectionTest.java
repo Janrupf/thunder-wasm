@@ -11,7 +11,7 @@ import net.janrupf.thunderwasm.instructions.numeric.I32Const;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.CodeSection;
-import net.janrupf.thunderwasm.test.TestUtil;
+import net.janrupf.thunderwasm.test.util.TestUtil;
 import net.janrupf.thunderwasm.types.BlockType;
 import net.janrupf.thunderwasm.types.NumberType;
 import org.junit.jupiter.api.Assertions;

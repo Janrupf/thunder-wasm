@@ -3,7 +3,7 @@ package net.janrupf.thunderwasm.test.loader;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.module.section.CustomSection;
 import net.janrupf.thunderwasm.module.section.WasmSection;
-import net.janrupf.thunderwasm.test.TestUtil;
+import net.janrupf.thunderwasm.test.util.TestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -5,7 +5,7 @@ import net.janrupf.thunderwasm.module.section.DataCountSection;
 import net.janrupf.thunderwasm.module.section.DataSection;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.DataSegmentMode;
-import net.janrupf.thunderwasm.test.TestUtil;
+import net.janrupf.thunderwasm.test.util.TestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

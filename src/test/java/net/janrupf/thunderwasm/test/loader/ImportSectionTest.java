@@ -6,7 +6,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.ImportSection;
 import net.janrupf.thunderwasm.module.section.TypeSection;
-import net.janrupf.thunderwasm.test.TestUtil;
+import net.janrupf.thunderwasm.test.util.TestUtil;
 import net.janrupf.thunderwasm.types.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

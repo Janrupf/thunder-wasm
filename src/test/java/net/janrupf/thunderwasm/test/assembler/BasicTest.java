@@ -6,14 +6,14 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.runtime.Table;
-import net.janrupf.thunderwasm.runtime.WasmModuleExports;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedObjectGlobal;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
-import net.janrupf.thunderwasm.test.TestUtil;
+import net.janrupf.thunderwasm.test.util.ModuleFFI;
+import net.janrupf.thunderwasm.test.util.TestUtil;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -24,7 +24,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Map;
 
 public class BasicTest {
     @Test
@@ -62,16 +61,15 @@ public class BasicTest {
         Files.write(Paths.get("/tmp/playground.class"), classBytes);
 
         Table<?> table = new Table<>(0, 10);
-        LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 20));
+        LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 64));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        Map<String, Object> exports = ((WasmModuleExports)  moduleInstance).getExports();
+        ModuleFFI ffi = new ModuleFFI(moduleInstance);
 
-        int result = (int) ((LinkedFunction) exports.get("return_test")).asMethodHandle().invoke(1);
-
-        System.out.println("Result (1): " + result);
-
-        System.out.println("Export count: " + exports.size());
+        int patternPtr = ffi.compilePattern("Hello");
+        System.out.println("Pattern compiled at " + patternPtr);
+        System.out.println("Match count: " + ffi.matchCount(patternPtr, "Hello World, Hello Universe!"));
+        ffi.disposePattern(patternPtr);
     }
 
     private static final class TestLinker implements RuntimeLinker {
