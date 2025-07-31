@@ -22,8 +22,6 @@ public final class CodeEmitContext {
     private final List<WasmPushedLabel> blockJumpLabels;
     private final WasmGenerators generators;
     private final LocalVariables localVariables;
-    private final List<CodeEmitter> toBePrepended;
-    private final List<CodeEmitter> toBeAppended;
     private final LocalGadgets localGadgets;
 
     private int blockNameCounter;
@@ -75,8 +73,6 @@ public final class CodeEmitContext {
         this.blockJumpLabels.addAll(alreadyPushedLabels);
         this.generators = generators;
         this.localVariables = localVariables;
-        this.toBePrepended = new ArrayList<>();
-        this.toBeAppended = new ArrayList<>();
         this.localGadgets = new LocalGadgets();
     }
 
@@ -228,42 +224,6 @@ public final class CodeEmitContext {
      */
     public void restoreFrameStateAfterBranch(WasmFrameState state) {
         frameStates.set(frameStates.size() - 1, state);
-    }
-
-    /**
-     * Retrieve all the code emitters that should be prepended.
-     *
-     * @return the emitters that should be prepended
-     */
-    public List<CodeEmitter> getToBePrepended() {
-        return toBePrepended;
-    }
-
-    /**
-     * Queue an emitter to be prepended to the context.
-     *
-     * @param emitter the emitter to be prepended
-     */
-    public void prependLater(CodeEmitter emitter) {
-        this.toBePrepended.add(emitter);
-    }
-
-    /**
-     * Queue an emitter to be appended to the context.
-     *
-     * @param emitter the emitter to be appended
-     */
-    public void appendLater(CodeEmitter emitter) {
-        this.toBeAppended.add(emitter);
-    }
-
-    /**
-     * Retrieve all the code emitters that should be appended.
-     *
-     * @return the emitters that should be appended
-     */
-    public List<CodeEmitter> getToBeAppended() {
-        return toBeAppended;
     }
 
     /**
