@@ -744,7 +744,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 context.getLookups(),
                 new WasmFrameState(),
                 context.getGenerators(),
-                new LocalVariables(thisLocal)
+                new LocalVariables(thisLocal, null)
         ));
 
         // Returns the old size or -1 on failure - we need to convert

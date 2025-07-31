@@ -9,8 +9,9 @@ import java.util.Map;
 import java.util.Set;
 
 public final class AnalysisResult {
-    private static final int BLOCK_SPLIT_INSTRUCTION_THRESHOLD = 2000;
+    private static final int BLOCK_SPLIT_INSTRUCTION_THRESHOLD = 5000;
     private static final int BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE = 100;
+    private static final int BLOCK_SPLIT_DEPTH_THRESHOLD = 20;
 
     private final Map<Expr, LocalVariableUsage> localVariableUsage;
     private final Set<Expr> directReturns;
@@ -22,20 +23,20 @@ public final class AnalysisResult {
         this.blockSplitTargets = Collections.newSetFromMap(new IdentityHashMap<>());
     }
 
-    private void processContext(AnalysisContext analysisContext, int unsplitInstructionCount) {
+    private void processContext(AnalysisContext analysisContext, int unsplitInstructionCount, int depth) {
         int ownSize = analysisContext.getCurrentExpr().getInstructions().size();
         int totalInstructionCount = ownSize + unsplitInstructionCount;
 
         boolean doBlockSplit = totalInstructionCount >= BLOCK_SPLIT_INSTRUCTION_THRESHOLD &&
                 (ownSize > BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE ||
-                        totalInstructionCount > BLOCK_SPLIT_INSTRUCTION_THRESHOLD + BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE);
+                        totalInstructionCount > BLOCK_SPLIT_INSTRUCTION_THRESHOLD + BLOCK_SPLIT_INSTRUCTION_OVER_ALLOWANCE) || (depth >= BLOCK_SPLIT_DEPTH_THRESHOLD);
 
         if (doBlockSplit) {
             blockSplitTargets.add(analysisContext.getCurrentExpr());
         }
 
         for (AnalysisContext subcontext : analysisContext.getSubContexts()) {
-            processContext(subcontext, doBlockSplit ? 0 : totalInstructionCount);
+            processContext(subcontext, doBlockSplit ? 0 : totalInstructionCount, doBlockSplit ? 0 : depth + 1);
         }
 
         this.localVariableUsage.put(analysisContext.getCurrentExpr(), analysisContext.getLocalVariableUsage());
@@ -88,7 +89,7 @@ public final class AnalysisResult {
      */
     public static AnalysisResult compileFromContext(AnalysisContext analysisContext) {
         AnalysisResult result = new AnalysisResult();
-        result.processContext(analysisContext, 0);
+        result.processContext(analysisContext, 0, 0);
 
         return result;
     }

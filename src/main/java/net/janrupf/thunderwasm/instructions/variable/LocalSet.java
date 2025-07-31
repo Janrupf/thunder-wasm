@@ -5,7 +5,9 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
+import net.janrupf.thunderwasm.assembler.emitter.LocalVariables;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
+import net.janrupf.thunderwasm.instructions.control.internal.MultiValueHelper;
 import net.janrupf.thunderwasm.instructions.data.LocalIndexData;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -34,7 +36,15 @@ public final class LocalSet extends WasmInstruction<LocalIndexData> {
 
         ValueType type = frameState.requireLocal(data.getIndex());
         frameState.popOperand(type);
-        emitter.storeLocal(context.getLocalVariables().requireById(data.getIndex()));
+
+        if (context.getLocalVariables().getType(data.getIndex()) == LocalVariables.LocalType.HEAP) {
+            emitter.loadLocal(context.getLocalVariables().getHeapLocals());
+
+            LocalVariables.HeapLocal l = context.getLocalVariables().requireHeapById(data.getIndex());
+            MultiValueHelper.emitSetByIndex(emitter, l.getType(), l.getIndex());
+        } else {
+            emitter.storeLocal(context.getLocalVariables().requireById(data.getIndex()));
+        }
     }
 
     @Override

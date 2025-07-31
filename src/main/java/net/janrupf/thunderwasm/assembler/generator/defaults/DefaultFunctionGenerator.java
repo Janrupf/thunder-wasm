@@ -73,7 +73,18 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         JavaLocal thisLocal = methodEmitter.getArgumentLocals().get(signature.getOwnerArgumentIndex());
         List<JavaLocal> argumentLocals = new ArrayList<>();
 
-        LocalVariables localVariables = new LocalVariables(thisLocal);
+        int expandedLocalCount = 0;
+        for (Local local : locals.asFlatArray()) {
+            expandedLocalCount += local.getCount();
+        }
+
+        boolean useHeapLocals = expandedLocalCount + signature.getJavaArgumentTypes().size() > 128;
+        JavaLocal heapLocal = null;
+        if (useHeapLocals) {
+            heapLocal = codeEmitter.allocateLocal(MultiValueHelper.MULTI_VALUE_TYPE);
+        }
+
+        LocalVariables localVariables = new LocalVariables(thisLocal, heapLocal);
 
         for (int argIndex = 0; argIndex < signature.getJavaArgumentTypes().size(); argIndex++) {
             if (argIndex == signature.getOwnerArgumentIndex()) {
@@ -86,8 +97,10 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             localVariables.registerKnownLocal(signature.getArgumentIndex(argIndex), argumentLocal);
         }
 
+
         // Expand WASM locals
         List<ValueType> expandedLocals = new ArrayList<>();
+        MultiValueHelper.IndexedBuilder heapLocalBuilder = useHeapLocals ? MultiValueHelper.indexedBuilder() : null;
 
         int localId = argumentLocals.size();
         for (Local local : locals.asFlatArray()) {
@@ -98,23 +111,36 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             }
 
             JavaType javaType = WasmTypeConverter.toJavaType(local.getType());
-            codeEmitter.loadConstant(javaType.getDefaultValue());
 
-            for (int localIndex = 0; localIndex < local.getCount(); localIndex++) {
-                expandedLocals.add(local.getType());
+            if (useHeapLocals) {
+                for (int localIndex = 0; localIndex < local.getCount(); localIndex++) {
+                    expandedLocals.add(local.getType());
+                    int heapIndex = heapLocalBuilder.allocate(javaType);
 
-                JavaLocal javaLocal = codeEmitter.allocateLocal(javaType);
-
-                localVariables.registerKnownLocal(localId++, javaLocal);
-
-                if (localIndex + 1 != local.getCount()) {
-                    codeEmitter.duplicate();
+                    localVariables.registerKnownHeapLocal(localId++, javaType, heapIndex);
                 }
+            } else {
+                codeEmitter.loadConstant(javaType.getDefaultValue());
 
-                codeEmitter.storeLocal(javaLocal);
+                for (int localIndex = 0; localIndex < local.getCount(); localIndex++) {
+                    expandedLocals.add(local.getType());
+
+                    JavaLocal javaLocal = codeEmitter.allocateLocal(javaType);
+                    localVariables.registerKnownLocal(localId++, javaLocal);
+
+                    if (localIndex + 1 != local.getCount()) {
+                        codeEmitter.duplicate();
+                    }
+
+                    codeEmitter.storeLocal(javaLocal);
+                }
             }
         }
 
+        if (useHeapLocals) {
+            heapLocalBuilder.emitCreate(codeEmitter);
+            codeEmitter.storeLocal(heapLocal);
+        }
 
         WasmFrameState frameState = new WasmFrameState(
                 Arrays.asList(functionType.getInputs().asFlatArray()),

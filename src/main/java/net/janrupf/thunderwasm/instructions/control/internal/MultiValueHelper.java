@@ -17,7 +17,7 @@ public final class MultiValueHelper {
     /**
      * Create a multi value which can store the given types.
      *
-     * @param emitter the emitter to use
+     * @param emitter      the emitter to use
      * @param storageTypes the types of the values that need to be stored
      * @throws WasmAssemblerException if the code could not be emitted
      */
@@ -47,6 +47,28 @@ public final class MultiValueHelper {
             }
         }
 
+        emitCreateMultiValue(emitter, intCount, longCount, floatCount, doubleCount, objectCount);
+    }
+
+    /**
+     * Create a multi value which can store the given amount of data.
+     *
+     * @param emitter     the emitter to use
+     * @param intCount    the amount of integer space to allocate
+     * @param longCount   the amount of long space to allocate
+     * @param floatCount  the amount of float space to allocate
+     * @param doubleCount the amount of double space to allocate
+     * @param objectCount the amount of object space to allocate
+     * @throws WasmAssemblerException if the code could not be emitted
+     */
+    public static void emitCreateMultiValue(
+            CodeEmitter emitter,
+            int intCount,
+            int longCount,
+            int floatCount,
+            int doubleCount,
+            int objectCount
+    ) throws WasmAssemblerException {
         emitter.loadConstant(intCount);
         emitter.loadConstant(longCount);
         emitter.loadConstant(floatCount);
@@ -55,7 +77,7 @@ public final class MultiValueHelper {
         emitter.invoke(
                 MULTI_VALUE_TYPE,
                 "allocate",
-                new JavaType[] { PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT },
+                new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
                 MULTI_VALUE_TYPE,
                 InvokeType.STATIC,
                 false
@@ -66,8 +88,8 @@ public final class MultiValueHelper {
      * Saves the given list of locals in that order into a multi
      * value, which is already on top of the stack.
      *
-     * @param emitter the emitter to use
-     * @param toSave the locals to save
+     * @param emitter                the emitter to use
+     * @param toSave                 the locals to save
      * @param leaveMultiValueOnStack if true, the multi value is left on the stack
      * @throws WasmAssemblerException if the code could not be emitted
      */
@@ -92,7 +114,7 @@ public final class MultiValueHelper {
                 emitter.invoke(
                         MULTI_VALUE_TYPE,
                         "withPut" + multiValueMethodName(s.getType()),
-                        new JavaType[]{ multiValueMethodType(s.getType()) },
+                        new JavaType[]{multiValueMethodType(s.getType())},
                         MULTI_VALUE_TYPE,
                         InvokeType.VIRTUAL,
                         false
@@ -101,7 +123,7 @@ public final class MultiValueHelper {
                 emitter.invoke(
                         MULTI_VALUE_TYPE,
                         "put" + multiValueMethodName(s.getType()),
-                        new JavaType[]{ multiValueMethodType(s.getType()) },
+                        new JavaType[]{multiValueMethodType(s.getType())},
                         PrimitiveType.VOID,
                         InvokeType.VIRTUAL,
                         false
@@ -114,8 +136,8 @@ public final class MultiValueHelper {
      * Restores the given list of locals in that order from a multi
      * value, which is already on top of the stack.
      *
-     * @param emitter the emitter to use
-     * @param toRestore the locals to restore
+     * @param emitter                the emitter to use
+     * @param toRestore              the locals to restore
      * @param leaveMultiValueOnStack if true, the multi value is left on the stack
      * @throws WasmAssemblerException if the code could not be emitted
      */
@@ -155,8 +177,8 @@ public final class MultiValueHelper {
     /**
      * Emit the code required to save the stack.
      *
-     * @param emitter the emitter to use
-     * @param toSave the types to save, the last is assumed to be the top of the stack below the multi value
+     * @param emitter                the emitter to use
+     * @param toSave                 the types to save, the last is assumed to be the top of the stack below the multi value
      * @param leaveMultiValueOnStack if true, the multi value is left on the stack
      * @throws WasmAssemblerException if the code could not be emitted
      */
@@ -180,7 +202,7 @@ public final class MultiValueHelper {
                 emitter.invoke(
                         MULTI_VALUE_TYPE,
                         "staticWithPut" + multiValueMethodName(type),
-                        new JavaType[] { multiValueMethodType(type), MULTI_VALUE_TYPE },
+                        new JavaType[]{multiValueMethodType(type), MULTI_VALUE_TYPE},
                         MULTI_VALUE_TYPE,
                         InvokeType.STATIC,
                         false
@@ -189,7 +211,7 @@ public final class MultiValueHelper {
                 emitter.invoke(
                         MULTI_VALUE_TYPE,
                         "staticPut" + multiValueMethodName(type),
-                        new JavaType[] { multiValueMethodType(type), MULTI_VALUE_TYPE },
+                        new JavaType[]{multiValueMethodType(type), MULTI_VALUE_TYPE},
                         PrimitiveType.VOID,
                         InvokeType.STATIC,
                         false
@@ -201,9 +223,9 @@ public final class MultiValueHelper {
     /**
      * Emit the code required to restore the stack.
      *
-     * @param emitter the emitter to use
-     * @param toRestore the types to save, the last is assumed to be the top of the stack below the multi value
-     * @param multiValueLocal the local the multi value is in, or null, if its on top of the stack
+     * @param emitter                the emitter to use
+     * @param toRestore              the types to save, the last is assumed to be the top of the stack below the multi value
+     * @param multiValueLocal        the local the multi value is in, or null, if its on top of the stack
      * @param leaveMultiValueOnStack if true, the multi value is left on the stack
      * @throws WasmAssemblerException if the code could not be emitted
      */
@@ -265,6 +287,51 @@ public final class MultiValueHelper {
         }
     }
 
+    /**
+     * Emit the code setting a value by index.
+     * <p>
+     * Expects the multi value to be on top of the stack and below the value
+     * to be put into the slot.
+     *
+     * @param emitter the emitter to use
+     * @param type    the type of the value to set
+     * @param index   the index of the value in the type specific storage
+     * @throws WasmAssemblerException if the code could not be emitted
+     */
+    public static void emitSetByIndex(CodeEmitter emitter, JavaType type, int index) throws WasmAssemblerException {
+        emitter.loadConstant(index);
+        emitter.invoke(
+                MULTI_VALUE_TYPE,
+                "staticSet" + multiValueMethodName(type),
+                new JavaType[]{multiValueMethodType(type), MULTI_VALUE_TYPE, PrimitiveType.INT},
+                PrimitiveType.VOID,
+                InvokeType.STATIC,
+                false
+        );
+    }
+
+    /**
+     * Emit the code getting a value by index.
+     * <p>
+     * Expects the multi value to be on top of the stack.
+     *
+     * @param emitter the emitter to use
+     * @param type    the type of the value to get
+     * @param index   the index of the value in the type specific storage
+     * @throws WasmAssemblerException if the code could not be emitted
+     */
+    public static void emitGetByIndex(CodeEmitter emitter, JavaType type, int index) throws WasmAssemblerException {
+        emitter.loadConstant(index);
+        emitter.invoke(
+                MULTI_VALUE_TYPE,
+                "get" + multiValueMethodName(type),
+                new JavaType[]{PrimitiveType.INT},
+                multiValueMethodType(type),
+                InvokeType.VIRTUAL,
+                false
+        );
+    }
+
     private static String multiValueMethodName(JavaType type) {
         if (type instanceof PrimitiveType) {
             if (type.equals(PrimitiveType.LONG)) {
@@ -294,6 +361,70 @@ public final class MultiValueHelper {
             return PrimitiveType.INT;
         } else {
             return ObjectType.OBJECT;
+        }
+    }
+
+    /**
+     * Create a new indexed builder.
+     *
+     * @return the created builder
+     */
+    public static IndexedBuilder indexedBuilder() {
+        return new IndexedBuilder();
+    }
+
+    /**
+     * Builder for allocating multi value slot indices.
+     */
+    public static class IndexedBuilder {
+        private int intCount;
+        private int longCount;
+        private int floatCount;
+        private int doubleCount;
+        private int objectCount;
+
+        private IndexedBuilder() {
+            this.intCount = 0;
+            this.longCount = 0;
+            this.floatCount = 0;
+            this.doubleCount = 0;
+            this.objectCount = 0;
+        }
+
+        /**
+         * Allocate a slot index for the given type.
+         *
+         * @param type the type to allocate a slot for
+         * @return the index of the allocated slot
+         */
+        public int allocate(JavaType type) {
+            int idx;
+
+            if (type instanceof PrimitiveType) {
+                if (type.equals(PrimitiveType.LONG)) {
+                    idx = this.longCount++;
+                } else if (type.equals(PrimitiveType.FLOAT)) {
+                    idx = this.floatCount++;
+                } else if (type.equals(PrimitiveType.DOUBLE)) {
+                    idx = this.doubleCount++;
+                } else {
+                    idx = this.intCount++;
+                }
+            } else {
+                idx = this.objectCount++;
+            }
+
+            return idx;
+        }
+
+        /**
+         * Emit the code that creates the multi value from this builder.
+         *
+         * @param emitter the emitter to use
+         * @throws WasmAssemblerException if the code could not be emitted
+         */
+        public void emitCreate(CodeEmitter emitter) throws WasmAssemblerException {
+            emitCreateMultiValue(emitter, intCount, longCount, floatCount, doubleCount, objectCount);
         }
     }
 }

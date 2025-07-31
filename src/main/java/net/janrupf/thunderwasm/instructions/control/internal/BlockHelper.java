@@ -160,6 +160,13 @@ public final class BlockHelper {
             javaInputs.add(thisLocal.getType());
         }
 
+        JavaLocal heapLocal = context.getLocalVariables().getHeapLocals();
+        int blockHeapLocalsIndex = -1;
+        if (heapLocal != null) {
+            blockHeapLocalsIndex = javaInputs.size();
+            javaInputs.add(heapLocal.getType());
+        }
+
         // Create a new method for the block
         MethodEmitter blockMethodEmitter = context.getClassFileEmitter().method(
                 blockName,
@@ -190,8 +197,13 @@ public final class BlockHelper {
             blockThisLocal = blockMethodEmitter.getArgumentLocals().get(blockThisLocalIndex);
         }
 
+        JavaLocal blockHeapLocal = null;
+        if (heapLocal != null) {
+            blockHeapLocal = blockMethodEmitter.getArgumentLocals().get(blockHeapLocalsIndex);
+        }
+
         // Calculate the required transfer of local variables into the block and reverse
-        LocalVariables blockLocalVariables = new LocalVariables(blockThisLocal);
+        LocalVariables blockLocalVariables = new LocalVariables(blockThisLocal, blockHeapLocal);
 
         List<JavaLocal> localSaveLocals = new ArrayList<>();
         List<JavaLocal> blockRestoreLocals = new ArrayList<>();
@@ -206,6 +218,15 @@ public final class BlockHelper {
         for (Map.Entry<Integer, LocalVariableUsage.Status> localUsageEntry :
                 context.getAnalysisResult().getLocalVariableUsage(expr).getStatus().entrySet()) {
             int localId = localUsageEntry.getKey();
+
+            if (context.getLocalVariables().getType(localId) == LocalVariables.LocalType.HEAP) {
+                // Heap locals are passed through automatically since the entire heap local
+                // storage is passed down
+                LocalVariables.HeapLocal l = context.getLocalVariables().requireHeapById(localId);
+                blockLocalVariables.registerKnownHeapLocal(localId, l.getType(), l.getIndex());
+                continue;
+            }
+
             LocalVariableUsage.Status usage = localUsageEntry.getValue();
 
             JavaLocal originalLocal = context.getLocalVariables().requireById(localId);
@@ -334,6 +355,10 @@ public final class BlockHelper {
 
         if (thisLocal != null) {
             localEmitter.loadLocal(thisLocal);
+        }
+
+        if (heapLocal != null) {
+            localEmitter.loadLocal(heapLocal);
         }
 
         localEmitter.invoke(

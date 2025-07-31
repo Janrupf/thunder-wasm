@@ -192,7 +192,7 @@ public final class WasmAssembler {
 
         CodeEmitter code = constructor.code();
 
-        LocalVariables localVariables = new LocalVariables(constructor.getThisLocal());
+        LocalVariables localVariables = new LocalVariables(constructor.getThisLocal(), null);
 
         // Emit a call to the super constructor
         code.loadLocal(localVariables.getThis());

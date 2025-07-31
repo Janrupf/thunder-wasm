@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 
 import java.util.*;
 
@@ -18,12 +19,16 @@ import java.util.*;
  */
 public final class LocalVariables {
     private final JavaLocal thisLocal;
+    private final JavaLocal heapLocals;
     private final Map<Integer, JavaLocal> localsById;
+    private final Map<Integer, HeapLocal> heapLocalsById;
 
-    public LocalVariables(JavaLocal thisLocal) {
-        this.localsById = new HashMap<>();
-
+    public LocalVariables(JavaLocal thisLocal, JavaLocal heapLocals) {
         this.thisLocal = thisLocal;
+        this.heapLocals = heapLocals;
+
+        this.localsById = new HashMap<>();
+        this.heapLocalsById = new HashMap<>();
     }
 
     /**
@@ -31,16 +36,36 @@ public final class LocalVariables {
      * <p>
      * This is required for being able to register the existing function argument locals.
      *
-     * @param id the id of the local
+     * @param id    the id of the local
      * @param local the existing local
      * @throws WasmAssemblerException if a local with the given ID is already registered
      */
     public void registerKnownLocal(int id, JavaLocal local) throws WasmAssemblerException {
-        if (this.localsById.containsKey(id)) {
+        if (getType(id) != LocalType.UNDEFINED) {
             throw new WasmAssemblerException("Local with id " + id + " is registered already");
         }
 
         this.localsById.put(id, local);
+    }
+
+    /**
+     * Register a local that already exists and has been allocated on the heap.
+     *
+     * @param id    the id of the local
+     * @param type  the java type of the local
+     * @param index the local index in the backing storage
+     * @throws WasmAssemblerException if a local with the given ID is already registered
+     */
+    public void registerKnownHeapLocal(int id, JavaType type, int index) throws WasmAssemblerException {
+        if (heapLocals == null) {
+            throw new WasmAssemblerException("Can't register a heap local if no heap local storage is provided");
+        }
+
+        if (getType(id) != LocalType.UNDEFINED) {
+            throw new WasmAssemblerException("Local with id " + id + " is registered already");
+        }
+
+        this.heapLocalsById.put(id, new HeapLocal(type, index));
     }
 
     /**
@@ -55,6 +80,15 @@ public final class LocalVariables {
     }
 
     /**
+     * Retrieve the local variable that holds the heap local storage.
+     *
+     * @return the heap locals storage, or null, if not using heap locals
+     */
+    public JavaLocal getHeapLocals() {
+        return heapLocals;
+    }
+
+    /**
      * Require a local variable by its id.
      *
      * @param id the id of the local variable
@@ -66,6 +100,72 @@ public final class LocalVariables {
             throw new WasmAssemblerException("Local with id " + id + " is not registered");
         }
 
-        return  this.localsById.get(id);
+        return this.localsById.get(id);
+    }
+
+    /**
+     * Require a heap local by its id.
+     *
+     * @param id the id of the local variable
+     * @return the heap local
+     * @throws WasmAssemblerException if there is no heap local variable with this id
+     */
+    public HeapLocal requireHeapById(int id) throws WasmAssemblerException {
+        if (!this.heapLocalsById.containsKey(id)) {
+            throw new WasmAssemblerException("Heap local with id " + id + " is not registered");
+        }
+
+        return this.heapLocalsById.get(id);
+    }
+
+    /**
+     * Look up the type of a local by its id.
+     *
+     * @param id the id of the local
+     * @return the local type
+     */
+    public LocalType getType(int id) {
+        if (this.heapLocalsById.containsKey(id)) {
+            return LocalType.HEAP;
+        } else if (this.localsById.containsKey(id)) {
+            return LocalType.LOCAL;
+        }
+
+        return LocalType.UNDEFINED;
+    }
+
+    public static class HeapLocal {
+        private final JavaType type;
+        private final int index;
+
+        public HeapLocal(JavaType type, int index) {
+            this.type = type;
+            this.index = index;
+        }
+
+        public JavaType getType() {
+            return type;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+    }
+
+    public enum LocalType {
+        /**
+         * A local that has been allocated into a Java local.
+         */
+        LOCAL,
+
+        /**
+         * A local that has been moved to the heap.
+         */
+        HEAP,
+
+        /**
+         * A local that has not been defined (is unknown)
+         */
+        UNDEFINED
     }
 }

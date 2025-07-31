@@ -1,7 +1,5 @@
 package net.janrupf.thunderwasm.runtime.state;
 
-import java.util.Objects;
-
 /**
  * Helper used by the generated code to move around multiple values.
  */
@@ -97,6 +95,46 @@ public final class MultiValue {
         return this.objectValues[--objectValueCount];
     }
 
+    public void setInt(int index, int value) {
+        this.intValues[index] = value;
+    }
+
+    public void setLong(int index, long value) {
+        this.longValues[index] = value;
+    }
+
+    public void setFloat(int index, float value) {
+        this.floatValues[index] = value;
+    }
+
+    public void setDouble(int index, double value) {
+        this.doubleValues[index] = value;
+    }
+
+    public void setObject(int index, Object value) {
+        this.objectValues[index] = value;
+    }
+
+    public int getInt(int index) {
+        return this.intValues[index];
+    }
+
+    public long getLong(int index) {
+        return this.longValues[index];
+    }
+
+    public float getFloat(int index) {
+        return this.floatValues[index];
+    }
+
+    public double getDouble(int index) {
+        return this.doubleValues[index];
+    }
+
+    public Object getObject(int index) {
+        return this.objectValues[index];
+    }
+
     public static MultiValue allocate(
             int intValueCapacity,
             int longValueCapacity,
@@ -151,5 +189,25 @@ public final class MultiValue {
 
     public static MultiValue staticWithPutObject(Object value, MultiValue multi) {
         return multi.withPutObject(value);
+    }
+
+    public static void staticSetInt(int value, MultiValue multi, int index) {
+        multi.setInt(index, value);
+    }
+
+    public static void staticSetLong(long value, MultiValue multi, int index) {
+        multi.setLong(index, value);
+    }
+
+    public static void staticSetFloat(float value, MultiValue multi, int index) {
+        multi.setFloat(index, value);
+    }
+
+    public static void staticSetDouble(double value, MultiValue multi, int index) {
+        multi.setDouble(index, value);
+    }
+
+    public static void staticSetObject(Object value, MultiValue multi, int index) {
+        multi.setObject(index, value);
     }
 }
