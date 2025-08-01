@@ -76,4 +76,11 @@ public interface RuntimeLinker {
             throws ThunderWasmException {
         throw new ThunderWasmException("Linkage of function is not implemented in this runtime linker");
     }
+
+    /**
+     * A runtime linker which doesn't provide any imports.
+     */
+    class Empty implements RuntimeLinker {
+        public Empty() {}
+    }
 }

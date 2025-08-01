@@ -20,12 +20,14 @@ import java.util.*;
 public final class LocalVariables {
     private final JavaLocal thisLocal;
     private final JavaLocal heapLocals;
+    private final JavaLocal continuationLocal;
     private final Map<Integer, JavaLocal> localsById;
     private final Map<Integer, HeapLocal> heapLocalsById;
 
-    public LocalVariables(JavaLocal thisLocal, JavaLocal heapLocals) {
+    public LocalVariables(JavaLocal thisLocal, JavaLocal heapLocals, JavaLocal continuationLocal) {
         this.thisLocal = thisLocal;
         this.heapLocals = heapLocals;
+        this.continuationLocal = continuationLocal;
 
         this.localsById = new HashMap<>();
         this.heapLocalsById = new HashMap<>();
@@ -86,6 +88,24 @@ public final class LocalVariables {
      */
     public JavaLocal getHeapLocals() {
         return heapLocals;
+    }
+
+    /**
+     * Retrieve the local holding the continuation.
+     *
+     * @return the local holding the continuation, or null, if not using continuations
+     */
+    public JavaLocal getContinuationLocal() {
+        return continuationLocal;
+    }
+
+    /**
+     * Retrieve the locals by id mapping.
+     *
+     * @return the locals by id map
+     */
+    public Map<Integer, JavaLocal> getLocalsById() {
+        return Collections.unmodifiableMap(localsById);
     }
 
     /**

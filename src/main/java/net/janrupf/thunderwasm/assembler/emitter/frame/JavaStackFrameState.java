@@ -106,7 +106,7 @@ public final class JavaStackFrameState {
      *
      * @param local the local to free.
      */
-    void freeLocal(JavaLocal local) {
+    public void freeLocal(JavaLocal local) {
         this.locals.set(local.getSlot(), JavaLocalSlot.vacant());
         vacantMiddleSlotCount++;
 

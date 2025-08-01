@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.control.internal;
 
 import net.janrupf.thunderwasm.assembler.*;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
@@ -10,6 +11,9 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.BlockType;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
+
+import java.util.Arrays;
+import java.util.List;
 
 public final class ControlHelper {
     private ControlHelper() {
@@ -87,5 +91,22 @@ public final class ControlHelper {
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(functionType.getOutputs().largeLength()) < 0; i = i.add(1)) {
             context.getFrameState().pushOperand(functionType.getOutputs().get(i));
         }
+    }
+
+    public static List<JavaType> getJavaReturnTypes(FunctionType type) throws WasmAssemblerException {
+        return getJavaTypes(type.getOutputs());
+    }
+
+    public static List<JavaType> getJavaTypes(LargeArray<ValueType> wasmTypes) throws WasmAssemblerException {
+        ValueType[] flatWasmTypes = wasmTypes.asFlatArray();
+        if (flatWasmTypes == null) {
+            throw new WasmAssemblerException("Too many types");
+        }
+
+        return Arrays.asList(WasmTypeConverter.toJavaTypes(flatWasmTypes));
+    }
+
+    public static List<JavaType> getJavaTypes(List<ValueType> wasmTypes) throws WasmAssemblerException {
+        return Arrays.asList(WasmTypeConverter.toJavaTypes(wasmTypes.toArray(new ValueType[0])));
     }
 }

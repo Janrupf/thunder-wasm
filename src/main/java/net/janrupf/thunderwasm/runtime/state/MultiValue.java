@@ -151,7 +151,7 @@ public final class MultiValue {
         );
     }
 
-    public static void putInt(int value, MultiValue multiValue) {
+    public static void staticPutInt(int value, MultiValue multiValue) {
         multiValue.putInt(value);
     }
 
@@ -159,7 +159,7 @@ public final class MultiValue {
         return multi.withPutInt(value);
     }
 
-    public static void putLong(long value, MultiValue multiValue) {
+    public static void staticPutLong(long value, MultiValue multiValue) {
         multiValue.putLong(value);
     }
 
@@ -167,7 +167,7 @@ public final class MultiValue {
         return multi.withPutLong(value);
     }
 
-    public static void putFloat(float value, MultiValue multiValue) {
+    public static void staticPutFloat(float value, MultiValue multiValue) {
         multiValue.putFloat(value);
     }
 
@@ -175,7 +175,7 @@ public final class MultiValue {
         return multi.withPutFloat(value);
     }
 
-    public static void putDouble(double value, MultiValue multiValue) {
+    public static void staticPutDouble(double value, MultiValue multiValue) {
         multiValue.putDouble(value);
     }
 
@@ -183,7 +183,7 @@ public final class MultiValue {
         return multi.withPutDouble(value);
     }
 
-    public static void putObject(Object value, MultiValue multiValue) {
+    public static void staticPutObject(Object value, MultiValue multiValue) {
         multiValue.putObject(value);
     }
 

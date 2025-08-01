@@ -49,6 +49,7 @@ public final class WasmAssembler {
     private final ClassEmitContext classEmitContext;
 
     private final WasmGenerators generators;
+    private final WasmAssemblerConfiguration configuration;
 
     public WasmAssembler(
             WasmModule module,
@@ -57,6 +58,18 @@ public final class WasmAssembler {
             String className,
             WasmGenerators generators
     ) {
+        this(module, emitterFactory, packageName, className, generators, WasmAssemblerConfiguration.DEFAULT);
+    }
+
+    public WasmAssembler(
+            WasmModule module,
+            ClassFileEmitterFactory emitterFactory,
+            String packageName,
+            String className,
+            WasmGenerators generators,
+            WasmAssemblerConfiguration configuration
+    ) {
+        this.configuration = configuration;
         this.packageName = packageName;
         this.className = className;
 
@@ -75,7 +88,8 @@ public final class WasmAssembler {
         this.classEmitContext = new ClassEmitContext(
                 elementLookups,
                 emitter,
-                generators
+                generators,
+                this.configuration
         );
 
         this.generators = generators;
@@ -192,7 +206,7 @@ public final class WasmAssembler {
 
         CodeEmitter code = constructor.code();
 
-        LocalVariables localVariables = new LocalVariables(constructor.getThisLocal(), null);
+        LocalVariables localVariables = new LocalVariables(constructor.getThisLocal(), null, null);
 
         // Emit a call to the super constructor
         code.loadLocal(localVariables.getThis());
@@ -206,7 +220,8 @@ public final class WasmAssembler {
                 elementLookups,
                 frameState,
                 generators,
-                localVariables
+                localVariables,
+                classEmitContext.getConfiguration()
         );
 
         // Initializes imports if any

@@ -161,7 +161,8 @@ public class DefaultExportGenerator implements ExportGenerator {
                 context.getLookups(),
                 new WasmFrameState(),
                 context.getGenerators(),
-                new LocalVariables(thisLocal, null)
+                new LocalVariables(thisLocal, null, null),
+                context.getConfiguration()
         );
 
         emitter.doNew(ObjectType.of(HashMap.class));

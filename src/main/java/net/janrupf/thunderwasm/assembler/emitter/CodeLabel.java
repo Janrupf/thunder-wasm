@@ -1,5 +1,7 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
+import net.janrupf.thunderwasm.assembler.emitter.frame.JavaFrameSnapshot;
+
 /**
  * Marker interface for labels in the code.
  */
@@ -13,4 +15,14 @@ public interface CodeLabel {
      * @return true if the label is reachable, false otherwise
      */
     boolean isReachable();
+
+    /**
+     * Forcefully override the attached frame snapshot.
+     * <p>
+     * This may be useful in cases where locals need to be discarded
+     * and the automatic tracking doesn't work.
+     *
+     * @param snapshot the new frame snapshot
+     */
+    void overrideFrameSnapshot(JavaFrameSnapshot snapshot);
 }

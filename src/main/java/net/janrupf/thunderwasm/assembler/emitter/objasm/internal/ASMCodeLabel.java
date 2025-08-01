@@ -74,4 +74,9 @@ public final class ASMCodeLabel implements CodeLabel {
     public boolean isReachable() {
         return this.knownFrameSnapshot != null;
     }
+
+    @Override
+    public void overrideFrameSnapshot(JavaFrameSnapshot snapshot) {
+        this.knownFrameSnapshot = snapshot;
+    }
 }

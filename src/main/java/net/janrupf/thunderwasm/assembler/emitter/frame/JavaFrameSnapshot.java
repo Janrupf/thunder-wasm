@@ -52,6 +52,36 @@ public final class JavaFrameSnapshot {
     }
 
     /**
+     * Remove all locals that have been invalidated from this snapshot.
+     * <p>
+     * This can be useful if locals are conditionally removed and not needed
+     * in the new branch.
+     */
+    public void dropInvalidatedLocals() {
+        for (int i = 0; i < this.locals.size(); i++) {
+            JavaLocalSlot s = this.locals.get(i);
+
+            if (!(s instanceof JavaLocalSlot.Used)) {
+                continue;
+            }
+
+            JavaLocal local = ((JavaLocalSlot.Used) s).getLocal();
+
+            if (!local.isValid()) {
+                this.locals.set(i, JavaLocalSlot.vacant());
+
+                if (local.getType().getSlotCount() > 1) {
+                    this.locals.set(i + 1, JavaLocalSlot.vacant());
+                }
+            }
+        }
+
+        while (locals.size() > 1 && locals.get(locals.size() - 1) instanceof JavaLocalSlot.Vacant) {
+            this.locals.remove(locals.size() - 1);
+        }
+    }
+
+    /**
      * Check that this snapshot is compatible with another snapshot.
      *
      * @param other the snapshot to check against

@@ -1,16 +1,24 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerConfiguration;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 
 public final class ClassEmitContext {
     private final ElementLookups lookups;
     private final ClassFileEmitter emitter;
     private final WasmGenerators generators;
+    private final WasmAssemblerConfiguration configuration;
 
-    public ClassEmitContext(ElementLookups lookups, ClassFileEmitter emitter, WasmGenerators generators) {
+    public ClassEmitContext(
+            ElementLookups lookups,
+            ClassFileEmitter emitter,
+            WasmGenerators generators,
+            WasmAssemblerConfiguration configuration
+    ) {
         this.lookups = lookups;
         this.emitter = emitter;
         this.generators = generators;
+        this.configuration = configuration;
     }
 
     /**
@@ -38,5 +46,14 @@ public final class ClassEmitContext {
      */
     public WasmGenerators getGenerators() {
         return generators;
+    }
+
+    /**
+     * Retrieves the configuration of the assembler.
+     *
+     * @return the configuration of the assembler
+     */
+    public WasmAssemblerConfiguration getConfiguration() {
+        return configuration;
     }
 }

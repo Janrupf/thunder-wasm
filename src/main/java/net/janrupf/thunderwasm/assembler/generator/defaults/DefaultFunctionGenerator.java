@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
 import net.janrupf.thunderwasm.assembler.analysis.AnalysisResult;
+import net.janrupf.thunderwasm.assembler.continuation.ContinuationContext;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.*;
@@ -14,6 +15,7 @@ import net.janrupf.thunderwasm.assembler.part.TranslatedFunctionSignature;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.Function;
 import net.janrupf.thunderwasm.instructions.Local;
+import net.janrupf.thunderwasm.instructions.control.internal.ContinuationHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.MultiValueHelper;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
@@ -23,6 +25,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.WasmDynamicDispatch;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.TableType;
 import net.janrupf.thunderwasm.types.ValueType;
 
@@ -52,7 +55,11 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
 
         AnalysisResult analysisResult = AnalysisResult.compileFromContext(analysisContext);
 
-        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, classEmitter.getOwner());
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(
+                functionType,
+                classEmitter.getOwner(),
+                context.getConfiguration().continuationsEnabled()
+        );
         LargeArray<Local> locals = function.getLocals();
 
         String methodName = determineMethodName(i);
@@ -84,10 +91,15 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             heapLocal = codeEmitter.allocateLocal(MultiValueHelper.MULTI_VALUE_TYPE);
         }
 
-        LocalVariables localVariables = new LocalVariables(thisLocal, heapLocal);
+        JavaLocal continuationLocal = null;
+        if (signature.getContinuationArgumentIndex() != -1) {
+            continuationLocal = methodEmitter.getArgumentLocals().get(signature.getContinuationArgumentIndex());
+        }
+
+        LocalVariables localVariables = new LocalVariables(thisLocal, heapLocal, continuationLocal);
 
         for (int argIndex = 0; argIndex < signature.getJavaArgumentTypes().size(); argIndex++) {
-            if (argIndex == signature.getOwnerArgumentIndex()) {
+            if (argIndex == signature.getOwnerArgumentIndex() || argIndex == signature.getContinuationArgumentIndex()) {
                 continue;
             }
 
@@ -161,8 +173,12 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 frameState,
                 Collections.singletonList(topLevelLabel),
                 context.getGenerators(),
-                localVariables
+                localVariables,
+                context.getConfiguration()
         );
+
+        // TODO: This should probably happen before initializing locals with zero values
+        ContinuationHelper.emitContinuationFunctionEntry(codeEmitContext);
 
         ControlHelper.emitExpression(codeEmitContext, function.getExpr());
 
@@ -173,6 +189,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         }
 
         this.processFunctionEpilogue(codeEmitContext);
+        ContinuationHelper.emitContinuationImplementations(codeEmitContext, signature.getJavaReturnType());
 
         // Finish code generation
         codeEmitter.finish();
@@ -215,10 +232,33 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     @Override
     public void emitInvokeFunction(LargeArrayIndex functionIndex, FunctionType function, CodeEmitContext context)
             throws WasmAssemblerException {
-        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(function, context.getEmitter().getOwner());
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(
+                function,
+                context.getEmitter().getOwner(),
+                context.getConfiguration().continuationsEnabled()
+        );
         CodeEmitter emitter = context.getEmitter();
 
+        ContinuationContext.PointAndLabel afterCallPause = null;
+        if (context.getLocalVariables().getContinuationLocal() != null) {
+            afterCallPause = ContinuationHelper.emitFunctionContinuationPoint(
+                    context,
+                    function.getInputs().asFlatList(),
+                    Collections.emptyList(),
+                    signature.getJavaReturnType()
+            );
+        }
+
+
+        // TODO: This currently assumes that the owner and continuation are always the last arguments - for now
+        //       this is true, but we should probably at least add an assertion that this is really the case
+        //       as API wise they could be at arbitrary indices
         emitter.loadLocal(context.getLocalVariables().getThis());
+
+        if (context.getLocalVariables().getContinuationLocal() != null) {
+            emitter.loadLocal(context.getLocalVariables().getContinuationLocal());
+        }
+
         emitter.invoke(
                 emitter.getOwner(),
                 determineMethodName(functionIndex),
@@ -227,6 +267,10 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                 InvokeType.STATIC,
                 false
         );
+
+        if (afterCallPause != null) {
+            ContinuationHelper.emitFunctionContinuationPointPostReturn(context, afterCallPause);
+        }
 
         if (function.getOutputs().length() > 1) {
             MultiValueHelper.emitRestoreStack(
@@ -244,8 +288,19 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             LargeArrayIndex tableIndex,
             CodeEmitContext context
     ) throws WasmAssemblerException {
-        CodeEmitter emitter = context.getEmitter();
         FoundElement<TableType, TableImportDescription> element = context.getLookups().requireTable(tableIndex);
+
+        ContinuationContext.PointAndLabel afterCallPause = null;
+        if (context.getLocalVariables().getContinuationLocal() != null) {
+            TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, null, false);
+
+            afterCallPause = ContinuationHelper.emitFunctionContinuationPoint(
+                    context,
+                    functionType.getInputs().asFlatList(),
+                    Collections.singletonList(NumberType.I32), // Save the table index
+                    signature.getJavaReturnType()
+            );
+        }
 
         if (element.isImport()) {
             context.getGenerators().getImportGenerator().emitTableGet(
@@ -260,25 +315,36 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             );
         }
 
+        emitInvokeLinkedFunction(functionType, context);
+
+        if (context.getLocalVariables().getContinuationLocal() != null) {
+            ContinuationHelper.emitFunctionContinuationPointPostReturn(context, afterCallPause);
+        }
+    }
+
+    public void emitInvokeLinkedFunction(FunctionType functionType, CodeEmitContext context)
+            throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        if (context.getLocalVariables().getContinuationLocal() != null) {
+            emitter.loadLocal(context.getLocalVariables().getContinuationLocal());
+        } else {
+            emitter.loadConstant(null);
+        }
+
         emitter.invoke(
                 DYNAMIC_DISPATCH_HELPER_TYPE,
                 "prepareCallIndirect",
-                new JavaType[] { LINKED_FUNCTION_TYPE },
+                new JavaType[]{LINKED_FUNCTION_TYPE, ContinuationHelper.CONTINUATION_TYPE},
                 METHOD_HANDLE_TYPE,
                 InvokeType.STATIC,
                 false
         );
 
-        emitInvokeFunctionByMethodHandle(functionType, context);
-    }
-
-    public void emitInvokeFunctionByMethodHandle(FunctionType functionType, CodeEmitContext context)
-            throws WasmAssemblerException {
-        CodeEmitter emitter = context.getEmitter();
-
         // Use owner null here - we don't know the owner at this point, and prepareCallIndirect
-        // will have bound the method handle to the correct owner if there is one.
-        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, null);
+        // will have bound the method handle to the correct owner if there is one. Same
+        // goes for the continuation
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, null, false);
 
         JavaLocal methodHandleLocal = emitter.allocateLocal(METHOD_HANDLE_TYPE);
         emitter.storeLocal(methodHandleLocal);
@@ -324,7 +390,11 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     protected void emitLoadLinkedFunction(LargeArrayIndex i, FunctionType type, CodeEmitContext context) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
 
-        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(type, emitter.getOwner());
+        TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(
+                type,
+                emitter.getOwner(),
+                context.getConfiguration().continuationsEnabled()
+        );
         JavaMethodHandle handle = new JavaMethodHandle(
                 emitter.getOwner(),
                 determineMethodName(i),
@@ -348,7 +418,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             emitter.invoke(
                     METHOD_HANDLES_HELPER_TYPE,
                     "insertArguments",
-                    new JavaType[] { METHOD_HANDLE_TYPE, PrimitiveType.INT, new ArrayType(ObjectType.OBJECT) },
+                    new JavaType[]{METHOD_HANDLE_TYPE, PrimitiveType.INT, new ArrayType(ObjectType.OBJECT)},
                     METHOD_HANDLE_TYPE,
                     InvokeType.STATIC,
                     false
@@ -360,7 +430,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             emitter.invoke(
                     SIMPLE_LINKED_FUNCTION_TYPE,
                     "inferFromMethodHandle",
-                    new JavaType[] { ObjectType.of(MethodHandle.class) },
+                    new JavaType[]{ObjectType.of(MethodHandle.class)},
                     SIMPLE_LINKED_FUNCTION_TYPE,
                     InvokeType.STATIC,
                     false
@@ -372,10 +442,11 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             emitter.op(Op.SWAP);
             loadValueTypeList(context, type.getInputs());
             loadValueTypeList(context, type.getOutputs());
+            emitter.loadConstant(signature.getContinuationArgumentIndex());
             emitter.invoke(
                     SIMPLE_LINKED_FUNCTION_TYPE,
                     "<init>",
-                    new JavaType[] { METHOD_HANDLE_TYPE, ObjectType.of(List.class), ObjectType.of(List.class) },
+                    new JavaType[]{METHOD_HANDLE_TYPE, ObjectType.of(List.class), ObjectType.of(List.class), PrimitiveType.INT},
                     PrimitiveType.VOID,
                     InvokeType.SPECIAL,
                     false
@@ -406,7 +477,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         emitter.invoke(
                 ObjectType.of(Arrays.class),
                 "asList",
-                new JavaType[] { new ArrayType(ObjectType.OBJECT) },
+                new JavaType[]{new ArrayType(ObjectType.OBJECT)},
                 ObjectType.of(List.class),
                 InvokeType.STATIC,
                 false

@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.test.util;
 
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.WasmAssembler;
+import net.janrupf.thunderwasm.assembler.WasmAssemblerConfiguration;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.WasmGenerators;
 import net.janrupf.thunderwasm.assembler.emitter.objasm.ObjectWebASMClassFileEmitterFactory;
@@ -99,6 +100,13 @@ public class TestUtil {
     private static final AtomicInteger ASSEMBLER_COUNTER = new AtomicInteger(0);
 
     public static WasmAssembler makeAssembler(WasmModule module) throws WasmAssemblerException {
+        return makeAssembler(module, WasmAssemblerConfiguration.DEFAULT);
+    }
+
+    public static WasmAssembler makeAssembler(
+            WasmModule module,
+            WasmAssemblerConfiguration configuration
+    ) throws WasmAssemblerException {
         int counter = ASSEMBLER_COUNTER.getAndIncrement();
 
         return new WasmAssembler(
@@ -106,9 +114,11 @@ public class TestUtil {
                 new ObjectWebASMClassFileEmitterFactory(),
                 "net.janrupf.thunderwasm.generated",
                 "TestModule" + counter,
-                new WasmGenerators()
+                new WasmGenerators(),
+                configuration
         );
     }
+
 
     public static Object instantiateModule(
             WasmModule module,

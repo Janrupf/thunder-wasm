@@ -4,6 +4,8 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.instructions.control.internal.ContinuationHelper;
+import net.janrupf.thunderwasm.runtime.continuation.Continuation;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.lang.invoke.MethodHandle;
@@ -38,6 +40,13 @@ public interface LinkedFunction {
     List<ValueType> getReturnTypes();
 
     /**
+     * Retrieve the index of the continuation argument.
+     *
+     * @return the index of the continuation argument, or -1, if no continuation is supported
+     */
+    int getContinuationArgumentIndex();
+
+    /**
      * Simple implementation of {@link LinkedFunction}.
      * <p>
      * Used by the default function generator for referencing
@@ -47,15 +56,18 @@ public interface LinkedFunction {
         private final MethodHandle methodHandle;
         private final List<ValueType> arguments;
         private final List<ValueType> returnTypes;
+        private final int continuationArgumentIndex;
 
         public Simple(
                 MethodHandle methodHandle,
                 List<ValueType> arguments,
-                List<ValueType> returnTypes
+                List<ValueType> returnTypes,
+                int continuationArgumentIndex
         ) {
             this.methodHandle = methodHandle;
             this.arguments = arguments;
             this.returnTypes = returnTypes;
+            this.continuationArgumentIndex = continuationArgumentIndex;
         }
 
         @Override
@@ -73,6 +85,11 @@ public interface LinkedFunction {
             return returnTypes;
         }
 
+        @Override
+        public int getContinuationArgumentIndex() {
+            return continuationArgumentIndex;
+        }
+
         /**
          * Infers a {@link Simple} from a {@link MethodHandle}.
          *
@@ -88,8 +105,17 @@ public interface LinkedFunction {
             Class<?>[] argumentClasses = type.parameterArray();
             Class<?> returnClass = type.returnType();
 
+            int continuationArgument = -1;
+
             List<ValueType> argumentTypes = new ArrayList<>(argumentClasses.length);
-            for (Class<?> argumentClass : argumentClasses) {
+            for (int i = 0; i < argumentClasses.length; i++) {
+                Class<?> argumentClass = argumentClasses[i];
+
+                if (argumentClass.equals(Continuation.class)) {
+                    continuationArgument = i;
+                    continue;
+                }
+
                 argumentTypes.add(WasmTypeConverter.fromJavaType(JavaType.of(argumentClass)));
             }
 
@@ -101,7 +127,7 @@ public interface LinkedFunction {
                 returnTypes = Collections.singletonList(WasmTypeConverter.fromJavaType(javaReturnType));
             }
 
-            return new Simple(methodHandle, argumentTypes, returnTypes);
+            return new Simple(methodHandle, argumentTypes, returnTypes, continuationArgument);
         }
     }
 }

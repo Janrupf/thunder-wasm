@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.assembler.generator.defaults;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
+import net.janrupf.thunderwasm.assembler.continuation.ContinuationContext;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.signature.ConcreteType;
@@ -10,8 +11,10 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.ImportGenerator;
+import net.janrupf.thunderwasm.assembler.part.TranslatedFunctionSignature;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.imports.*;
+import net.janrupf.thunderwasm.instructions.control.internal.ContinuationHelper;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemory;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryLoad;
 import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
@@ -25,6 +28,7 @@ import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
 import net.janrupf.thunderwasm.types.*;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -565,6 +569,18 @@ public class DefaultImportGenerator implements ImportGenerator {
         int typeIndex = im.getDescription().getIndex();
         FunctionType functionType = context.getLookups().requireType(LargeArrayIndex.fromU32(typeIndex));
 
+        ContinuationContext.PointAndLabel afterCallPause = null;
+        if (context.getLocalVariables().getContinuationLocal() != null) {
+            TranslatedFunctionSignature signature = TranslatedFunctionSignature.of(functionType, null, false);
+
+            afterCallPause = ContinuationHelper.emitFunctionContinuationPoint(
+                    context,
+                    functionType.getInputs().asFlatList(),
+                    Collections.emptyList(),
+                    signature.getJavaReturnType()
+            );
+        }
+
         emitter.loadLocal(context.getLocalVariables().getThis());
         emitter.accessField(
                 emitter.getOwner(),
@@ -573,16 +589,12 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false,
                 false
         );
-        emitter.invoke(
-                LINKED_FUNCTION_TYPE,
-                "asMethodHandle",
-                new JavaType[0],
-                ObjectType.of(MethodHandle.class),
-                InvokeType.INTERFACE,
-                true
-        );
 
-        functionGenerator.emitInvokeFunctionByMethodHandle(functionType, context);
+        functionGenerator.emitInvokeLinkedFunction(functionType, context);
+
+        if (afterCallPause != null) {
+            ContinuationHelper.emitFunctionContinuationPointPostReturn(context, afterCallPause);
+        }
     }
 
     @Override

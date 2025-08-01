@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.instructions.control.internal.ContinuationHelper;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.state.MultiValue;
@@ -21,19 +22,22 @@ public final class TranslatedFunctionSignature {
     private final List<ValueType> wasmReturnTypes;
     private final JavaType javaReturnType;
     private final int ownerArgumentIndex;
+    private final int continuationArgumentIndex;
 
     private TranslatedFunctionSignature(
             List<ValueType> wasmArgumentTypes,
             List<JavaType> javaArgumentTypes,
             List<ValueType> wasmReturnTypes,
             JavaType javaReturnType,
-            int ownerArgumentIndex
+            int ownerArgumentIndex,
+            int continuationArgumentIndex
     ) {
         this.wasmArgumentTypes = wasmArgumentTypes;
         this.javaArgumentTypes = javaArgumentTypes;
         this.wasmReturnTypes = wasmReturnTypes;
         this.javaReturnType = javaReturnType;
         this.ownerArgumentIndex = ownerArgumentIndex;
+        this.continuationArgumentIndex = continuationArgumentIndex;
     }
 
     /**
@@ -82,45 +86,65 @@ public final class TranslatedFunctionSignature {
     }
 
     /**
+     * Retrieves the index of the continuation argument in the Java function signature.
+     *
+     * @return the index of the continuation argument, or -1, if there is no continuation argument
+     */
+    public int getContinuationArgumentIndex() {
+        return continuationArgumentIndex;
+    }
+
+    /**
      * Retrieves the index of the given argument in the Java function signature.
      *
      * @param argument the index of the argument to retrieve
      * @return the index of the argument in the Java function signature
      */
     public int getArgumentIndex(int argument) {
-        if (argument >= ownerArgumentIndex) {
+        if (ownerArgumentIndex != -1 && argument >= ownerArgumentIndex) {
             argument++;
         }
 
-        return  argument;
+        if (continuationArgumentIndex != -1 && argument >= continuationArgumentIndex) {
+            argument++;
+        }
+
+        return argument;
     }
 
     /**
      * Compute the translated function signature from the given WebAssembly function type.
      *
-     * @param functionType the WebAssembly function type to translate
-     * @param owner the type that owns the function
+     * @param functionType       the WebAssembly function type to translate
+     * @param owner              the type that owns the function
+     * @param enableContinuation whether the function has continuations enabled
      * @return the translated function signature
      * @throws WasmAssemblerException if the translation fails
      */
-    public static TranslatedFunctionSignature of(FunctionType functionType, ObjectType owner) throws WasmAssemblerException {
-        return of(functionType.getInputs(), functionType.getOutputs(), owner);
+    public static TranslatedFunctionSignature of(
+            FunctionType functionType,
+            ObjectType owner,
+            boolean enableContinuation
+    ) throws WasmAssemblerException {
+        return of(functionType.getInputs(), functionType.getOutputs(), owner, enableContinuation);
     }
 
     /**
      * Compute the translated function signature from the given inputs and outputs.
      *
-     * @param inputs the inputs of the function
-     * @param outputs the outputs of the function
-     * @param owner the type that owns the function
+     * @param inputs             the inputs of the function
+     * @param outputs            the outputs of the function
+     * @param owner              the type that owns the function
+     * @param enableContinuation whether the function has continuations enabled
      * @return the translated function signature
      * @throws WasmAssemblerException if the translation fails
      */
     public static TranslatedFunctionSignature of(
             LargeArray<ValueType> inputs,
             LargeArray<ValueType> outputs,
-            ObjectType owner
-    ) throws WasmAssemblerException  {
+            ObjectType owner,
+            boolean enableContinuation
+    ) throws WasmAssemblerException {
         if (Long.compareUnsigned(inputs.length(), 255) > 0) {
             throw new WasmAssemblerException(
                     "Function has too many inputs, maximum is 255"
@@ -130,8 +154,16 @@ public final class TranslatedFunctionSignature {
         List<JavaType> javaArgumentTypes = new ArrayList<>(Arrays.asList(WasmTypeConverter.toJavaTypes(inputs.asFlatArray())));
 
         // The owner (this) becomes the last argument
+        int ownerArgumentIndex = -1;
         if (owner != null) {
+            ownerArgumentIndex = javaArgumentTypes.size();
             javaArgumentTypes.add(owner);
+        }
+
+        int continuationArgumentIndex = -1;
+        if (enableContinuation) {
+            continuationArgumentIndex = javaArgumentTypes.size();
+            javaArgumentTypes.add(ContinuationHelper.CONTINUATION_TYPE);
         }
 
         JavaType returnType;
@@ -158,7 +190,8 @@ public final class TranslatedFunctionSignature {
                 javaArgumentTypes,
                 wasmReturnTypes,
                 returnType,
-                owner != null ? javaArgumentTypes.size() - 1 : -1
+                ownerArgumentIndex,
+                continuationArgumentIndex
         );
     }
 }

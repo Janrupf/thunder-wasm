@@ -1236,7 +1236,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
             i++;
         }
 
-        if (isContiguous) {
+        if (isContiguous && keys.length > 0) {
             // If the keys are contiguous, we can use a table switch instead of a lookup switch
             visitor.visitTableSwitchInsn(keys[0], keys[keys.length - 1], asmDefaultLabel, targetLabels);
         } else {

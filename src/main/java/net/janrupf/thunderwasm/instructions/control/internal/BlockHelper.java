@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.analysis.LocalVariableUsage;
+import net.janrupf.thunderwasm.assembler.continuation.ContinuationContext;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
@@ -12,7 +13,6 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.control.BlockData;
-import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.runtime.state.BlockReturn;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ValueType;
@@ -82,6 +82,7 @@ public final class BlockHelper {
 
         if (selfLabelAtStart) {
             emitter.resolveLabel(blockSelfLabel);
+            ContinuationHelper.emitContinuationPoint(context);
         }
 
         ControlHelper.emitExpression(context, expr);
@@ -167,6 +168,13 @@ public final class BlockHelper {
             javaInputs.add(heapLocal.getType());
         }
 
+        JavaLocal continuationLocal = context.getLocalVariables().getContinuationLocal();
+        int blockContinuationLocalIndex = -1;
+        if (continuationLocal != null) {
+            blockContinuationLocalIndex = javaInputs.size();
+            javaInputs.add(ContinuationHelper.CONTINUATION_TYPE);
+        }
+
         // Create a new method for the block
         MethodEmitter blockMethodEmitter = context.getClassFileEmitter().method(
                 blockName,
@@ -202,8 +210,13 @@ public final class BlockHelper {
             blockHeapLocal = blockMethodEmitter.getArgumentLocals().get(blockHeapLocalsIndex);
         }
 
+        JavaLocal blockContinuationLocal = null;
+        if (continuationLocal != null) {
+            blockContinuationLocal = blockMethodEmitter.getArgumentLocals().get(blockContinuationLocalIndex);
+        }
+
         // Calculate the required transfer of local variables into the block and reverse
-        LocalVariables blockLocalVariables = new LocalVariables(blockThisLocal, blockHeapLocal);
+        LocalVariables blockLocalVariables = new LocalVariables(blockThisLocal, blockHeapLocal, blockContinuationLocal);
 
         List<JavaLocal> localSaveLocals = new ArrayList<>();
         List<JavaLocal> blockRestoreLocals = new ArrayList<>();
@@ -278,8 +291,12 @@ public final class BlockHelper {
                 null,
                 nonLocalLabels,
                 context.getGenerators(),
-                blockLocalVariables
+                blockLocalVariables,
+                context.getConfiguration()
         );
+
+        // TODO: This should probably be before the locals are initialized with zero values
+        ContinuationHelper.emitContinuationFunctionEntry(blockContext);
 
         CodeLabel blockReturnLabel = blockCodeEmitter.newLabel();
         blockContext.getLocalGadgets().addEntryPoint(BLOCK_RETURN_ENTRY_POINT, blockReturnLabel);
@@ -310,7 +327,7 @@ public final class BlockHelper {
         if (blockContext.getFrameState().isReachable()) {
             // Could potentially fall through, we need to capture the block return values
 
-            List<JavaType> blockReturnTypes = getJavaReturnTypes(type);
+            List<JavaType> blockReturnTypes = ControlHelper.getJavaReturnTypes(type);
 
             MultiValueHelper.emitCreateMultiValue(blockCodeEmitter, blockReturnTypes);
             MultiValueHelper.emitSaveStack(blockCodeEmitter, blockReturnTypes, true);
@@ -346,10 +363,19 @@ public final class BlockHelper {
             blockCodeEmitter.doReturn();
         }
 
+        ContinuationHelper.emitContinuationImplementations(blockContext, MultiValueHelper.MULTI_VALUE_TYPE);
+
         blockCodeEmitter.finish();
         blockMethodEmitter.finish();
 
         // On to generating the function call in the local block
+        ContinuationContext.PointAndLabel pointAndLabel = ContinuationHelper.emitFunctionContinuationPoint(
+                context,
+                type.getInputs().asFlatList(),
+                Collections.emptyList(),
+                BLOCK_RETURN_TYPE
+        );
+
         MultiValueHelper.emitCreateMultiValue(localEmitter, blockReadLocalTypes);
         MultiValueHelper.emitSaveLocals(localEmitter, localSaveLocals, true);
 
@@ -361,6 +387,10 @@ public final class BlockHelper {
             localEmitter.loadLocal(heapLocal);
         }
 
+        if (continuationLocal != null) {
+            localEmitter.loadLocal(continuationLocal);
+        }
+
         localEmitter.invoke(
                 blockCodeEmitter.getOwner(),
                 blockName,
@@ -370,6 +400,7 @@ public final class BlockHelper {
                 false
         );
 
+        ContinuationHelper.emitFunctionContinuationPointPostReturn(context, pointAndLabel);
 
         // We now need to decide how to operate based on the received depth
         Map<Integer, CodeLabel> switchTargets = new HashMap<>();
@@ -452,7 +483,7 @@ public final class BlockHelper {
         // TODO: What if the invoked block end itself was unreachable?
         context.getFrameState().markReachable();
 
-        MultiValueHelper.emitRestoreStack(localEmitter, getJavaReturnTypes(type), null, false);
+        MultiValueHelper.emitRestoreStack(localEmitter, ControlHelper.getJavaReturnTypes(type), null, false);
     }
 
     /**
@@ -473,7 +504,7 @@ public final class BlockHelper {
 
         targetLabel.markUsed();
 
-        List<JavaType> labelArity = getJavaTypes(targetLabel.getStackOperands());
+        List<JavaType> labelArity = ControlHelper.getJavaTypes(targetLabel.getStackOperands());
 
         if (targetLabel.isNonLocal()) {
             emitNonLocalBlockReturn(context, calculateNonLocalDepth(context, depth), labelArity);
@@ -559,7 +590,7 @@ public final class BlockHelper {
 
         targetLabel.markUsed();
 
-        List<JavaType> labelArity = getJavaTypes(targetLabel.getStackOperands());
+        List<JavaType> labelArity = ControlHelper.getJavaTypes(targetLabel.getStackOperands());
 
         if (targetLabel.isNonLocal()) {
             emitResumeNonLocalAfterReturn(context, calculateNonLocalDepth(context, depth), labelArity);
@@ -643,7 +674,7 @@ public final class BlockHelper {
             CodeEmitContext context
     ) throws WasmAssemblerException {
         List<ValueType> returnTypes = context.getFrameState().getReturnTypes();
-        List<JavaType> javaReturnTypes = getJavaTypes(returnTypes);
+        List<JavaType> javaReturnTypes = ControlHelper.getJavaTypes(returnTypes);
         CodeEmitter emitter = context.getEmitter();
 
         List<WasmPushedLabel> labels = context.getAllBlockJumpLabels();
@@ -677,7 +708,7 @@ public final class BlockHelper {
         // At this point a multi value is on top of the stack, either resume unwinding
         // or return here
         List<ValueType> returnTypes = context.getFrameState().getReturnTypes();
-        List<JavaType> javaReturnTypes = getJavaTypes(returnTypes);
+        List<JavaType> javaReturnTypes = ControlHelper.getJavaTypes(returnTypes);
         CodeEmitter emitter = context.getEmitter();
 
         List<WasmPushedLabel> labels = context.getAllBlockJumpLabels();
@@ -728,24 +759,6 @@ public final class BlockHelper {
         emitter.jump(JumpCondition.ALWAYS, returnEntryPoint);
         context.getFrameState().markUnreachable();
     }
-
-    private static List<JavaType> getJavaReturnTypes(FunctionType type) throws WasmAssemblerException {
-        return getJavaTypes(type.getOutputs());
-    }
-
-    private static List<JavaType> getJavaTypes(LargeArray<ValueType> wasmTypes) throws WasmAssemblerException {
-        ValueType[] flatWasmTypes = wasmTypes.asFlatArray();
-        if (flatWasmTypes == null) {
-            throw new WasmAssemblerException("Too many types");
-        }
-
-        return Arrays.asList(WasmTypeConverter.toJavaTypes(flatWasmTypes));
-    }
-
-    private static List<JavaType> getJavaTypes(List<ValueType> wasmTypes) throws WasmAssemblerException {
-        return Arrays.asList(WasmTypeConverter.toJavaTypes(wasmTypes.toArray(new ValueType[0])));
-    }
-
 
     /**
      * Calculate the non-local return depth of the given block depth.

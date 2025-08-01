@@ -1,7 +1,9 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerConfiguration;
 import net.janrupf.thunderwasm.assembler.WasmPushedLabel;
 import net.janrupf.thunderwasm.assembler.analysis.AnalysisResult;
+import net.janrupf.thunderwasm.assembler.continuation.ContinuationContext;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 
@@ -22,7 +24,9 @@ public final class CodeEmitContext {
     private final List<WasmPushedLabel> blockJumpLabels;
     private final WasmGenerators generators;
     private final LocalVariables localVariables;
+    private final WasmAssemblerConfiguration configuration;
     private final LocalGadgets localGadgets;
+    private final ContinuationContext continuationContext;
 
     private int blockNameCounter;
 
@@ -34,7 +38,8 @@ public final class CodeEmitContext {
             ElementLookups lookups,
             WasmFrameState frameState,
             WasmGenerators generators,
-            LocalVariables localVariables
+            LocalVariables localVariables,
+            WasmAssemblerConfiguration configuration
     ) {
         this(
                 blockNamePrefix,
@@ -45,7 +50,8 @@ public final class CodeEmitContext {
                 frameState,
                 Collections.emptyList(),
                 generators,
-                localVariables
+                localVariables,
+                configuration
         );
     }
 
@@ -58,7 +64,8 @@ public final class CodeEmitContext {
             WasmFrameState frameState,
             List<WasmPushedLabel> alreadyPushedLabels,
             WasmGenerators generators,
-            LocalVariables localVariables
+            LocalVariables localVariables,
+            WasmAssemblerConfiguration configuration
     ) {
         this.blockNamePrefix = blockNamePrefix;
         this.analysisResult = analysisResult;
@@ -73,7 +80,9 @@ public final class CodeEmitContext {
         this.blockJumpLabels.addAll(alreadyPushedLabels);
         this.generators = generators;
         this.localVariables = localVariables;
+        this.configuration = configuration;
         this.localGadgets = new LocalGadgets();
+        this.continuationContext = new ContinuationContext();
     }
 
     /**
@@ -149,6 +158,15 @@ public final class CodeEmitContext {
     }
 
     /**
+     * Retrieve all current frame states.
+     *
+     * @return all frame states
+     */
+    public List<WasmFrameState> getAllFrameStates() {
+        return Collections.unmodifiableList(frameStates);
+    }
+
+    /**
      * Retrieves the block jump label of the context.
      *
      * @return the block jump label, or null, if inside the top level block
@@ -199,6 +217,15 @@ public final class CodeEmitContext {
     }
 
     /**
+     * Retrieves the assembler configuration.
+     *
+     * @return the assembler configuration
+     */
+    public WasmAssemblerConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    /**
      * Push a new block.
      *
      * @param frameState    the new frame state
@@ -233,5 +260,14 @@ public final class CodeEmitContext {
      */
     public LocalGadgets getLocalGadgets() {
         return localGadgets;
+    }
+
+    /**
+     * Retrieves the continuation context.
+     *
+     * @return the continuation context
+     */
+    public ContinuationContext getContinuationContext() {
+        return continuationContext;
     }
 }
