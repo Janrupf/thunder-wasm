@@ -9,11 +9,14 @@ import kotlin.NoSuchElementException
 
 plugins {
     id("java-library")
+    id("maven-publish")
     id("de.undercouch.download") version("5.6.0")
 }
 
+val versionFromEnv = System.getenv("VERSION") ?: "0.0.0-dev"
+
 group = "net.janrupf"
-version = "1.0-SNAPSHOT"
+version = versionFromEnv
 
 repositories {
     mavenCentral()
@@ -222,5 +225,24 @@ tasks {
             "-Xmx2G"
         )
         environment("LD_LIBRARY_PATH" to "/home/janrupf/Downloads")
+    }
+
+    javadoc {
+        options {
+            (this as CoreJavadocOptions).addBooleanOption("Xdoclint:none", true)
+        }
+    }
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("library") {
+            from(components["java"])
+        }
     }
 }
