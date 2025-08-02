@@ -24,7 +24,7 @@ public abstract class PlainMemory extends WasmInstruction<PlainMemory.Memarg> {
         return numberType;
     }
 
-    public static final class Memarg implements Data {
+    public static final class Memarg implements WasmInstruction.Data {
         private final int alignment;
         private final int offset;
 

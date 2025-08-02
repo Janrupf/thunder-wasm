@@ -3,7 +3,6 @@ package net.janrupf.thunderwasm.runtime.linker.memory;
 import net.janrupf.thunderwasm.data.Limits;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 
 public interface LinkedMemory {
@@ -62,7 +61,7 @@ public interface LinkedMemory {
 
             // NOTE: The clear() here is confusing naming, it doesn't clear the buffer data, just resets
             // all possible changes to position, mark and limits
-            ByteBuffer oldBuffer = this.byteBuffer.clear();
+            ByteBuffer oldBuffer = (ByteBuffer) this.byteBuffer.clear();
             this.byteBuffer = ByteBuffer.allocateDirect(PAGE_SIZE * newPageCount);
             this.byteBuffer.put(oldBuffer);
 
