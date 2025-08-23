@@ -303,6 +303,14 @@ tasks.named("publishAllPublicationsToLocalStagingRepository") {
 jreleaser {
     strict.set(true)
 
+    project {
+        versionPattern.set("CUSTOM")
+
+        snapshot {
+            pattern.set("(.*-SNAPSHOT)|(git-.*)")
+        }
+    }
+
     signing {
         active = Active.ALWAYS
         armored.set(true)

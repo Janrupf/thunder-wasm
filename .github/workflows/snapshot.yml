@@ -1,0 +1,35 @@
+name: Build and publish snapshots
+on:
+  push:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: 8
+          distribution: temurin
+
+      - name: Prepare environment
+        run: |
+          mkdir $RUNNER_TEMP/key-store
+          echo "${{ secrets.PGP_SIGNING_PRIVATE_KEY }}" > $RUNNER_TEMP/key-store/pgp_private_key.asc
+          echo "${{ secrets.PGP_SIGNING_PUBLIC_KEY }}" > $RUNNER_TEMP/key-store/pgp_public_key.asc
+          
+          echo "VERSION=git-$(echo -n $GITHUB_SHA | cut -c 1-10)" >> $GITHUB_ENV
+          echo "JRELEASER_GPG_PUBLIC_KEY=$RUNNER_TEMP/key-store/pgp_public_key.asc" >> $GITHUB_ENV
+          echo "JRELEASER_GPG_SECRET_KEY=$RUNNER_TEMP/key-store/pgp_private_key.asc" >> $GITHUB_ENV
+          echo "JRELEASER_GPG_PASSPHRASE=${{ secrets.PGP_SIGNING_PASSWORD_KEY }}" >> $GITHUB_ENV
+          echo "JRELEASER_DEPLOY_MAVEN_NEXUS2_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >> $GITHUB_ENV
+          echo "JRELEASER_DEPLOY_MAVEN_NEXUS2_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+
+      - name: Publish snapshot with JReleaser
+        run: ./gradlew jreleaserDeploy
