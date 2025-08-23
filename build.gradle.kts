@@ -305,10 +305,6 @@ jreleaser {
 
     project {
         versionPattern.set("CUSTOM")
-
-        snapshot {
-            pattern.set("(.*-SNAPSHOT)|(git-.*)")
-        }
     }
 
     signing {
