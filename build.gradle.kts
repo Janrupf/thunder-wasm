@@ -1,5 +1,9 @@
 import de.undercouch.gradle.tasks.download.Download
+import groovy.lang.Closure
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.jreleaser.model.Active
+import org.jreleaser.model.Signing
+import org.jreleaser.model.api.deploy.maven.Nexus2MavenDeployer
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
@@ -11,12 +15,14 @@ plugins {
     id("java-library")
     id("maven-publish")
     id("de.undercouch.download") version("5.6.0")
+    id("org.jreleaser") version("1.19.0")
 }
 
-val versionFromEnv = System.getenv("VERSION") ?: "0.0.0-dev"
+val versionFromEnv = System.getenv("VERSION") ?: "0.0.0-SNAPSHOT"
 
 group = "net.janrupf"
 version = versionFromEnv
+description = "An Experimental Ahead-Of-Time (AOT) WebAssembly Runtime for the JVM"
 
 repositories {
     mavenCentral()
@@ -239,10 +245,96 @@ java {
     withJavadocJar()
 }
 
+val mavenStagingRepository = layout.buildDirectory.dir("staging-deploy")
+
 publishing {
     publications {
         create<MavenPublication>("library") {
             from(components["java"])
+
+            pom {
+                name.set(project.name)
+                description.set(project.description)
+                inceptionYear.set("2025")
+                url.set("https://github.com/Janrupf/thunder-wasm")
+
+                licenses {
+                    license {
+                        name.set("LGPL-3.0-only")
+                        url.set("https://spdx.org/licenses/LGPL-3.0-only.html")
+                    }
+                }
+
+                scm {
+                    connection = "scm:git:https://github.com/Janrupf/thunder-wasm.git"
+                    developerConnection = "scm:git:ssh://github.com/Janrupf/thunder-wasm.git"
+                    url = "https://github.com/Janrupf/thunder-wasm"
+                }
+
+                developers {
+                    developer {
+                        id.set("janrupf")
+                        name.set("Janrupf")
+                        email.set("business.janrupf@gmail.com")
+                    }
+                }
+            }
         }
     }
+
+    repositories {
+        maven {
+            name = "localStaging"
+            url = mavenStagingRepository.map { it.asFile.toURI() }.get()
+        }
+    }
+}
+
+val cleanLocalStagingRepository = tasks.register("cleanLocalStagingRepository") {
+    doLast {
+        delete(mavenStagingRepository)
+    }
+}
+
+tasks.named("publishAllPublicationsToLocalStagingRepository") {
+    dependsOn(cleanLocalStagingRepository)
+}
+
+jreleaser {
+    strict.set(true)
+
+    signing {
+        active = Active.ALWAYS
+        armored.set(true)
+        mode.set(Signing.Mode.FILE)
+    }
+
+    deploy {
+        maven {
+            nexus2 {
+                create("snapshot-deploy").apply {
+                    active.set(Active.SNAPSHOT)
+                    snapshotUrl.set("https://central.sonatype.com/repository/maven-snapshots/")
+                    applyMavenCentralRules.set(true)
+                    snapshotSupported.set(true)
+                    closeRepository.set(true)
+                    releaseRepository.set(true)
+                    stagingRepository(mavenStagingRepository.map { it.asFile.absolutePath }.get())
+                }
+            }
+        }
+    }
+
+    release {
+        github {
+            // See https://github.com/jreleaser/jreleaser/discussions/1725#discussioncomment-10674529
+            // - just a dummy here, does nothing
+            token.set("not-a-valid-token")
+            skipRelease.set(true)
+        }
+    }
+}
+
+tasks.named("jreleaserDeploy") {
+    dependsOn(tasks.named("publishAllPublicationsToLocalStagingRepository"))
 }
