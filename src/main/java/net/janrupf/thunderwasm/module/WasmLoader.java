@@ -1292,6 +1292,15 @@ public class WasmLoader {
         return new InstructionInstance(instruction, data);
     }
 
+    /**
+     * Checks if strict parsing is enabled.
+     *
+     * @return true if strict parsing is enabled, false otherwise
+     */
+    public boolean isStrictParsing() {
+        return strictParsing;
+    }
+
     private String unsignedByteToString(byte b) {
         return Integer.toString(Byte.toUnsignedInt(b));
     }

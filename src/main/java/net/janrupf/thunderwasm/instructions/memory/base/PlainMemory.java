@@ -1,5 +1,6 @@
 package net.janrupf.thunderwasm.instructions.memory.base;
 
+import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -17,7 +18,28 @@ public abstract class PlainMemory extends WasmInstruction<PlainMemory.Memarg> {
 
     @Override
     public Memarg readData(WasmLoader loader) throws IOException, InvalidModuleException {
-        return Memarg.read(loader);
+        Memarg arg = Memarg.read(loader);
+
+        if (arg.getAlignment() > 31) {
+            throw new InvalidModuleException("Alignment exponent must not be greater than 31, got " + arg.getAlignment());
+        }
+
+        return arg;
+    }
+
+    public final void validate(Memarg memarg, int bitWidth) throws WasmAssemblerException {
+        if (bitWidth == -1) {
+            bitWidth = getNumberType().getBitWidth();
+        }
+
+        int requestedAlignment = 1 << memarg.getAlignment();
+        int naturalAlignment = bitWidth / 8;
+
+        if (Integer.compareUnsigned(requestedAlignment, naturalAlignment) > 0) {
+            throw new WasmAssemblerException("Requested alignment " + Integer.toUnsignedString(requestedAlignment) +
+                    " is greater than natural alignment " + naturalAlignment +
+                    " for memory operation of type " + getNumberType() + " and load of " + bitWidth + " bits");
+        }
     }
 
     public final NumberType getNumberType() {

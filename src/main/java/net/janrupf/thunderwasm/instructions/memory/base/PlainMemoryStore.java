@@ -22,6 +22,8 @@ public abstract class PlainMemoryStore extends PlainMemory {
 
     @Override
     public void emitCode(CodeEmitContext context, Memarg data) throws WasmAssemblerException {
+        validate(data, storeType.getBitWidth());
+
         context.getFrameState().popOperand(getNumberType());
         context.getFrameState().popOperand(NumberType.I32);
 
@@ -54,21 +56,38 @@ public abstract class PlainMemoryStore extends PlainMemory {
         /**
          * Native bit width load. Bit width depends on the data type.
          */
-        NATIVE,
+        NATIVE(-1),
 
         /**
          * 8 bit store.
          */
-        BIT_8,
+        BIT_8(8),
 
         /**
          * 16 bit store.
          */
-        BIT_16,
+        BIT_16(16),
 
         /**
          * 32 bit store.
          */
-        BIT_32,
+        BIT_32(32);
+
+        private final int bitWidth;
+
+        StoreType(int bitWidth) {
+            this.bitWidth = bitWidth;
+        }
+
+        /**
+         * Retrieves the bit width of this store type.
+         * <p>
+         * If the store type is {@link #NATIVE}, this function returns -1.
+         *
+         * @return the bit width of this store type
+         */
+        public int getBitWidth() {
+            return bitWidth;
+        }
     }
 }
