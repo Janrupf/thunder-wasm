@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.data.MetadataKey;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.*;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
@@ -25,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 public class DefaultMemoryGenerator implements MemoryGenerator {
+    private static final MetadataKey<Void> MEMORY_GENERATOR_KEY = MetadataKey.unique();
+
     private static final ArrayType BYTE_ARRAY_TYPE = new ArrayType(PrimitiveType.BYTE);
     private static final ArrayType DATA_SEGMENT_TYPE = BYTE_ARRAY_TYPE;
     private static final ObjectType MEMORY_TYPE = ObjectType.of(ByteBuffer.class);
@@ -765,6 +768,18 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     @Override
     public void makeMemoryExportable(LargeArrayIndex i, MemoryType type, ClassEmitContext context) throws WasmAssemblerException {
         // We need to add a method for growing
+
+        // Ensure we only add the method once
+        MetadataKey<Void> growMethodKey = MetadataKey.compose(
+                MEMORY_GENERATOR_KEY,
+                MetadataKey.named(generateMemoryHelperName(i, "grow"))
+        );
+
+        if (context.getMetadataStorage().contains(growMethodKey)) {
+            return;
+        }
+
+        context.getMetadataStorage().addTag(growMethodKey);
 
         MethodEmitter methodEmitter = context.getEmitter().method(
                 generateMemoryHelperName(i, "grow"),

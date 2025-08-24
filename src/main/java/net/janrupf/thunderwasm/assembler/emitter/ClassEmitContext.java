@@ -1,6 +1,7 @@
 package net.janrupf.thunderwasm.assembler.emitter;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerConfiguration;
+import net.janrupf.thunderwasm.assembler.emitter.data.MetadataStorage;
 import net.janrupf.thunderwasm.lookup.ElementLookups;
 
 public final class ClassEmitContext {
@@ -8,17 +9,20 @@ public final class ClassEmitContext {
     private final ClassFileEmitter emitter;
     private final WasmGenerators generators;
     private final WasmAssemblerConfiguration configuration;
+    private final MetadataStorage metadataStorage;
 
     public ClassEmitContext(
             ElementLookups lookups,
             ClassFileEmitter emitter,
             WasmGenerators generators,
-            WasmAssemblerConfiguration configuration
+            WasmAssemblerConfiguration configuration,
+            MetadataStorage metadataStorage
     ) {
         this.lookups = lookups;
         this.emitter = emitter;
         this.generators = generators;
         this.configuration = configuration;
+        this.metadataStorage = metadataStorage;
     }
 
     /**
@@ -55,5 +59,14 @@ public final class ClassEmitContext {
      */
     public WasmAssemblerConfiguration getConfiguration() {
         return configuration;
+    }
+
+    /**
+     * Retrieves the metadata storage associated with this context.
+     *
+     * @return the metadata storage
+     */
+    public MetadataStorage getMetadataStorage() {
+        return metadataStorage;
     }
 }

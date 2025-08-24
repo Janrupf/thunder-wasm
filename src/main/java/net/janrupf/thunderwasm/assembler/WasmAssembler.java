@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.assembler;
 
 import net.janrupf.thunderwasm.ThunderWasmException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.data.MetadataStorage;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
@@ -93,7 +94,8 @@ public final class WasmAssembler {
                 elementLookups,
                 emitter,
                 generators,
-                this.configuration
+                this.configuration,
+                new MetadataStorage()
         );
 
         this.generators = generators;
