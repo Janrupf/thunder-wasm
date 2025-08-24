@@ -306,7 +306,12 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
                 float fValue = (float) value;
                 if (fValue == 0.0f) {
-                    visitor.visitInsn(Opcodes.FCONST_0);
+                    if (Float.floatToRawIntBits(fValue) == 0x80000000) {
+                        visitor.visitLdcInsn(fValue);
+                    } else {
+                        visitor.visitInsn(Opcodes.FCONST_0);
+                    }
+
                     return;
                 } else if (fValue == 1.0f) {
                     visitor.visitInsn(Opcodes.FCONST_1);
@@ -320,7 +325,11 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
                 double dValue = (double) value;
                 if (dValue == 0.0) {
-                    visitor.visitInsn(Opcodes.DCONST_0);
+                    if (Double.doubleToRawLongBits(dValue) == 0x8000000000000000L) {
+                        visitor.visitLdcInsn(dValue);
+                    } else {
+                        visitor.visitInsn(Opcodes.DCONST_0);
+                    }
                     return;
                 } else if (dValue == 1.0) {
                     visitor.visitInsn(Opcodes.DCONST_1);

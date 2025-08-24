@@ -30,6 +30,8 @@ public class WastExceptionMatcher {
         KNOWN_TRAPS.put("indirect call type mismatch", Collections.singletonList(WrongMethodTypeException.class));
         KNOWN_TRAPS.put("out of bounds table access", Collections.singletonList(IndexOutOfBoundsException.class));
         KNOWN_TRAPS.put("unreachable", Collections.singletonList(IllegalStateException.class));
+        KNOWN_TRAPS.put("integer overflow", Collections.singletonList(ArithmeticException.class));
+        KNOWN_TRAPS.put("invalid conversion to integer", Collections.singletonList(ArithmeticException.class));
     }
 
     public static void checkTrap(Throwable actual, String wastMessage) {
