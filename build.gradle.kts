@@ -174,13 +174,31 @@ tasks {
                     }
 
                     if (wasmFile != null) {
+                        val extraArgs = mutableListOf<String>()
+
+                        inputFile.useLines { lines ->
+                            val iterator = lines.iterator()
+                            if (iterator.hasNext()) {
+                                val firstLine = iterator.next()
+                                if (firstLine.startsWith(";;")) {
+                                    val comment = firstLine.removePrefix(";;").trim()
+
+                                    if (comment.startsWith("compile-args:")) {
+                                        val argsLine = comment.removePrefix("compile-args:").trim()
+                                        extraArgs.addAll(argsLine.split("\\s+".toRegex()))
+                                    }
+                                }
+                            }
+                        }
+
                         exec {
                             executable(wat2wasm)
                             args(
                                 inputFile.absolutePath,
                                 "-o", wasmFile.absolutePath,
-                                "--enable-annotations"
+                                "--enable-annotations",
                             )
+                            args(extraArgs)
                         }
                     } else if (testJson != null) {
                         exec {

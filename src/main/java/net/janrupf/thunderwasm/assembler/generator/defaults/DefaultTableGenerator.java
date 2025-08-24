@@ -149,6 +149,11 @@ public class DefaultTableGenerator implements TableGenerator {
                 } else {
                     context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
                 }
+            } else if (initValues[j] instanceof ImportedGlobalValueReference) {
+                context.getGenerators().getImportGenerator().emitGetGlobal(
+                        ((ImportedGlobalValueReference) initValues[j]).getImportDescription(),
+                        context
+                );
             } else {
                 if (initValues[j] == null) {
                     emitter.loadNull(ObjectType.OBJECT);

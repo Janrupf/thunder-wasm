@@ -1,7 +1,6 @@
 package net.janrupf.thunderwasm.eval;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
@@ -16,10 +15,15 @@ import net.janrupf.thunderwasm.types.ValueType;
 public final class EvalContext {
     private final EvalFrameState frameState;
     private final ElementLookups lookups;
+    private final boolean allowReferencingNonImportGlobals;
 
-    public EvalContext(ElementLookups lookups) {
+    public EvalContext(
+            ElementLookups lookups,
+            boolean allowReferencingNonImportGlobals
+    ) {
         this.frameState = new EvalFrameState();
         this.lookups = lookups;
+        this.allowReferencingNonImportGlobals = allowReferencingNonImportGlobals;
     }
 
     /**
@@ -108,6 +112,15 @@ public final class EvalContext {
      * @return the fresh evaluation context
      */
     public EvalContext deriveFresh() {
-        return new EvalContext(lookups);
+        return new EvalContext(lookups, allowReferencingNonImportGlobals);
+    }
+
+    /**
+     * Checks whether referencing non-import globals is allowed.
+     *
+     * @return true if allowed, false otherwise
+     */
+    public boolean doesAllowReferencingNonImportGlobals() {
+        return allowReferencingNonImportGlobals;
     }
 }

@@ -69,11 +69,19 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
         if (gElement.isImport()) {
             Import<GlobalImportDescription> importedGlobal = gElement.getImport();
 
+            if (importedGlobal.getDescription().getType().getMutability() != GlobalType.Mutability.CONST) {
+                throw new WasmAssemblerException("Cannot evaluate mutable imported global");
+            }
+
            context.getFrameState().push(
                    importedGlobal.getDescription().getType().getValueType(),
                    new ImportedGlobalValueReference(importedGlobal)
            );
         } else {
+            if (!context.doesAllowReferencingNonImportGlobals()) {
+                throw new WasmAssemblerException("Cannot evaluate non-imported global in this context");
+            }
+
             Global g = gElement.getElement();
 
             if (g.getType().getMutability() != GlobalType.Mutability.CONST) {

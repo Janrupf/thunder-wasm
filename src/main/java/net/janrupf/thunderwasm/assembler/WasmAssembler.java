@@ -259,7 +259,7 @@ public final class WasmAssembler {
 
                 Object[] initValues = new Object[initExprs.length];
                 for (int j = 0; j < initExprs.length; j++) {
-                    EvalContext evalContext = new EvalContext(emitContext.getLookups());
+                    EvalContext evalContext = new EvalContext(emitContext.getLookups(), true);
                     initValues[j] = evalContext.evalSingleValue(initExprs[j], true, segment.getType());
                 }
 
@@ -273,10 +273,10 @@ public final class WasmAssembler {
                 if (segment.getMode() instanceof ElementSegmentMode.Active) {
                     ElementSegmentMode.Active activeMode = (ElementSegmentMode.Active) segment.getMode();
 
-                    EvalContext evalContext = new EvalContext(emitContext.getLookups());
+                    EvalContext evalContext = new EvalContext(emitContext.getLookups(), false);
 
                     // Evaluate the table offset expression
-                    int tableOffset = (int) evalContext.evalSingleValue(
+                    Object tableOffset = evalContext.evalSingleValue(
                             activeMode.getTableOffset(),
                             true,
                             NumberType.I32
@@ -300,8 +300,17 @@ public final class WasmAssembler {
                         tableType = table.getElement();
                     }
 
+                    if (tableOffset instanceof Integer) {
+                        code.loadConstant(tableOffset);
+                    } else if (tableOffset instanceof ImportedGlobalValueReference) {
+                        emitContext.getGenerators().getImportGenerator().emitGetGlobal(
+                                ((ImportedGlobalValueReference) tableOffset).getImportDescription(),
+                                emitContext
+                        );
+                    } else {
+                        throw new WasmAssemblerException("Unrecognized table offset type");
+                    }
 
-                    code.loadConstant(tableOffset);
                     code.loadConstant(0);
                     code.loadConstant((int) segment.getInit().length());
 
@@ -330,10 +339,10 @@ public final class WasmAssembler {
                 if (segment.getMode() instanceof DataSegmentMode.Active) {
                     DataSegmentMode.Active activeMode = (DataSegmentMode.Active) segment.getMode();
 
-                    EvalContext evalContext = new EvalContext(emitContext.getLookups());
+                    EvalContext evalContext = new EvalContext(emitContext.getLookups(), false);
 
                     // Evaluate the memory offset expression
-                    int memoryOffset = (int) evalContext.evalSingleValue(
+                    Object memoryOffset = evalContext.evalSingleValue(
                             activeMode.getMemoryOffset(),
                             true,
                             NumberType.I32
@@ -342,8 +351,17 @@ public final class WasmAssembler {
                     FoundElement<MemoryType, MemoryImportDescription> memory = elementLookups.requireMemory(
                             LargeArrayIndex.ZERO.add(activeMode.getMemoryIndex()));
 
+                    if (memoryOffset instanceof Integer) {
+                        code.loadConstant(memoryOffset);
+                    } else if (memoryOffset instanceof ImportedGlobalValueReference) {
+                        emitContext.getGenerators().getImportGenerator().emitGetGlobal(
+                                ((ImportedGlobalValueReference) memoryOffset).getImportDescription(),
+                                emitContext
+                        );
+                    } else {
+                        throw new WasmAssemblerException("Unrecognized memory offset type");
+                    }
 
-                    code.loadConstant(memoryOffset);
                     code.loadConstant(0);
                     code.loadConstant((int) segment.getInit().length());
 
@@ -402,7 +420,7 @@ public final class WasmAssembler {
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
             Global global = globals.get(i);
 
-            EvalContext evalContext = new EvalContext(elementLookups);
+            EvalContext evalContext = new EvalContext(elementLookups, true);
             Object globalValue = evalContext.evalSingleValue(global.getInit(), true, global.getType().getValueType());
 
             // Emit the setter
