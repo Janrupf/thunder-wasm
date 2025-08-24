@@ -423,7 +423,11 @@ public final class WasmAssembler {
                         context
                 );
             } else {
-                context.getEmitter().loadConstant(globalValue);
+                if (globalValue == null) {
+                    context.getEmitter().loadNull((ObjectType) WasmTypeConverter.toJavaType(global.getType().getValueType()));
+                } else {
+                    context.getEmitter().loadConstant(globalValue);
+                }
             }
 
             generators.getGlobalGenerator().emitSetGlobal(i, global, context);

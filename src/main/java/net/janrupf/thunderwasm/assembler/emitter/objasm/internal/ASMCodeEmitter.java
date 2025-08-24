@@ -206,12 +206,7 @@ public final class ASMCodeEmitter implements CodeEmitter {
         markNewInstruction();
 
         if (value == null) {
-            visitor.visitInsn(Opcodes.ACONST_NULL);
-
-            // TODO: This could cause issues in stack frames,
-            //       we should probably reject null here and provide
-            //       a specialized "loadNull()" method
-            stackFrameState.pushOperand(ObjectType.OBJECT);
+            throw new WasmAssemblerException("Use loadNull() to load null references");
         } else if (value instanceof Boolean ||
                 value instanceof Byte ||
                 value instanceof Short ||
@@ -364,6 +359,15 @@ public final class ASMCodeEmitter implements CodeEmitter {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public void loadNull(ObjectType type) throws WasmAssemblerException {
+        requireValidFrameSnapshot();
+        markNewInstruction();
+
+        stackFrameState.pushOperand(type);
+        visitor.visitInsn(Opcodes.ACONST_NULL);
     }
 
     @Override
@@ -1169,6 +1173,12 @@ public final class ASMCodeEmitter implements CodeEmitter {
             case THROW:
                 stackFrameState.popOperand(ObjectType.OBJECT);
                 opCode = Opcodes.ATHROW;
+                break;
+
+            case ARRAY_LENGTH:
+                stackFrameState.popOperand(new ArrayType(ObjectType.OBJECT));
+                opCode = Opcodes.ARRAYLENGTH;
+                stackFrameState.pushOperand(PrimitiveType.INT);
                 break;
 
             default:

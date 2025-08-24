@@ -8,13 +8,16 @@ public final class WasmAssemblerConfiguration {
 
     private final boolean enableContinuations;
     private final boolean enableStrictNumerics;
+    private final boolean atomicBoundsChecks;
 
     private WasmAssemblerConfiguration(
             boolean enableContinuations,
-            boolean enableStrictNumerics
+            boolean enableStrictNumerics,
+            boolean atomicBoundsChecks
     ) {
         this.enableContinuations = enableContinuations;
         this.enableStrictNumerics = enableStrictNumerics;
+        this.atomicBoundsChecks = atomicBoundsChecks;
     }
 
     /**
@@ -44,6 +47,25 @@ public final class WasmAssemblerConfiguration {
     }
 
     /**
+     * Determines whether build operations should perform bounds checks before
+     * performing the operation and not while performing the operation.
+     * <p>
+     * This is required for compliance with the WebAssembly specification, but
+     * a well-behaved program should never hit a bounds check failure, so for
+     * performance reasons this can be turned off.
+     * <p>
+     * Bounds checks are still performed in terms of sandboxing even if this is
+     * disabled (in other words, this does not have any sandbox safety implications).
+     * However, a `memory.copy` operation that would go out of bounds might
+     * partially succeed if this is disabled.
+     *
+     * @return true if atomic bounds checks are enabled, false otherwise
+     */
+    public boolean atomicBoundsChecksEnabled() {
+        return atomicBoundsChecks;
+    }
+
+    /**
      * Create a new configuration builder.
      *
      * @return the created builder
@@ -55,10 +77,12 @@ public final class WasmAssemblerConfiguration {
     public static class Builder {
         private boolean enableContinuations;
         private boolean enableStrictNumerics;
+        private boolean atomicBoundsChecks;
 
         private Builder() {
             this.enableContinuations = false;
             this.enableStrictNumerics = true;
+            this.atomicBoundsChecks = true;
         }
 
         /**
@@ -82,11 +106,25 @@ public final class WasmAssemblerConfiguration {
         }
 
         /**
-         * Set wh
+         * Set whether strict numeric operations are enabled.
+         *
+         * @param enable whether strict numeric operations are enabled
          * @return this
          */
         public Builder enableStrictNumerics(boolean enable) {
             this.enableStrictNumerics = enable;
+            return this;
+        }
+
+        /**
+         * Set whether bulk operations should bound-check before performing
+         * the operation.
+         *
+         * @param enable whether atomic bounds checks are enabled
+         * @return this
+         */
+        public Builder enableAtomicBoundsChecks(boolean enable) {
+            this.atomicBoundsChecks = enable;
             return this;
         }
 
@@ -98,7 +136,8 @@ public final class WasmAssemblerConfiguration {
         public WasmAssemblerConfiguration build() {
             return new WasmAssemblerConfiguration(
                     this.enableContinuations,
-                    this.enableStrictNumerics
+                    this.enableStrictNumerics,
+                    this.atomicBoundsChecks
             );
         }
     }

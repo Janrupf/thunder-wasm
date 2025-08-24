@@ -270,4 +270,9 @@ public enum Op {
      * Throw the object on top of the stack.
      */
     THROW,
+
+    /**
+     * Get the length of an array on top of the stack.
+     */
+    ARRAY_LENGTH,
 }

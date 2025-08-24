@@ -3,6 +3,8 @@ package net.janrupf.thunderwasm.instructions.memory;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
@@ -15,6 +17,7 @@ import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
 
@@ -52,8 +55,33 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
         DataSegment segment = context.getLookups().requireDataSegment(dataSegment.toArrayIndex());
 
         MemoryInstructionHelper helper = new MemoryInstructionHelper(memoryElement, context);
-
         MemoryGenerator internalGenerator = context.getGenerators().getMemoryGenerator();
+
+        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+            CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(codeEmitter);
+            helper.emitMemorySize();
+
+            codeEmitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkMemoryBulkWrite",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+
+            codeEmitter.duplicate();
+            internalGenerator.emitDataSegmentSize(dataSegment.toArrayIndex(), segment, context);
+
+            codeEmitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkDataBulkAccess",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+        }
 
         if (internalGenerator.canEmitInitFor(helper.getJavaMemoryType())) {
             CommonBytecodeGenerator.loadBelow(

@@ -4,6 +4,8 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
@@ -15,6 +17,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.TableType;
 
@@ -59,13 +62,29 @@ public final class TableCopy extends WasmInstruction<DoubleIndexData<TableIndexD
 
         TableGenerator internalTableGenerator = context.getGenerators().getTableGenerator();
 
+        CodeEmitter emitter = context.getEmitter();
+
         // Extract the necessary information
         TableInstructionHelper sourceHelper = new TableInstructionHelper(sourceElement, context);
         TableInstructionHelper targetHelper = new TableInstructionHelper(targetElement, context);
 
+        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+            CommonBytecodeGenerator.emitPrepareCopyBoundsCheck(emitter);
+            sourceHelper.emitTableSize();
+            targetHelper.emitTableSize();
+
+            emitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkTableCopyBulkAccess",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+        }
+
         // If the internal generate can emit a copy for the given types, use it
         if (internalTableGenerator.canEmitCopyFor(sourceHelper.getJavaTableType(), targetHelper.getJavaTableType())) {
-            CodeEmitter emitter = context.getEmitter();
 
             CommonBytecodeGenerator.loadBelow(
                     emitter,

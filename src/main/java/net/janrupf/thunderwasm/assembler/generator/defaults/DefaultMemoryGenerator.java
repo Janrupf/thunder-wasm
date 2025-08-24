@@ -60,7 +60,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 generateDataSegmentFieldName(i),
                 Visibility.PRIVATE,
                 false,
-                true,
+                false,
                 DATA_SEGMENT_TYPE,
                 null
         );
@@ -580,6 +580,37 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     }
 
     @Override
+    public void emitDataSegmentSize(LargeArrayIndex i, DataSegment segment, CodeEmitContext context)
+            throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateDataSegmentFieldName(i),
+                DATA_SEGMENT_TYPE,
+                false,
+                false
+        );
+
+        CodeLabel isNullLabel = emitter.newLabel();
+        CodeLabel endLabel = emitter.newLabel();
+
+        emitter.duplicate();
+        emitter.jump(JumpCondition.IS_NULL, isNullLabel);
+
+        emitter.op(Op.ARRAY_LENGTH);
+
+        emitter.jump(JumpCondition.ALWAYS, endLabel);
+        emitter.resolveLabel(isNullLabel);
+
+        emitter.pop();
+        emitter.loadConstant(0);
+
+        emitter.resolveLabel(endLabel);
+    }
+
+    @Override
     public void emitMemoryCopy(ObjectType sourceMemoryType, ObjectType targetMemoryType, CodeEmitContext context) throws WasmAssemblerException {
         /*
          * - source memory reference
@@ -708,8 +739,22 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     }
 
     @Override
-    public void emitDropData(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) {
-        // This is a no-op in the default implementation, as we don't need to do anything special
+    public void emitDropData(LargeArrayIndex i, DataSegment segment, CodeEmitContext context)
+            throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+
+        emitter.loadConstant(0);
+        emitter.doNew(DATA_SEGMENT_TYPE);
+
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateDataSegmentFieldName(i),
+                DATA_SEGMENT_TYPE,
+                false,
+                true
+        );
     }
 
     @Override

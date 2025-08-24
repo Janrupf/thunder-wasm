@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
@@ -18,8 +19,8 @@ import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
+import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ReferenceType;
 import net.janrupf.thunderwasm.types.TableType;
 
 import java.io.IOException;
@@ -61,8 +62,33 @@ public final class TableInit extends WasmInstruction<DoubleIndexData<ElementInde
         ElementSegment elementSegment = context.getLookups().requireElementSegment(element.toArrayIndex());
 
         TableInstructionHelper helper = new TableInstructionHelper(tableElement, context);
-
         TableGenerator generator = context.getGenerators().getTableGenerator();
+
+        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+            CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(codeEmitter);
+            helper.emitTableSize();
+
+            codeEmitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkTableBulkWrite",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+
+            codeEmitter.duplicate();
+            generator.emitElementSize(element.toArrayIndex(), elementSegment, context);
+
+            codeEmitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkElementBulkAccess",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+        }
 
         if (generator.canEmitInitFor(helper.getJavaTableType())) {
             CommonBytecodeGenerator.loadBelow(

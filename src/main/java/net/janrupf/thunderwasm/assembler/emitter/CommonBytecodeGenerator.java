@@ -530,7 +530,7 @@ public class CommonBytecodeGenerator {
         emitter.loadConstant(limits.getMin());
 
         if (limits.getMax() == null) {
-            emitter.loadConstant(null);
+            emitter.loadNull(ObjectType.of(Integer.class));
         } else {
             // Need to box!
             emitter.loadConstant(limits.getMax());
@@ -636,11 +636,56 @@ public class CommonBytecodeGenerator {
         emitter.invoke(
                 METHOD_HANDLE_TYPE,
                 "bindTo",
-                new JavaType[] { ObjectType.OBJECT },
+                new JavaType[]{ObjectType.OBJECT},
                 METHOD_HANDLE_TYPE,
                 InvokeType.VIRTUAL,
                 false
         );
+    }
+
+    /**
+     * Emit the code required to push n, d to the stack given n, *, d on the stack for a bounds checking operation.
+     *
+     * @param emitter the code emitter
+     * @throws WasmAssemblerException if the stack values are invalid
+     */
+    public static void emitPrepareWriteBoundsCheck(
+            CodeEmitter emitter
+    ) throws WasmAssemblerException {
+        JavaLocal tmp = emitter.allocateLocal(PrimitiveType.INT);
+
+        emitter.storeLocal(tmp);
+        emitter.duplicate(2, 0);
+        emitter.pop();
+
+        emitter.loadLocal(tmp);
+        emitter.duplicate(1, 1);
+
+        tmp.free();
+    }
+
+    /**
+     * Emit the code required to duplicate the top 3 stack values for a bounds checking operation.
+     *
+     * @param emitter the code emitter
+     * @throws WasmAssemblerException if the stack values are invalid
+     */
+    public static void emitPrepareCopyBoundsCheck(
+            CodeEmitter emitter
+    ) throws WasmAssemblerException {
+        // Top of stack n:u32, s:u32, d:u32
+        JavaLocal tmp = emitter.allocateLocal(PrimitiveType.INT);
+
+        emitter.storeLocal(tmp);
+
+        // Duplicate s and d
+        emitter.duplicate(2, 0);
+
+        // Duplicate n and insert below s and d
+        emitter.loadLocal(tmp);
+        emitter.duplicate(1, 2);
+
+        tmp.free();
     }
 
     @FunctionalInterface

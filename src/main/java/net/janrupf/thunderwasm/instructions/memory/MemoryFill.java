@@ -4,11 +4,14 @@ package net.janrupf.thunderwasm.instructions.memory;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.WasmU32VariantInstruction;
 import net.janrupf.thunderwasm.instructions.data.MemoryIndexData;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
+import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.NumberType;
 
 import java.io.IOException;
@@ -36,6 +39,20 @@ public final class MemoryFill extends WasmU32VariantInstruction<MemoryIndexData>
                 context.getLookups().requireMemory(data.toArrayIndex()),
                 context
         );
+
+        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+            CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(emitter);
+            helper.emitMemorySize();
+
+            emitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkMemoryBulkWrite",
+                    new JavaType[]{ PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT },
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+        }
 
         CodeLabel endLabel = emitter.newLabel();
         CodeLabel loopStartLabel = emitter.newLabel();

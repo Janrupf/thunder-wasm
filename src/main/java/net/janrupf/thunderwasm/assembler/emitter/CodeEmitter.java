@@ -94,6 +94,17 @@ public interface CodeEmitter {
     void loadConstant(Object value) throws WasmAssemblerException;
 
     /**
+     * Emit an instruction loading a null reference onto the stack.
+     * <p>
+     * This is separate from {@link #loadConstant(Object)} in order
+     * to be able to track the type of the null reference.
+     *
+     * @param type the type of the null reference
+     * @throws WasmAssemblerException if the null reference cannot be loaded
+     */
+    void loadNull(ObjectType type) throws WasmAssemblerException;
+
+    /**
      * Emit a return instruction.
      *
      * @throws WasmAssemblerException if a return can not be generated

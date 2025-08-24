@@ -480,7 +480,7 @@ public final class ContinuationHelper {
         if (heapLocals != null) {
             emitter.loadLocal(heapLocals);
         } else {
-            emitter.loadConstant(null);
+            emitter.loadNull(MultiValueHelper.MULTI_VALUE_TYPE);
         }
 
         if (!locals.isEmpty()) {
@@ -492,7 +492,7 @@ public final class ContinuationHelper {
             MultiValueHelper.emitCreateMultiValue(emitter, localTypes);
             MultiValueHelper.emitSaveLocals(emitter, locals, true);
         } else {
-            emitter.loadConstant(null);
+            emitter.loadNull(MultiValueHelper.MULTI_VALUE_TYPE);
         }
 
         emitter.invoke(

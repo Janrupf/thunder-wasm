@@ -150,11 +150,13 @@ public class DefaultTableGenerator implements TableGenerator {
                     context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
                 }
             } else {
-                // TODO: Handle null in a typed manner
-                emitter.loadConstant(initValues[j]);
+                if (initValues[j] == null) {
+                    emitter.loadNull(ObjectType.OBJECT);
+                } else {
+                    emitter.loadConstant(initValues[j]);
+                }
             }
             emitter.storeArrayElement();
-
         }
 
         CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), context.getLocalVariables(), 1);
@@ -280,7 +282,22 @@ public class DefaultTableGenerator implements TableGenerator {
                 invokeType(),
                 invokeType() == InvokeType.INTERFACE
         );
+    }
 
+    @Override
+    public void emitElementSize(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateElementSegmentFieldName(i),
+                new ArrayType(objectTypeFor(segment.getType())),
+                false,
+                false
+        );
+
+        emitter.op(Op.ARRAY_LENGTH);
     }
 
     @Override
@@ -358,13 +375,24 @@ public class DefaultTableGenerator implements TableGenerator {
         emitter.op(Op.SWAP);
 
         emitter.loadArrayElement();
-
-
     }
 
     @Override
-    public void emitDropElement(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) {
-        // No-op
+    public void emitDropElement(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
+
+        emitter.loadLocal(context.getLocalVariables().getThis());
+
+        emitter.loadConstant(0);
+        emitter.doNew(new ArrayType(objectTypeFor(segment.getType())));
+
+        emitter.accessField(
+                context.getEmitter().getOwner(),
+                generateElementSegmentFieldName(i),
+                new ArrayType(objectTypeFor(segment.getType())),
+                false,
+                true
+        );
     }
 
     @Override

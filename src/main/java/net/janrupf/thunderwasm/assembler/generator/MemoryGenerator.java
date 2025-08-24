@@ -159,6 +159,16 @@ public interface MemoryGenerator {
     void emitMemorySize(LargeArrayIndex i, MemoryType type, CodeEmitContext context) throws WasmAssemblerException;
 
     /**
+     * Emit the code for loading the current size of a data segment.
+     *
+     * @param i the index of the data segment
+     * @param segment the data segment
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitDataSegmentSize(LargeArrayIndex i, DataSegment segment, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
      * Emit a memory copy instruction.
      * <p>
      * This method will only be called if {@link #canEmitCopyFor(ObjectType, ObjectType)} returns true.

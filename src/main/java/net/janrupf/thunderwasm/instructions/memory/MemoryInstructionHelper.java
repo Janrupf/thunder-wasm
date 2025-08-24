@@ -122,4 +122,24 @@ class MemoryInstructionHelper {
             );
         }
     }
+
+    /**
+     * Emit an operation retrieving the memory size.
+     *
+     * @throws WasmAssemblerException if an error occurs
+     */
+    public void emitMemorySize() throws WasmAssemblerException {
+        if (element.isImport()) {
+            emitContext.getGenerators().getImportGenerator().emitMemorySize(
+                    element.getImport(),
+                    emitContext
+            );
+        } else {
+            emitContext.getGenerators().getMemoryGenerator().emitMemorySize(
+                    element.getIndex(),
+                    element.getElement(),
+                    emitContext
+            );
+        }
+    }
 }

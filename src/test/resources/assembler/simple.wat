@@ -1,6 +1,13 @@
 (module
-  (func (export "f32.no_fold_div_neg0") (param $x f32) (result f32)
-    (f32.div (local.get $x) (f32.const -0.0)))
-  (func (export "f64.no_fold_div_neg0") (param $x f64) (result f64)
-    (f64.div (local.get $x) (f64.const -0.0)))
+  (memory 1)
+  (data "\aa\bb\cc\dd")
+
+  (func (export "init") (param i32 i32 i32)
+    (memory.init 0
+      (local.get 0)
+      (local.get 1)
+      (local.get 2)))
+
+  (func (export "load8_u") (param i32) (result i32)
+    (i32.load8_u (local.get 0)))
 )

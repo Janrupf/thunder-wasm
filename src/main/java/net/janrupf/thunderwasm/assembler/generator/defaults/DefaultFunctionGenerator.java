@@ -132,7 +132,12 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
                     localVariables.registerKnownHeapLocal(localId++, javaType, heapIndex);
                 }
             } else {
-                codeEmitter.loadConstant(javaType.getDefaultValue());
+                Object defaultValue = javaType.getDefaultValue();
+                if (defaultValue == null) {
+                    codeEmitter.loadNull((ObjectType) javaType);
+                } else {
+                    codeEmitter.loadConstant(javaType.getDefaultValue());
+                }
 
                 for (int localIndex = 0; localIndex < local.getCount(); localIndex++) {
                     expandedLocals.add(local.getType());
@@ -329,7 +334,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         if (context.getLocalVariables().getContinuationLocal() != null) {
             emitter.loadLocal(context.getLocalVariables().getContinuationLocal());
         } else {
-            emitter.loadConstant(null);
+            emitter.loadNull(ContinuationHelper.CONTINUATION_TYPE);
         }
 
         emitter.invoke(

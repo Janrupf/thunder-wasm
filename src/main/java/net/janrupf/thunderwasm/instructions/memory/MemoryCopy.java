@@ -1,9 +1,10 @@
 package net.janrupf.thunderwasm.instructions.memory;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
+import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
@@ -14,6 +15,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.MemoryType;
 import net.janrupf.thunderwasm.types.NumberType;
 
@@ -40,6 +42,8 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         context.getFrameState().popOperand(NumberType.I32);
         context.getFrameState().popOperand(NumberType.I32);
 
+        CodeEmitter emitter = context.getEmitter();
+
         MemoryIndexData target = data.getFirst();
         MemoryIndexData source = data.getSecond();
 
@@ -55,9 +59,23 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
         MemoryInstructionHelper sourceHelper = new MemoryInstructionHelper(sourceElement, context);
         MemoryInstructionHelper targetHelper = new MemoryInstructionHelper(targetElement, context);
 
+        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+            CommonBytecodeGenerator.emitPrepareCopyBoundsCheck(emitter);
+            sourceHelper.emitMemorySize();
+            targetHelper.emitMemorySize();
+
+            emitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "checkMemoryCopyBulkAccess",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.VOID,
+                    InvokeType.STATIC,
+                    false
+            );
+        }
+
         // If the internal generator can emit a copy for the given types, use it
         if (memoryGenerator.canEmitCopyFor(sourceHelper.getJavaMemoryType(), targetHelper.getJavaMemoryType())) {
-            CodeEmitter emitter = context.getEmitter();
 
             CommonBytecodeGenerator.loadBelow(
                     emitter,

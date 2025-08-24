@@ -129,6 +129,16 @@ public interface TableGenerator {
     void emitTableSize(LargeArrayIndex i, TableType type, CodeEmitContext context) throws WasmAssemblerException;
 
     /**
+     * Emit the code to load the current size of an element segment.
+     *
+     * @param i the index of the element segment
+     * @param segment the element segment
+     * @param context the context to use
+     * @throws WasmAssemblerException if an error occurs
+     */
+    void emitElementSize(LargeArrayIndex i, ElementSegment segment, CodeEmitContext context) throws WasmAssemblerException;
+
+    /**
      * Emit a table fill instruction.
      * <p>
      * This method expects the start index, value and count to be on top of the stack.

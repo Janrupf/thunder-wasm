@@ -100,4 +100,44 @@ class TableInstructionHelper {
             );
         }
     }
+
+    /**
+     * Emit an operation retrieving the table size.
+     *
+     * @throws WasmAssemblerException if an error occurs
+     */
+    public void emitTableSize() throws WasmAssemblerException {
+        if (element.isImport()) {
+            emitContext.getGenerators().getImportGenerator().emitTableSize(
+                    element.getImport(),
+                    emitContext
+            );
+        } else {
+            emitContext.getGenerators().getTableGenerator().emitTableSize(
+                    element.getIndex(),
+                    element.getElement(),
+                    emitContext
+            );
+        }
+    }
+
+    /**
+     * Emit a table fill operation.
+     *
+     * @throws WasmAssemblerException if an error occurs
+     */
+    public void emitTableFill() throws WasmAssemblerException {
+        if (element.isImport()) {
+            emitContext.getGenerators().getImportGenerator().emitTableFill(
+                    element.getImport(),
+                    emitContext
+            );
+        } else {
+            emitContext.getGenerators().getTableGenerator().emitTableFill(
+                    element.getIndex(),
+                    element.getElement(),
+                    emitContext
+            );
+        }
+    }
 }
