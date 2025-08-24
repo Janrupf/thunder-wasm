@@ -70,18 +70,10 @@ public class LEB128Test {
             try (
                     InputStream stream = new ByteArrayInputStream(pair.getBytes());
             ) {
-                LEB128Value value = LEB128Value.readFrom(stream);
+                long value = LEB128Value.readS64(stream);
                 long expected = Long.parseLong(pair.getTextValue());
 
-                Assertions.assertEquals(expected, value.asSignedInt64());
-
-                if (expected < Integer.MAX_VALUE && expected > Integer.MIN_VALUE) {
-                    Assertions.assertEquals((int) expected, value.asSignedInt32());
-                }
-
-                if (expected < Short.MAX_VALUE && expected > Short.MIN_VALUE) {
-                    Assertions.assertEquals((short) expected, value.asSignedInt16());
-                }
+                Assertions.assertEquals(expected, value);
             }
         }
     }
@@ -94,18 +86,10 @@ public class LEB128Test {
             try (
                     InputStream stream = new ByteArrayInputStream(pair.getBytes());
             ) {
-                LEB128Value value = LEB128Value.readFrom(stream);
+                long value = LEB128Value.readU64(stream);
                 long expected = Long.parseUnsignedLong(pair.getTextValue());
 
-                Assertions.assertEquals(expected, value.asUnsignedInt64());
-
-                if (expected < Integer.MAX_VALUE && expected > Integer.MIN_VALUE) {
-                    Assertions.assertEquals((int) expected, value.asUnsignedInt32());
-                }
-
-                if (expected < Short.MAX_VALUE && expected > Short.MIN_VALUE) {
-                    Assertions.assertEquals((short) expected, value.asUnsignedInt16());
-                }
+                Assertions.assertEquals(expected, value);
             }
         }
     }

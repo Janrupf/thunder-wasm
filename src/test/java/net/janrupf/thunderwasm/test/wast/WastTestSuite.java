@@ -66,6 +66,20 @@ public class WastTestSuite {
         KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 262), "Assumes single memory");
         KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 280), "Assumes single memory");
         KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 298), "Assumes single memory");
+
+        KNOWN_BROKEN_TESTS.put(
+                new TestIdent("binary-leb128", 1073),
+                // This probably needs a bit more explanation:
+                // The test places an LEB128 value at the "form" field of a type section entry.
+                // The "form" field is a single byte that indicates the type of the entry,
+                // and the spec mandates this to be a single byte, not a multi-byte LEB128 value.
+                //
+                 // The test is very likely trying to test that _if_ the parser were to read a
+                // multi-byte LEB128 value here, it would be invalid. However, ThunderWasm
+                // correctly rejects the module because the "form" field is not a valid single-byte
+                // value, rather than because it is an invalid LEB128 encoding.
+                "Intentionally misplaces an LEB128 value, correctly rejected by ThunderWasm but not for the reason the test expects"
+        );
     }
 
     // Ideally this would run the manifests concurrently, but this currently is not

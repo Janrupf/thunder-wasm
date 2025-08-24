@@ -528,7 +528,7 @@ public class WasmLoader {
      * @throws InvalidModuleException if the module is invalid
      */
     public DataSegment readDataSegment() throws IOException, InvalidModuleException {
-        byte type = this.requireByte();
+        int type = this.readU32();
 
         LargeByteArray init;
         DataSegmentMode mode;
@@ -1154,7 +1154,7 @@ public class WasmLoader {
      * @throws IOException if an I/O error occurs
      */
     public short readU16() throws IOException {
-        return LEB128Value.readFrom(stream).asUnsignedInt16();
+        return LEB128Value.readU16(stream);
     }
 
     /**
@@ -1164,7 +1164,7 @@ public class WasmLoader {
      * @throws IOException if an I/O error occurs
      */
     public int readU32() throws IOException {
-        return LEB128Value.readFrom(stream).asUnsignedInt32();
+        return LEB128Value.readU32(stream);
     }
 
     /**
@@ -1174,7 +1174,7 @@ public class WasmLoader {
      * @throws IOException if an I/O error occurs
      */
     public long readU64() throws IOException {
-        return LEB128Value.readFrom(stream).asUnsignedInt64();
+        return LEB128Value.readU64(stream);
     }
 
     /**
@@ -1184,7 +1184,7 @@ public class WasmLoader {
      * @throws IOException if an I/O error occurs
      */
     public short readS16() throws IOException {
-        return LEB128Value.readFrom(stream).asSignedInt16();
+        return LEB128Value.readS16(stream);
     }
 
     /**
@@ -1194,7 +1194,7 @@ public class WasmLoader {
      * @throws IOException if an I/O error occurs
      */
     public int readS32() throws IOException {
-        return LEB128Value.readFrom(stream).asSignedInt32();
+        return LEB128Value.readS32(stream);
     }
 
     /**
@@ -1204,7 +1204,7 @@ public class WasmLoader {
      * @throws IOException if an I/O error occurs
      */
     public long readS64() throws IOException {
-        return LEB128Value.readFrom(stream).asSignedInt64();
+        return LEB128Value.readS64(stream);
     }
 
     /**
