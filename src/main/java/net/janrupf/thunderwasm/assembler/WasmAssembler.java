@@ -32,6 +32,8 @@ import net.janrupf.thunderwasm.types.*;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Entry point for translating a {@link WasmModule} into java bytecode.
@@ -50,6 +52,7 @@ public final class WasmAssembler {
 
     private final WasmGenerators generators;
     private final WasmAssemblerConfiguration configuration;
+    private final Set<String> seenExportNames;
 
     public WasmAssembler(
             WasmModule module,
@@ -93,6 +96,7 @@ public final class WasmAssembler {
         );
 
         this.generators = generators;
+        this.seenExportNames = new HashSet<>();
     }
 
     /**
@@ -535,7 +539,12 @@ public final class WasmAssembler {
 
         LargeArray<Export<?>> exports = section.getExports();
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(exports.largeLength()) < 0; i = i.add(1)) {
-            generators.getExportGenerator().addExport(i, exports.get(i), classEmitContext);
+            Export<?> export = exports.get(i);
+            if (!this.seenExportNames.add(export.getName())) {
+                throw new WasmAssemblerException("Duplicate export name: " + export.getName());
+            }
+
+            generators.getExportGenerator().addExport(i, export, classEmitContext);
         }
 
         generators.getExportGenerator().emitExportImplementation(exports, classEmitContext);
