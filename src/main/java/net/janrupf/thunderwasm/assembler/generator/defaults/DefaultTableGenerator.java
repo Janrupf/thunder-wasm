@@ -59,6 +59,12 @@ public class DefaultTableGenerator implements TableGenerator {
                         .withTypeArgument(ConcreteType.of(genericTableType))
                         .build()
         );
+
+        if (type.getLimits().getMax() != null) {
+            if (Integer.compareUnsigned(type.getLimits().getMin(), type.getLimits().getMax()) > 0) {
+                throw new WasmAssemblerException("Table limits min is larger than max");
+            }
+        }
     }
 
     @Override
@@ -90,10 +96,6 @@ public class DefaultTableGenerator implements TableGenerator {
         if (limits.getMax() == null) {
             emitter.loadConstant(-1);
         } else {
-            if (Integer.compareUnsigned(limits.getMin(), limits.getMax()) > 0) {
-                throw new WasmAssemblerException("Table limits min was larger than max");
-            }
-
             emitter.loadConstant(limits.getMax());
         }
 

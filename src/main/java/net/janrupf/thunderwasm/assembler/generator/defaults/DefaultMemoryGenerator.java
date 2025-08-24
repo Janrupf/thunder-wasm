@@ -45,7 +45,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
     }
 
     @Override
-    public void addMemory(LargeArrayIndex i, MemoryType type, ClassFileEmitter emitter) {
+    public void addMemory(LargeArrayIndex i, MemoryType type, ClassFileEmitter emitter) throws WasmAssemblerException {
         emitter.field(
                 generateMemoryFieldName(i),
                 Visibility.PRIVATE,
@@ -54,6 +54,18 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
                 MEMORY_TYPE,
                 null
         );
+
+        if (Integer.compareUnsigned(type.getLimits().getMin(), 65536) > 0) {
+            throw new WasmAssemblerException("Memory limits min can at most be 65536");
+        }
+
+        if (type.getLimits().getMax() != null) {
+            if (Integer.compareUnsigned(type.getLimits().getMin(), type.getLimits().getMax()) > 0) {
+                throw new WasmAssemblerException("Memory limits min is larger than max");
+            } else if (Integer.compareUnsigned(type.getLimits().getMax(), 65536) > 0) {
+                throw new WasmAssemblerException("Memory limits max can at most be 65536");
+            }
+        }
     }
 
     @Override

@@ -118,7 +118,7 @@ public class DefaultImportGenerator implements ImportGenerator {
         tableGeneratorFor(im).addTable(null, im.getDescription().getType(), emitter);
     }
 
-    private void addMemoryImport(Import<MemoryImportDescription> im, ClassFileEmitter emitter) {
+    private void addMemoryImport(Import<MemoryImportDescription> im, ClassFileEmitter emitter) throws WasmAssemblerException {
         memoryGeneratorFor(im).addMemory(null, im.getDescription().getType(), emitter);
 
         emitter.field(
