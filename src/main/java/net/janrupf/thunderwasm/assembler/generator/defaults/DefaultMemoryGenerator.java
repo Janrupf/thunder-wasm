@@ -490,37 +490,35 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitMemorySize(i, type, context);
 
         // Duplicate the old size 2 slots down
-        // NOTE: theoretically this would need to be a pop, pop, push, push, push, but since all of the types are I32,
-        // this is effectively equivalent to just pushing a new I32
         emitter.duplicate(1, 1);
 
         // Calculate new page count
         emitter.op(Op.IADD);
 
         Integer maxPageCount = type.getLimits().getMax();
-        CodeLabel endLabel = null;
-
-        if (maxPageCount != null) {
-            // And test if valid, returning -1 if not
-            CodeLabel okLabel = emitter.newLabel();
-            endLabel = emitter.newLabel();
-
-            emitter.duplicate();
-            emitter.loadConstant(maxPageCount);
-
-            // Check if new is in bounds - if so, jump to the end
-            emitter.jump(JumpCondition.INT_LESS_THAN_OR_EQUAL, okLabel);
-
-            // Not in bounds, clear the new and old size from the stack,
-            // and load -1
-            emitter.pop();
-            emitter.pop();
-
-            emitter.loadConstant(-1);
-            emitter.jump(JumpCondition.ALWAYS, endLabel);
-
-            emitter.resolveLabel(okLabel);
+        if (maxPageCount == null) {
+            maxPageCount = 65536;
         }
+
+        // And test if valid, returning -1 if not
+        CodeLabel okLabel = emitter.newLabel();
+        CodeLabel endLabel = emitter.newLabel();
+
+        emitter.duplicate();
+        emitter.loadConstant(maxPageCount);
+
+        // Check if new is in bounds - if so, jump to the end
+        emitter.jump(JumpCondition.INT_LESS_THAN_OR_EQUAL, okLabel);
+
+        // Not in bounds, clear the new and old size from the stack,
+        // and load -1
+        emitter.pop();
+        emitter.pop();
+
+        emitter.loadConstant(-1);
+        emitter.jump(JumpCondition.ALWAYS, endLabel);
+
+        emitter.resolveLabel(okLabel);
 
         // Allocate a new buffer...
         emitter.loadConstant(PAGE_SIZE);
@@ -557,9 +555,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitAccessMemoryField(i, true, context);
 
         // Now the old size on top of the stack, as it should be!
-        if (endLabel != null) {
-            emitter.resolveLabel(endLabel);
-        }
+        emitter.resolveLabel(endLabel);
     }
 
     @Override
