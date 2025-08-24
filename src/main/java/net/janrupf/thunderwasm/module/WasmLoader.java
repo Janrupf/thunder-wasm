@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.imports.*;
 import net.janrupf.thunderwasm.instructions.*;
 import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
 import net.janrupf.thunderwasm.instructions.reference.RefFunc;
+import net.janrupf.thunderwasm.lookup.SectionLocator;
 import net.janrupf.thunderwasm.module.encoding.*;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
@@ -26,6 +27,21 @@ import java.util.Collections;
 import java.util.List;
 
 public class WasmLoader {
+    private static final SectionLocator<?>[] SECTION_ORDER = {
+            TypeSection.LOCATOR,
+            ImportSection.LOCATOR,
+            FunctionSection.LOCATOR,
+            TableSection.LOCATOR,
+            MemorySection.LOCATOR,
+            GlobalSection.LOCATOR,
+            ExportSection.LOCATOR,
+            StartSection.LOCATOR,
+            ElementSection.LOCATOR,
+            DataCountSection.LOCATOR,
+            CodeSection.LOCATOR,
+            DataSection.LOCATOR
+    };
+
     private final InputStream stream;
     private final InstructionRegistry instructionRegistry;
     private final CharsetDecoder utf8Decoder;
@@ -33,6 +49,7 @@ public class WasmLoader {
     private int importCounter;
     private Byte buffered;
     private long cursorPos;
+    private int nextSectionIndex;
 
     public WasmLoader(InputStream stream, InstructionRegistry instructionRegistry) {
         this(stream, instructionRegistry, true);
@@ -49,6 +66,7 @@ public class WasmLoader {
         this.importCounter = 0;
         this.buffered = null;
         this.cursorPos = 0;
+        this.nextSectionIndex = 0;
     }
 
     public WasmModule load() throws IOException, InvalidModuleException {
@@ -67,7 +85,34 @@ public class WasmLoader {
 
         // Read all the remaining data as sections
         while (!this.isEOF()) {
-            sections.add(this.readSection());
+            WasmSection section = this.readSection();
+
+            if (strictParsing && CustomSection.LOCATOR.getSectionId() != section.getId()) {
+                if (this.nextSectionIndex >= SECTION_ORDER.length) {
+                    throw new InvalidModuleException(
+                            "Found section with id " + unsignedByteToString(section.getId()) +
+                                    " after all standard sections");
+                }
+
+                boolean foundValid = false;
+                for (int i = this.nextSectionIndex; i < SECTION_ORDER.length; i++) {
+                    if (SECTION_ORDER[i].getSectionId() == section.getId()) {
+                        this.nextSectionIndex = i + 1;
+                        foundValid = true;
+                        break;
+                    }
+                }
+
+                if (!foundValid) {
+                    throw new InvalidModuleException(
+                            "Section with id " + unsignedByteToString(section.getId()) +
+                                    " is out of order, expected section with id " +
+                                    unsignedByteToString(SECTION_ORDER[this.nextSectionIndex].getSectionId()) +
+                                    " or later");
+                }
+            }
+
+            sections.add(section);
         }
 
         if (strictParsing) {
