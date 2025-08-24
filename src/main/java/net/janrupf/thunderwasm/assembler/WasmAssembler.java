@@ -29,6 +29,7 @@ import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
 import net.janrupf.thunderwasm.runtime.ImportedGlobalValueReference;
 import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.*;
+import net.janrupf.thunderwasm.util.ObjectUtil;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -133,6 +134,17 @@ public final class WasmAssembler {
 
         for (WasmSection section : module.getSections()) {
             processSection(section);
+        }
+
+        if (!onceProcessedSections.contains(ProcessedSections.EXPORT)) {
+            // Probably not the best place to do this, but it works for now - the
+            // export generator usually supplies an interface that the generated
+            // class should implement, so we need to do this even if there are no
+            // exports.
+            this.generators.getExportGenerator().emitExportImplementation(
+                    ObjectUtil.forceCast(new LargeArray<>(Export.class, LargeArrayIndex.ZERO)),
+                    classEmitContext
+            );
         }
 
         return emitter.finish();
