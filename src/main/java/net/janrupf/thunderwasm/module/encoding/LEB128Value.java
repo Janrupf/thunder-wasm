@@ -25,7 +25,9 @@ public class LEB128Value {
         int shift = 0;
         int current;
 
-        do {
+        final int maxBytes = 10;
+
+        for (int i = 0; i < maxBytes; i++) {
             current = stream.read();
             if (current == -1) {
                 throw new EOFException("Unexpected end of stream while reading LEB128 value");
@@ -33,21 +35,29 @@ public class LEB128Value {
 
             result |= ((long) (current & 0x7F)) << shift;
             shift += 7;
-        } while ((current & 0x80) != 0);
 
-        return new LEB128Value(shift, result);
+            if ((current & 0x80) == 0) {
+                return new LEB128Value(shift, result);
+            }
+        }
+
+        throw new IOException("LEB128 value exceeds maximum length of 10 bytes for a 64-bit integer");
     }
 
     /**
      * Validates that the LEB128 value does not exceed the given amount of bits.
+     * This method is suitable for UNSIGNED values.
      *
      * @param bits the maximum amount of bits
      * @throws IOException if the value exceeds the given amount of bits
      */
     private void validateBitCount(int bits) throws IOException {
-        int usedBits = 64 - Long.numberOfLeadingZeros(merged);
+        if (bits >= 64) {
+            return;
+        }
 
-        if (usedBits > bits) {
+        long maxValue = (1L << bits) - 1;
+        if (merged > maxValue) {
             throw new IOException("LEB128 value exceeds " + bits + " bits");
         }
     }
@@ -89,36 +99,38 @@ public class LEB128Value {
      * Returns the LEB128 value as a signed 16-bit integer.
      *
      * @return the LEB128 value as a signed 16-bit integer
-     * @throws IOException if the value exceeds 16 bits
+     * @throws IOException if the value is out of range for a signed 16-bit integer
      */
     public short asSignedInt16() throws IOException {
-        validateBitCount(16);
-
-        // Apply sign extension shift
-        short value = (short) merged;
-        if (shift < 16 && (value & (1 << (shift - 1))) != 0) {
-            value |= (short) (((short) -1) << shift);
+        long value = this.merged;
+        if ((value & (1L << (shift - 1))) != 0) {
+            value |= -1L << shift;
         }
 
-        return value;
+        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+            throw new IOException("LEB128 value out of range for signed 16-bit integer");
+        }
+
+        return (short) value;
     }
 
     /**
      * Returns the LEB128 value as a signed 32-bit integer.
      *
      * @return the LEB128 value as a signed 32-bit integer
-     * @throws IOException if the value exceeds 32 bits
+     * @throws IOException if the value is out of range for a signed 32-bit integer
      */
     public int asSignedInt32() throws IOException {
-        validateBitCount(32);
-
-        // Apply sign extension shift
-        int value = (int) this.merged;
-        if (shift < 32 && (value & (1 << (shift - 1))) != 0) {
-            value |= -1 << shift;
+        long value = this.merged;
+        if ((value & (1L << (shift - 1))) != 0) {
+            value |= -1L << shift;
         }
 
-        return value;
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw new IOException("LEB128 value out of range for signed 32-bit integer");
+        }
+
+        return (int) value;
     }
 
     /**
@@ -128,9 +140,6 @@ public class LEB128Value {
      * @throws IOException if the value exceeds 64 bits
      */
     public long asSignedInt64() throws IOException {
-        validateBitCount(64);
-
-        // Apply sign extension shift
         long value = this.merged;
         if (shift < 64 && (value & (1L << (shift - 1))) != 0) {
             value |= -1L << shift;
