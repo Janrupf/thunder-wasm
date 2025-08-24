@@ -109,9 +109,10 @@ public final class EvalContext {
     /**
      * Derives a fresh evaluation context from this context.
      *
+     * @param allowReferencingNonImportGlobals whether the new context should allow referencing non-import globals
      * @return the fresh evaluation context
      */
-    public EvalContext deriveFresh() {
+    public EvalContext deriveFresh(boolean allowReferencingNonImportGlobals) {
         return new EvalContext(lookups, allowReferencingNonImportGlobals);
     }
 

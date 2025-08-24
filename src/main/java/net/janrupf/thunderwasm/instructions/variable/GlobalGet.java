@@ -90,7 +90,7 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
 
             ValueType type = g.getType().getValueType();
 
-            Object value = context.deriveFresh().evalSingleValue(g.getInit(), true, type);
+            Object value = context.deriveFresh(false).evalSingleValue(g.getInit(), true, type);
             context.getFrameState().push(type, value);
         }
     }

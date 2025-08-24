@@ -438,7 +438,7 @@ public final class WasmAssembler {
         for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(globals.largeLength()) < 0; i = i.add(1)) {
             Global global = globals.get(i);
 
-            EvalContext evalContext = new EvalContext(elementLookups, true);
+            EvalContext evalContext = new EvalContext(elementLookups, false);
             Object globalValue = evalContext.evalSingleValue(global.getInit(), true, global.getType().getValueType());
 
             // Emit the setter
