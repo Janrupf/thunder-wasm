@@ -29,13 +29,20 @@ public class WasmLoader {
     private final InputStream stream;
     private final InstructionRegistry instructionRegistry;
     private final CharsetDecoder utf8Decoder;
+    private final boolean strictParsing;
     private int importCounter;
     private Byte buffered;
     private long cursorPos;
 
     public WasmLoader(InputStream stream, InstructionRegistry instructionRegistry) {
+        this(stream, instructionRegistry, true);
+    }
+
+    public WasmLoader(InputStream stream, InstructionRegistry instructionRegistry, boolean strictParsing) {
         this.stream = contentStream(stream);
         this.instructionRegistry = instructionRegistry;
+        this.strictParsing = strictParsing;
+
         this.utf8Decoder = StandardCharsets.UTF_8.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT);
@@ -63,7 +70,67 @@ public class WasmLoader {
             sections.add(this.readSection());
         }
 
+        if (strictParsing) {
+            runBasicValidation(sections);
+        }
+
         return new WasmModule(version, sections);
+    }
+
+    /**
+     * Run some very basic validation on the module sections.
+     * <p>
+     * This is mainly done because the WASM spec mandates it, though some of these checks
+     * could also be interpreted as part of the actual validation step.
+     *
+     * @param sections the sections to validate
+     * @throws InvalidModuleException if the module is invalid
+     */
+    private void runBasicValidation(List<WasmSection> sections) throws InvalidModuleException {
+        long functionSectionLength = -1;
+        long codeSectionLength = -1;
+        long dataCountSectionLength = -1;
+        long dataSectionLength = -1;
+
+        for (WasmSection section : sections) {
+            if (section instanceof FunctionSection) {
+                if (functionSectionLength != -1) {
+                    throw new InvalidModuleException("Multiple function sections found");
+                }
+
+                functionSectionLength = ((FunctionSection) section).getTypes().length();
+            } else if (section instanceof CodeSection) {
+                if (codeSectionLength != -1) {
+                    throw new InvalidModuleException("Multiple code sections found");
+                }
+
+                codeSectionLength = ((CodeSection) section).getFunctions().length();
+            } else if (section instanceof DataCountSection) {
+                if (dataCountSectionLength != -1) {
+                    throw new InvalidModuleException("Multiple data count sections found");
+                }
+
+                dataCountSectionLength = ((DataCountSection) section).getCount();
+            } else if (section instanceof DataSection) {
+                if (dataSectionLength != -1) {
+                    throw new InvalidModuleException("Multiple data sections found");
+                }
+
+                dataSectionLength = ((DataSection) section).getSegments().length();
+            }
+        }
+
+        if (functionSectionLength != codeSectionLength) {
+            throw new InvalidModuleException(
+                    "Function and code section lengths do not match, function section length: " + functionSectionLength
+                            + ", code section length: " + codeSectionLength);
+        }
+
+        if (dataCountSectionLength != -1 && dataCountSectionLength != dataSectionLength) {
+            throw new InvalidModuleException(
+                    "Data count and data section lengths do not match, data count section length: " +
+                            dataCountSectionLength + ", data section length: " + dataSectionLength);
+        }
     }
 
     private WasmSection readSection() throws IOException, InvalidModuleException {
@@ -145,6 +212,10 @@ public class WasmLoader {
             }
 
             default: {
+                if (strictParsing) {
+                    throw new InvalidModuleException("Invalid section id: " + unsignedByteToString(id));
+                }
+
                 LargeByteArray data = this.readByteVecBody(LargeArrayIndex.fromU32(sectionSize));
                 section = new UnidentifiedSection(id, data);
                 break;

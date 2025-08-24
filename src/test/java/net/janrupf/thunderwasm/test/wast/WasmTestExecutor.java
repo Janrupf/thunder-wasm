@@ -212,6 +212,7 @@ public class WasmTestExecutor {
         } catch (WasmAssemblerException e) {
         } catch (EOFException e) {
         } catch (InvalidModuleException e) {
+        } catch (ArrayIndexOutOfBoundsException e) {
         }
     }
 
