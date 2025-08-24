@@ -13,6 +13,8 @@ import net.janrupf.thunderwasm.types.ValueType;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.HashSet;
+import java.util.Set;
 
 public class SpectestEnvironment {
     private final MethodHandles.Lookup lookup;
@@ -33,6 +35,8 @@ public class SpectestEnvironment {
     private final LinkedMemory memory;
     private final LinkedTable<LinkedFunction> table;
 
+    private final Set<String> validImportNames;
+
     public SpectestEnvironment() {
         this.lookup = MethodHandles.lookup();
 
@@ -51,6 +55,21 @@ public class SpectestEnvironment {
 
         this.memory = new LinkedMemory.Simple(new Limits(1, 2));
         this.table = new Table<>(10, 20);
+
+        this.validImportNames = new HashSet<>();
+        validImportNames.add("print");
+        validImportNames.add("print_i32");
+        validImportNames.add("print_i64");
+        validImportNames.add("print_f32");
+        validImportNames.add("print_f64");
+        validImportNames.add("print_i32_f32");
+        validImportNames.add("print_f64_f64");
+        validImportNames.add("global_i32");
+        validImportNames.add("global_i64");
+        validImportNames.add("global_f32");
+        validImportNames.add("global_f64");
+        validImportNames.add("memory");
+        validImportNames.add("table");
     }
 
     private LinkedFunction lookup(String name, Class<?>... argumentTypes) {
@@ -89,7 +108,11 @@ public class SpectestEnvironment {
                 break;
 
             default:
-                throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+                if (!validImportNames.contains(name)) {
+                    throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+                }
+
+                throw new WastEnvironmentLinker.LinkageFailedException("incompatible import type");
         }
 
         if (!readOnly) {
@@ -137,7 +160,11 @@ public class SpectestEnvironment {
                 break;
 
             default:
-                throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+                if (!validImportNames.contains(name)) {
+                    throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+                }
+
+                throw new WastEnvironmentLinker.LinkageFailedException("incompatible import type");
         }
 
         if (!type.getInputs().asFlatList().equals(selected.getArguments())) {
@@ -179,7 +206,11 @@ public class SpectestEnvironment {
 
     public LinkedMemory getMemory(String name) throws WastEnvironmentLinker.LinkageFailedException {
         if (!name.equals("memory")) {
-            throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+            if (!validImportNames.contains(name)) {
+                throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+            }
+
+            throw new WastEnvironmentLinker.LinkageFailedException("incompatible import type");
         }
 
         return memory;
@@ -187,7 +218,11 @@ public class SpectestEnvironment {
 
     public LinkedTable<?> getTable(String name, ValueType type) throws WastEnvironmentLinker.LinkageFailedException {
         if (!name.equals("table")) {
-            throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+            if (!validImportNames.contains(name)) {
+                throw new WastEnvironmentLinker.LinkageFailedException("unknown import");
+            }
+
+            throw new WastEnvironmentLinker.LinkageFailedException("incompatible import type");
         }
 
         if (!type.equals(ReferenceType.FUNCREF)) {

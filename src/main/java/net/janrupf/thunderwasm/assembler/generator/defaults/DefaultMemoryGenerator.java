@@ -956,7 +956,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         );
     }
 
-    private void emitEnforceByteOrder(
+    public void emitEnforceByteOrder(
             CodeEmitContext context
     ) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();

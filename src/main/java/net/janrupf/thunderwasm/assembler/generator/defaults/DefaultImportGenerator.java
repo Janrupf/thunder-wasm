@@ -294,6 +294,7 @@ public class DefaultImportGenerator implements ImportGenerator {
                 InvokeType.INTERFACE,
                 true
         );
+        memoryGeneratorFor(im).emitEnforceByteOrder(context);
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldName(im),
@@ -301,7 +302,6 @@ public class DefaultImportGenerator implements ImportGenerator {
                 false,
                 true
         );
-
     }
 
     private void emitLinkTypeImport(Import<TypeImportDescription> im, CodeEmitContext context)
@@ -523,6 +523,7 @@ public class DefaultImportGenerator implements ImportGenerator {
                 InvokeType.INTERFACE,
                 true
         );
+        memoryGeneratorFor(im).emitEnforceByteOrder(context);
         emitter.accessField(
                 emitter.getOwner(),
                 generateImportFieldName(im),
