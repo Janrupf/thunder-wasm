@@ -45,7 +45,9 @@ public class LEB128Value {
      * @throws IOException if the value exceeds the given amount of bits
      */
     private void validateBitCount(int bits) throws IOException {
-        if (shift - 7 > bits) {
+        int usedBits = 64 - Long.numberOfLeadingZeros(merged);
+
+        if (usedBits > bits) {
             throw new IOException("LEB128 value exceeds " + bits + " bits");
         }
     }

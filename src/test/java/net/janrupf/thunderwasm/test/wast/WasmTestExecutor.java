@@ -213,6 +213,10 @@ public class WasmTestExecutor {
         } catch (EOFException e) {
         } catch (InvalidModuleException e) {
         } catch (ArrayIndexOutOfBoundsException e) {
+        } catch (IOException e) {
+            if (!e.getMessage().startsWith("LEB128 value exceeds")) {
+                throw e;
+            }
         }
     }
 

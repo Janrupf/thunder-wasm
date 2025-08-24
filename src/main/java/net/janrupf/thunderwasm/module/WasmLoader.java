@@ -87,35 +87,19 @@ public class WasmLoader {
      * @throws InvalidModuleException if the module is invalid
      */
     private void runBasicValidation(List<WasmSection> sections) throws InvalidModuleException {
-        long functionSectionLength = -1;
-        long codeSectionLength = -1;
+        long functionSectionLength = 0;
+        long codeSectionLength = 0;
         long dataCountSectionLength = -1;
-        long dataSectionLength = -1;
+        long dataSectionLength = 0;
 
         for (WasmSection section : sections) {
             if (section instanceof FunctionSection) {
-                if (functionSectionLength != -1) {
-                    throw new InvalidModuleException("Multiple function sections found");
-                }
-
                 functionSectionLength = ((FunctionSection) section).getTypes().length();
             } else if (section instanceof CodeSection) {
-                if (codeSectionLength != -1) {
-                    throw new InvalidModuleException("Multiple code sections found");
-                }
-
                 codeSectionLength = ((CodeSection) section).getFunctions().length();
             } else if (section instanceof DataCountSection) {
-                if (dataCountSectionLength != -1) {
-                    throw new InvalidModuleException("Multiple data count sections found");
-                }
-
                 dataCountSectionLength = ((DataCountSection) section).getCount();
             } else if (section instanceof DataSection) {
-                if (dataSectionLength != -1) {
-                    throw new InvalidModuleException("Multiple data sections found");
-                }
-
                 dataSectionLength = ((DataSection) section).getSegments().length();
             }
         }
@@ -547,6 +531,19 @@ public class WasmLoader {
         long currentCursorPos = this.cursorPos;
 
         LargeArray<Local> locals = this.readVec(Local.class, this::readLocal);
+
+        if (strictParsing) {
+            long localCount = 0;
+
+            for (Local l : locals) {
+                localCount += Integer.toUnsignedLong(l.getCount());
+
+                if (Long.compareUnsigned(localCount, 0xFFFFFFFFL) > 0) {
+                    throw new InvalidModuleException("Function has too many locals (" + localCount + ")");
+                }
+            }
+        }
+
         Expr expr = Expr.read(this);
 
         if (this.cursorPos - currentCursorPos != size) {

@@ -13,17 +13,59 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class WastTestSuite {
-    private static final Set<String> UNSUPPORTED = new HashSet<>();
+    private static final class TestIdent {
+        private final String collection;
+        private final int line;
+
+        public TestIdent(String collection, int line) {
+            this.collection = collection;
+            this.line = line;
+        }
+
+        public String getCollection() {
+            return collection;
+        }
+
+        public int getLine() {
+            return line;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof TestIdent)) return false;
+            TestIdent testIdent = (TestIdent) o;
+            return line == testIdent.line && Objects.equals(collection, testIdent.collection);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(collection, line);
+        }
+    }
+
+    private static final Set<String> UNSUPPORTED_CATEGORIES = new HashSet<>();
+    private static final Map<TestIdent, String> KNOWN_BROKEN_TESTS = new HashMap<>();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     static {
-        UNSUPPORTED.add("simd_");
+        UNSUPPORTED_CATEGORIES.add("simd_");
+
+        // We already support multiple memories, but the tests are written with the
+        // assumption that there is only one memory.
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 126), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 146), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 166), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 185), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 204), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 224), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 243), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 262), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 280), "Assumes single memory");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("binary", 298), "Assumes single memory");
     }
 
     // Ideally this would run the manifests concurrently, but this currently is not
@@ -86,10 +128,15 @@ public class WastTestSuite {
     }
 
     private void runTestCommand(WastCommand command, WasmTestExecutor executor) throws Throwable {
-        for (String unsupported : UNSUPPORTED) {
+        for (String unsupported : UNSUPPORTED_CATEGORIES) {
             if (executor.getCollection().getName().startsWith(unsupported)) {
                 Assumptions.abort("Unsupported by category " + unsupported);
             }
+        }
+
+        TestIdent ident = new TestIdent(executor.getCollection().getName(), command.getLine());
+        if (KNOWN_BROKEN_TESTS.containsKey(ident)) {
+            Assumptions.abort("Known broken test: " + KNOWN_BROKEN_TESTS.get(ident));
         }
 
         Assumptions.assumeFalse(executor.isBroken(), "Previous test has failed");
