@@ -15,6 +15,7 @@ import net.janrupf.thunderwasm.instructions.memory.base.PlainMemoryStore;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeByteArray;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
+import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.runtime.linker.memory.LinkedMemory;
 import net.janrupf.thunderwasm.types.*;
 
@@ -123,7 +124,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
             codeEmitter.invoke(
                     ObjectType.of(String.class),
                     "getBytes",
-                    new JavaType[] { ObjectType.of(Charset.class) },
+                    new JavaType[]{ObjectType.of(Charset.class)},
                     new ArrayType(PrimitiveType.BYTE),
                     InvokeType.VIRTUAL,
                     false
@@ -137,7 +138,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
             codeEmitter.invoke(
                     ObjectType.of(System.class),
                     "arraycopy",
-                    new JavaType[] { ObjectType.OBJECT, PrimitiveType.INT, ObjectType.OBJECT, PrimitiveType.INT, PrimitiveType.INT },
+                    new JavaType[]{ObjectType.OBJECT, PrimitiveType.INT, ObjectType.OBJECT, PrimitiveType.INT, PrimitiveType.INT},
                     PrimitiveType.VOID,
                     InvokeType.STATIC,
                     false
@@ -538,7 +539,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitter.invoke(
                 MEMORY_TYPE,
                 "allocateDirect",
-                new JavaType[]{ PrimitiveType.INT },
+                new JavaType[]{PrimitiveType.INT},
                 MEMORY_TYPE,
                 InvokeType.STATIC,
                 false
@@ -550,7 +551,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitter.invoke(
                 MEMORY_TYPE,
                 "put",
-                new JavaType[] { MEMORY_TYPE },
+                new JavaType[]{MEMORY_TYPE},
                 MEMORY_TYPE,
                 InvokeType.VIRTUAL,
                 false
@@ -558,7 +559,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitter.invoke(
                 MEMORY_TYPE,
                 "clear",
-                new JavaType[] {},
+                new JavaType[]{},
                 MEMORY_TYPE,
                 InvokeType.VIRTUAL,
                 false
@@ -864,7 +865,7 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         emitter.invoke(
                 LINKED_MEMORY_HANDLE_TYPE,
                 "<init>",
-                new JavaType[] { ObjectType.of(MethodHandle.class), ObjectType.of(MethodHandle.class) },
+                new JavaType[]{ObjectType.of(MethodHandle.class), ObjectType.of(MethodHandle.class)},
                 PrimitiveType.VOID,
                 InvokeType.SPECIAL,
                 false
@@ -930,7 +931,19 @@ public class DefaultMemoryGenerator implements MemoryGenerator {
         }
 
         emitter.loadConstant(memarg.getOffset());
-        emitter.op(Op.IADD);
+
+        if (context.getConfiguration().overflowBoundsChecksEnabled()) {
+            emitter.invoke(
+                    ObjectType.of(BoundsChecks.class),
+                    "calculateEffectiveAddress",
+                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
+                    PrimitiveType.INT,
+                    InvokeType.STATIC,
+                    false
+            );
+        } else {
+            emitter.op(Op.IADD);
+        }
     }
 
     private void emitAccessMemoryField(

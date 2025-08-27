@@ -52,4 +52,12 @@ public final class BoundsChecks {
             throw new IndexOutOfBoundsException("Out of bounds " + type + " access");
         }
     }
+
+    public static int calculateEffectiveAddress(int base, int offset) {
+        if ((base < 0 && base + offset >= 0) || (offset < 0 && base + offset >= 0)) {
+            throw new IndexOutOfBoundsException("Memory address overflow");
+        }
+
+        return base + offset;
+    }
 }

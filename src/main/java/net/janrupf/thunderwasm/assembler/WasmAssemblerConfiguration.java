@@ -4,20 +4,26 @@ package net.janrupf.thunderwasm.assembler;
  * Configuration data which influences how the assembler generates code.
  */
 public final class WasmAssemblerConfiguration {
+    /**
+     * The default configuration - this is a full WASM spec compliant configuration.
+     */
     public static final WasmAssemblerConfiguration DEFAULT = builder().build();
 
     private final boolean enableContinuations;
     private final boolean enableStrictNumerics;
     private final boolean atomicBoundsChecks;
+    private final boolean overflowBoundsChecks;
 
     private WasmAssemblerConfiguration(
             boolean enableContinuations,
             boolean enableStrictNumerics,
-            boolean atomicBoundsChecks
+            boolean atomicBoundsChecks,
+            boolean overflowBoundsChecks
     ) {
         this.enableContinuations = enableContinuations;
         this.enableStrictNumerics = enableStrictNumerics;
         this.atomicBoundsChecks = atomicBoundsChecks;
+        this.overflowBoundsChecks = overflowBoundsChecks;
     }
 
     /**
@@ -66,6 +72,27 @@ public final class WasmAssemblerConfiguration {
     }
 
     /**
+     * Determines whether overflow bounds checks are enabled.
+     * <p>
+     * Overflow bounds checks catch a Java implementation specific issue where addresses
+     * may silently overflow and suddenly become valid again. As integer overflow is
+     * a non-trapping operation in Java, this leads to a non-compliant behavior.
+     * Since memory load/store operations happen very frequently, this can be
+     * disabled for performance reasons. A well-formed program is unlikely to
+     * ever hit this issue.
+     * <p>
+     * Bounds checks are still performed in terms of sandboxing even if this is
+     * disabled (in other words, this does not have any sandbox safety implications).
+     * However, a `*.load/store` operation that would go out of bounds might
+     * succeed if this is disabled.
+     *
+     * @return true if overflow bounds checks are enabled, false otherwise
+     */
+    public boolean overflowBoundsChecksEnabled() {
+        return overflowBoundsChecks;
+    }
+
+    /**
      * Create a new configuration builder.
      *
      * @return the created builder
@@ -78,11 +105,13 @@ public final class WasmAssemblerConfiguration {
         private boolean enableContinuations;
         private boolean enableStrictNumerics;
         private boolean atomicBoundsChecks;
+        private boolean overflowBoundsChecks;
 
         private Builder() {
             this.enableContinuations = false;
             this.enableStrictNumerics = true;
             this.atomicBoundsChecks = true;
+            this.overflowBoundsChecks = true;
         }
 
         /**
@@ -129,6 +158,17 @@ public final class WasmAssemblerConfiguration {
         }
 
         /**
+         * Set whether address overflow checks are enabled.
+         *
+         * @param enable whether overflow bounds checks are enabled
+         * @return this
+         */
+        public Builder enableOverflowBoundsChecks(boolean enable) {
+            this.overflowBoundsChecks = enable;
+            return this;
+        }
+
+        /**
          * Finish this builder and build the configuration.
          *
          * @return the built configuration
@@ -137,7 +177,8 @@ public final class WasmAssemblerConfiguration {
             return new WasmAssemblerConfiguration(
                     this.enableContinuations,
                     this.enableStrictNumerics,
-                    this.atomicBoundsChecks
+                    this.atomicBoundsChecks,
+                    this.overflowBoundsChecks
             );
         }
     }
