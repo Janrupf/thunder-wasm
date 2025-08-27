@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
 import net.janrupf.thunderwasm.imports.Import;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.GlobalIndexData;
 import net.janrupf.thunderwasm.lookup.FoundElement;
@@ -31,28 +32,36 @@ public final class GlobalGet extends WasmInstruction<GlobalIndexData> {
     }
 
     @Override
-    public void emitCode(
-            CodeEmitContext context,
-            GlobalIndexData data
-    ) throws WasmAssemblerException {
-        FoundElement<Global, GlobalImportDescription> gElement = context.getLookups().requireGlobal(
+    public ProcessedInstruction processInputs(CodeEmitContext context, GlobalIndexData data) throws WasmAssemblerException {
+        final FoundElement<Global, GlobalImportDescription> element = context.getLookups().requireGlobal(
                 LargeArrayIndex.fromU32(data.getIndex())
         );
+        final ValueType outputType = element.isImport() 
+                ? element.getImport().getDescription().getType().getValueType()
+                : element.getElement().getType().getValueType();
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (element.isImport()) {
+                    context.getGenerators().getImportGenerator().emitGetGlobal(
+                            element.getImport(),
+                            context
+                    );
+                } else {
+                    context.getGenerators().getGlobalGenerator().emitGetGlobal(
+                            element.getIndex(),
+                            element.getElement(),
+                            context
+                    );
+                }
+            }
 
-        if (gElement.isImport()) {
-            context.getGenerators().getImportGenerator().emitGetGlobal(
-                    gElement.getImport(),
-                    context
-            );
-            context.getFrameState().pushOperand(gElement.getImport().getDescription().getType().getValueType());
-        } else {
-            context.getGenerators().getGlobalGenerator().emitGetGlobal(
-                    gElement.getIndex(),
-                    gElement.getElement(),
-                    context
-            );
-            context.getFrameState().pushOperand(gElement.getElement().getType().getValueType());
-        }
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(outputType);
+            }
+        };
     }
 
     @Override

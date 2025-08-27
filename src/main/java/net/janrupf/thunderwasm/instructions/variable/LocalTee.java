@@ -6,11 +6,13 @@ import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.LocalVariables;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.MultiValueHelper;
 import net.janrupf.thunderwasm.instructions.data.LocalIndexData;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
+import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 
@@ -27,24 +29,35 @@ public final class LocalTee extends WasmInstruction<LocalIndexData> {
     }
 
     @Override
-    public void emitCode(
-            CodeEmitContext context, LocalIndexData data
-    ) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, LocalIndexData data) throws WasmAssemblerException {
         WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
+        final ValueType localType = frameState.requireLocal(data.getIndex());
+        final int localIndex = data.getIndex();
+        
+        frameState.popOperand(localType);
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter emitter = context.getEmitter();
+                
+                emitter.duplicate();
+                
+                if (context.getLocalVariables().getType(localIndex) == LocalVariables.LocalType.HEAP) {
+                    emitter.loadLocal(context.getLocalVariables().getHeapLocals());
+                    
+                    LocalVariables.HeapLocal l = context.getLocalVariables().requireHeapById(localIndex);
+                    MultiValueHelper.emitSetByIndex(emitter, l.getType(), l.getIndex());
+                } else {
+                    emitter.storeLocal(context.getLocalVariables().requireById(localIndex));
+                }
+            }
 
-        frameState.requireOperand(frameState.requireLocal(data.getIndex()));
-
-        emitter.duplicate();
-
-        if (context.getLocalVariables().getType(data.getIndex()) == LocalVariables.LocalType.HEAP) {
-            emitter.loadLocal(context.getLocalVariables().getHeapLocals());
-
-            LocalVariables.HeapLocal l = context.getLocalVariables().requireHeapById(data.getIndex());
-            MultiValueHelper.emitSetByIndex(emitter, l.getType(), l.getIndex());
-        } else {
-            emitter.storeLocal(context.getLocalVariables().requireById(data.getIndex()));
-        }
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(localType);
+            }
+        };
     }
 
     @Override

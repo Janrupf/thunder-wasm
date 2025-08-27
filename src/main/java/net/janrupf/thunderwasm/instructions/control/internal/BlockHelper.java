@@ -12,6 +12,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.Expr;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.control.BlockData;
 import net.janrupf.thunderwasm.runtime.state.BlockReturn;
 import net.janrupf.thunderwasm.types.FunctionType;
@@ -22,468 +23,29 @@ import java.util.*;
 public final class BlockHelper {
     public static final String BLOCK_RETURN_ENTRY_POINT = "block_return";
     private static final ObjectType BLOCK_RETURN_TYPE = ObjectType.of(BlockReturn.class);
+    private static final ObjectType ILLEGAL_STATE_EXCEPTION_TYPE = ObjectType.of(IllegalStateException.class);
 
     private BlockHelper() {
         throw new AssertionError("Static utility class");
     }
 
     /**
-     * Emit the code required to invoke a block.
+     * Process the inputs of a block preparing for emission.
      *
      * @param context          the context to use
-     * @param block            the block to invoke
+     * @param block            the block to process
      * @param primary          whether to use the primary or secondary expression
      * @param selfLabelAtStart whether the block's own label is at the start or end
-     * @throws WasmAssemblerException if the code could not be emitted
+     * @return the processed block inputs
+     * @throws WasmAssemblerException if the inputs could not be processed
      */
-    public static void emitInvokeBlock(
+    public static ProcessedBlock processBlockInputs(
             CodeEmitContext context,
             BlockData block,
             boolean primary,
             boolean selfLabelAtStart
     ) throws WasmAssemblerException {
-        Expr expr = primary ? block.getPrimaryExpression() : block.getSecondaryExpression();
-
-        if (context.getAnalysisResult().shouldSplitBlock(expr)) {
-            emitInvokeSplitBlock(context, block, primary, selfLabelAtStart);
-        } else {
-            emitInvokeNonSplitBlock(context, block, primary, selfLabelAtStart);
-        }
-    }
-
-    /**
-     * Emit the code required to invoke a block inline.
-     *
-     * @param context          the context to use
-     * @param block            the block to invoke
-     * @param primary          whether to use the primary or secondary expression
-     * @param selfLabelAtStart whether the block's own label is at the start or end
-     * @throws WasmAssemblerException if the code could not be emitted
-     */
-    private static void emitInvokeNonSplitBlock(
-            CodeEmitContext context,
-            BlockData block,
-            boolean primary,
-            boolean selfLabelAtStart
-    ) throws WasmAssemblerException {
-        CodeEmitter emitter = context.getEmitter();
-        Expr expr = primary ? block.getPrimaryExpression() : block.getSecondaryExpression();
-
-        FunctionType type = ControlHelper.expandBlockType(context, block.getType());
-
-        CodeLabel blockSelfLabel = emitter.newLabel();
-
-        WasmFrameState originalFrameState = context.getFrameState();
-        context.pushBlock(originalFrameState.beginBlock(type), new WasmPushedLabel(
-                blockSelfLabel,
-                selfLabelAtStart ? type.getInputs() : type.getOutputs(),
-                false
-        ));
-
-        if (selfLabelAtStart) {
-            emitter.resolveLabel(blockSelfLabel);
-            ContinuationHelper.emitContinuationPoint(context);
-        }
-
-        ControlHelper.emitExpression(context, expr);
-
-        WasmFrameState blockFrameState = context.getFrameState();
-        if (blockFrameState.isReachable()) {
-            // This is not necessarily the same as the block end being reachable -
-            // here we handle the fallthrough case where the block expression
-            // reaches the end without a jump
-            List<ValueType> flatOutputs = type.getOutputs().asFlatList();
-            if (flatOutputs == null) {
-                throw new WasmAssemblerException("Block has too many outputs");
-            }
-
-            for (int i = flatOutputs.size() - 1; i >= 0; i--) {
-                blockFrameState.popOperand(flatOutputs.get(i));
-            }
-
-            if (!blockFrameState.getOperandStack().isEmpty()) {
-                throw new WasmAssemblerException("Block expression left values on the stack, expected empty stack after block: "
-                        + blockFrameState.getOperandStack());
-            }
-        }
-
-        boolean blockEndReachable = blockFrameState.isReachable() || (!selfLabelAtStart && blockSelfLabel.isReachable());
-        if (!selfLabelAtStart && blockEndReachable) {
-            emitter.resolveLabel(blockSelfLabel);
-        }
-
-        if (blockEndReachable) {
-            originalFrameState.markReachable();
-        } else {
-            originalFrameState.markUnreachable();
-        }
-
-        context.popBlock();
-        originalFrameState.endBlock(type);
-    }
-
-    /**
-     * Emit the code required to invoke a block as a split function.
-     *
-     * @param context          the context to use
-     * @param block            the block to invoke
-     * @param primary          whether to use the primary or secondary expression
-     * @param selfLabelAtStart whether the block's own label is at the start or end
-     * @throws WasmAssemblerException if the code could not be emitted
-     */
-    private static void emitInvokeSplitBlock(
-            CodeEmitContext context,
-            BlockData block,
-            boolean primary,
-            boolean selfLabelAtStart
-    ) throws WasmAssemblerException {
-        String blockName = context.nextBlockName();
-        CodeEmitter localEmitter = context.getEmitter();
-        Expr expr = primary ? block.getPrimaryExpression() : block.getSecondaryExpression();
-
-        FunctionType type = ControlHelper.expandBlockType(context, block.getType());
-
-        ValueType[] wasmInputs = type.getInputs().asFlatArray();
-        if (wasmInputs == null) {
-            throw new WasmAssemblerException("Block has too many inputs");
-        }
-
-        List<JavaType> javaInputs = new ArrayList<>(Arrays.asList(WasmTypeConverter.toJavaTypes(wasmInputs)));
-
-        int localValuesRestoreIndex = javaInputs.size();
-        javaInputs.add(MultiValueHelper.MULTI_VALUE_TYPE);
-
-        JavaLocal thisLocal = context.getLocalVariables().getThis();
-
-        int blockThisLocalIndex = -1;
-        if (thisLocal != null) {
-            blockThisLocalIndex = javaInputs.size();
-            javaInputs.add(thisLocal.getType());
-        }
-
-        JavaLocal heapLocal = context.getLocalVariables().getHeapLocals();
-        int blockHeapLocalsIndex = -1;
-        if (heapLocal != null) {
-            blockHeapLocalsIndex = javaInputs.size();
-            javaInputs.add(heapLocal.getType());
-        }
-
-        JavaLocal continuationLocal = context.getLocalVariables().getContinuationLocal();
-        int blockContinuationLocalIndex = -1;
-        if (continuationLocal != null) {
-            blockContinuationLocalIndex = javaInputs.size();
-            javaInputs.add(ContinuationHelper.CONTINUATION_TYPE);
-        }
-
-        // Create a new method for the block
-        MethodEmitter blockMethodEmitter = context.getClassFileEmitter().method(
-                blockName,
-                Visibility.PRIVATE,
-                true,
-                false,
-                BLOCK_RETURN_TYPE,
-                javaInputs,
-                Collections.emptyList()
-        );
-
-        CodeEmitter blockCodeEmitter = blockMethodEmitter.code();
-
-        // Create non-local labels for all existing labels
-        List<WasmPushedLabel> nonLocalLabels = new ArrayList<>();
-        for (WasmPushedLabel label : context.getAllBlockJumpLabels()) {
-            nonLocalLabels.add(new WasmPushedLabel(
-                    null,
-                    label.getStackOperands(),
-                    true
-            ));
-        }
-
-        JavaLocal blockLocalsValueRestoreLocal = blockMethodEmitter.getArgumentLocals().get(localValuesRestoreIndex);
-
-        JavaLocal blockThisLocal = null;
-        if (thisLocal != null) {
-            blockThisLocal = blockMethodEmitter.getArgumentLocals().get(blockThisLocalIndex);
-        }
-
-        JavaLocal blockHeapLocal = null;
-        if (heapLocal != null) {
-            blockHeapLocal = blockMethodEmitter.getArgumentLocals().get(blockHeapLocalsIndex);
-        }
-
-        JavaLocal blockContinuationLocal = null;
-        if (continuationLocal != null) {
-            blockContinuationLocal = blockMethodEmitter.getArgumentLocals().get(blockContinuationLocalIndex);
-        }
-
-        // Calculate the required transfer of local variables into the block and reverse
-        LocalVariables blockLocalVariables = new LocalVariables(blockThisLocal, blockHeapLocal, blockContinuationLocal);
-
-        List<JavaLocal> localSaveLocals = new ArrayList<>();
-        List<JavaLocal> blockRestoreLocals = new ArrayList<>();
-        List<JavaType> blockReadLocalTypes = new ArrayList<>();
-
-        List<JavaLocal> blockSaveLocals = new ArrayList<>();
-        List<JavaLocal> localRestoreLocals = new ArrayList<>();
-        List<JavaType> blockWriteLocalTypes = new ArrayList<>();
-
-        List<JavaLocal> writeOnlyLocals = new ArrayList<>();
-
-        for (Map.Entry<Integer, LocalVariableUsage.Status> localUsageEntry :
-                context.getAnalysisResult().getLocalVariableUsage(expr).getStatus().entrySet()) {
-            int localId = localUsageEntry.getKey();
-
-            if (context.getLocalVariables().getType(localId) == LocalVariables.LocalType.HEAP) {
-                // Heap locals are passed through automatically since the entire heap local
-                // storage is passed down
-                LocalVariables.HeapLocal l = context.getLocalVariables().requireHeapById(localId);
-                blockLocalVariables.registerKnownHeapLocal(localId, l.getType(), l.getIndex());
-                continue;
-            }
-
-            LocalVariableUsage.Status usage = localUsageEntry.getValue();
-
-            JavaLocal originalLocal = context.getLocalVariables().requireById(localId);
-            JavaLocal blockLocal = blockCodeEmitter.allocateLocal(originalLocal.getType());
-            blockLocalVariables.registerKnownLocal(localId, blockLocal);
-
-            if (usage.wasRead()) {
-                // Save locally, restore in block
-                localSaveLocals.add(originalLocal);
-                blockRestoreLocals.add(blockLocal);
-                blockReadLocalTypes.add(originalLocal.getType());
-            }
-
-            if (usage.wasWritten()) {
-                // Save in block, restore locally
-                blockSaveLocals.add(blockLocal);
-                localRestoreLocals.add(originalLocal);
-                blockWriteLocalTypes.add(originalLocal.getType());
-            }
-
-            if (!usage.wasRead() && usage.wasWritten()) {
-                writeOnlyLocals.add(blockLocal);
-            }
-        }
-
-        // Emit the restore code inside the block
-
-        // This is a bit annoying, but if the self label is at the start, we need to
-        // initialize the local variables before we emit the expression, even if they
-        // are just written. Otherwise the Verifier will complain about uninitialized locals.
-        // TODO: This is a bit of a hack, we should probably have a better way to handle this
-        //       (as in, emit correct stack map frames which track local usage).
-        for (JavaLocal local : writeOnlyLocals) {
-            blockCodeEmitter.loadConstant(local.getType().getDefaultValue());
-            blockCodeEmitter.storeLocal(local);
-        }
-
-        blockCodeEmitter.loadLocal(blockLocalsValueRestoreLocal);
-        MultiValueHelper.emitRestoreLocals(blockCodeEmitter, blockRestoreLocals, false);
-
-        WasmFrameState blockFrameState = context.getFrameState().beginBlock(type);
-
-        CodeEmitContext blockContext = new CodeEmitContext(
-                blockName + "$",
-                context.getAnalysisResult(),
-                context.getClassFileEmitter(),
-                blockCodeEmitter,
-                context.getLookups(),
-                null,
-                nonLocalLabels,
-                context.getGenerators(),
-                blockLocalVariables,
-                context.getConfiguration()
-        );
-
-        // TODO: This should probably be before the locals are initialized with zero values
-        ContinuationHelper.emitContinuationFunctionEntry(blockContext);
-
-        CodeLabel blockReturnLabel = blockCodeEmitter.newLabel();
-        blockContext.getLocalGadgets().addEntryPoint(BLOCK_RETURN_ENTRY_POINT, blockReturnLabel);
-
-        CodeLabel blockSelfLabel = blockCodeEmitter.newLabel();
-        blockContext.pushBlock(blockFrameState, new WasmPushedLabel(
-                blockSelfLabel,
-                selfLabelAtStart ? type.getInputs() : type.getOutputs(),
-                false
-        ));
-
-        // Restore the stack
-        for (int i = 0; i < wasmInputs.length; i++) {
-            blockCodeEmitter.loadLocal(blockMethodEmitter.getArgumentLocals().get(i));
-        }
-
-        if (selfLabelAtStart) {
-            blockCodeEmitter.resolveLabel(blockSelfLabel);
-        }
-
-        ControlHelper.emitExpression(blockContext, expr);
-
-        if (!selfLabelAtStart && blockSelfLabel.isReachable()) {
-            blockCodeEmitter.resolveLabel(blockSelfLabel);
-            blockContext.getFrameState().markReachable();
-        }
-
-        if (blockContext.getFrameState().isReachable()) {
-            // Could potentially fall through, we need to capture the block return values
-
-            List<JavaType> blockReturnTypes = ControlHelper.getJavaReturnTypes(type);
-
-            MultiValueHelper.emitCreateMultiValue(blockCodeEmitter, blockReturnTypes);
-            MultiValueHelper.emitSaveStack(blockCodeEmitter, blockReturnTypes, true);
-            UnwindHelper.emitUnwindStack(blockCodeEmitter, 1);
-
-            // -2 is the special value that indicates fallthrough
-            blockCodeEmitter.loadConstant(-2);
-            blockCodeEmitter.op(Op.SWAP);
-
-            // The return entry point is appended directly to this function, we can simply fall through here
-        }
-
-        // Construct the block return if it was used
-        if (blockReturnLabel.isReachable() || blockContext.getFrameState().isReachable()) {
-            // At this point we expect on the stack:
-            // - int: return depth
-            // - multi value: block return values
-            blockCodeEmitter.resolveLabel(blockReturnLabel);
-
-            MultiValueHelper.emitCreateMultiValue(blockCodeEmitter, blockWriteLocalTypes);
-            MultiValueHelper.emitSaveLocals(blockCodeEmitter, blockSaveLocals, true);
-
-            blockCodeEmitter.invoke(
-                    BLOCK_RETURN_TYPE,
-                    "create",
-                    new JavaType[]{PrimitiveType.INT, MultiValueHelper.MULTI_VALUE_TYPE, MultiValueHelper.MULTI_VALUE_TYPE},
-                    BLOCK_RETURN_TYPE,
-                    InvokeType.STATIC,
-                    false
-            );
-
-            // And return it!
-            blockCodeEmitter.doReturn();
-        }
-
-        ContinuationHelper.emitContinuationImplementations(blockContext, MultiValueHelper.MULTI_VALUE_TYPE);
-
-        blockCodeEmitter.finish();
-        blockMethodEmitter.finish();
-
-        // On to generating the function call in the local block
-        ContinuationContext.PointAndLabel pointAndLabel = ContinuationHelper.emitFunctionContinuationPoint(
-                context,
-                type.getInputs().asFlatList(),
-                Collections.emptyList(),
-                BLOCK_RETURN_TYPE
-        );
-
-        MultiValueHelper.emitCreateMultiValue(localEmitter, blockReadLocalTypes);
-        MultiValueHelper.emitSaveLocals(localEmitter, localSaveLocals, true);
-
-        if (thisLocal != null) {
-            localEmitter.loadLocal(thisLocal);
-        }
-
-        if (heapLocal != null) {
-            localEmitter.loadLocal(heapLocal);
-        }
-
-        if (continuationLocal != null) {
-            localEmitter.loadLocal(continuationLocal);
-        }
-
-        localEmitter.invoke(
-                blockCodeEmitter.getOwner(),
-                blockName,
-                javaInputs.toArray(new JavaType[0]),
-                BLOCK_RETURN_TYPE,
-                InvokeType.STATIC,
-                false
-        );
-
-        ContinuationHelper.emitFunctionContinuationPointPostReturn(context, pointAndLabel);
-
-        // We now need to decide how to operate based on the received depth
-        Map<Integer, CodeLabel> switchTargets = new HashMap<>();
-        for (int depth = 0; depth < nonLocalLabels.size(); depth++) {
-            WasmPushedLabel nonLocalLabel = nonLocalLabels.get(nonLocalLabels.size() - 1 - depth);
-            if (nonLocalLabel.isUsed()) {
-                // This target label was used by the block, we need to handle its return
-                switchTargets.put(depth, localEmitter.newLabel());
-            }
-        }
-
-        if (context.getAnalysisResult().usesDirectReturn(expr)) {
-            // Need to also handle the direct return
-            switchTargets.put(-1, localEmitter.newLabel());
-        }
-
-        // Unpack the data the block returned
-        localEmitter.duplicate();
-        localEmitter.invoke(
-                BLOCK_RETURN_TYPE,
-                "getStack",
-                new JavaType[0],
-                MultiValueHelper.MULTI_VALUE_TYPE,
-                InvokeType.VIRTUAL,
-                false
-        );
-        localEmitter.op(Op.SWAP);
-
-        if (!switchTargets.isEmpty()) {
-            // We'll need it again later down
-            localEmitter.duplicate();
-        }
-
-        localEmitter.invoke(
-                BLOCK_RETURN_TYPE,
-                "getLocals",
-                new JavaType[0],
-                MultiValueHelper.MULTI_VALUE_TYPE,
-                InvokeType.VIRTUAL,
-                false
-        );
-
-        // Restore locals
-        MultiValueHelper.emitRestoreLocals(localEmitter, localRestoreLocals, false);
-
-        if (!switchTargets.isEmpty() || context.getAnalysisResult().usesDirectReturn(expr)) {
-            // Get return depth to the top of the stack
-            localEmitter.invoke(
-                    BLOCK_RETURN_TYPE,
-                    "getBranchDepth",
-                    new JavaType[0],
-                    PrimitiveType.INT,
-                    InvokeType.VIRTUAL,
-                    false
-            );
-
-            CodeLabel fallthroughTarget = localEmitter.newLabel();
-
-            localEmitter.lookupSwitch(fallthroughTarget, switchTargets);
-
-            // Fallthrough case is now done, we need to generate the other cases
-            for (Map.Entry<Integer, CodeLabel> returnHandlers : switchTargets.entrySet()) {
-                int depth = returnHandlers.getKey();
-
-                localEmitter.resolveLabel(returnHandlers.getValue());
-
-                if (depth == -1) {
-                    emitHandleNonLocalDirectReturn(context);
-                } else {
-                    emitHandleNonLocalBlockReturn(context, depth);
-                }
-            }
-
-            // Fallthrough: we received an unknown value, this means fallthrough
-            localEmitter.resolveLabel(fallthroughTarget);
-        }
-
-        context.getFrameState().endBlock(type);
-
-        // TODO: What if the invoked block end itself was unreachable?
-        context.getFrameState().markReachable();
-
-        MultiValueHelper.emitRestoreStack(localEmitter, ControlHelper.getJavaReturnTypes(type), null, false);
+        return ProcessedBlock.processInputs(context, block, primary, selfLabelAtStart);
     }
 
     /**
@@ -511,8 +73,6 @@ public final class BlockHelper {
         } else {
             emitLocalBlockReturn(context, depth, targetLabel.getCodeLabel(), labelArity);
         }
-
-        context.getFrameState().markUnreachable();
     }
 
     /**
@@ -686,7 +246,6 @@ public final class BlockHelper {
             }
 
             emitter.doReturn();
-            context.getFrameState().markUnreachable();
             return;
         }
 
@@ -720,7 +279,6 @@ public final class BlockHelper {
             }
 
             emitter.doReturn();
-            context.getFrameState().markUnreachable();
             return;
         }
 
@@ -757,7 +315,6 @@ public final class BlockHelper {
         }
 
         emitter.jump(JumpCondition.ALWAYS, returnEntryPoint);
-        context.getFrameState().markUnreachable();
     }
 
     /**
@@ -785,5 +342,471 @@ public final class BlockHelper {
         }
 
         return nonLocalDepth;
+    }
+
+    public static final class ProcessedBlock implements ProcessedInstruction {
+        private final boolean isSplitBlock;
+        private final Expr expression;
+        private final FunctionType blockType;
+        private final boolean selfLabelAtStart;
+        private final CodeLabel blockSelfLabel;
+        private final WasmFrameState begunBlock;
+
+        private boolean endIsReachable;
+
+        private ProcessedBlock(
+                boolean isSplitBlock,
+                Expr expression,
+                FunctionType blockType,
+                boolean selfLabelAtStart,
+                CodeLabel blockSelfLabel,
+                WasmFrameState begunBlock
+        ) {
+            this.isSplitBlock = isSplitBlock;
+            this.expression = expression;
+            this.blockType = blockType;
+            this.selfLabelAtStart = selfLabelAtStart;
+            this.blockSelfLabel = blockSelfLabel;
+            this.begunBlock = begunBlock;
+        }
+
+        @Override
+        public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+            if (isSplitBlock) {
+                emitSplitBytecode(context);
+            } else {
+                emitNonSplitBytecode(context);
+            }
+        }
+
+        private void emitSplitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+            // Pop the block that is going to be split - we'll push it later after processing
+            // everything, but then with an updated state
+            context.popBlock();
+
+            String blockName = context.nextBlockName();
+            CodeEmitter localEmitter = context.getEmitter();
+
+            ValueType[] wasmInputs = blockType.getInputs().asFlatArray();
+            List<JavaType> javaInputs = new ArrayList<>(Arrays.asList(WasmTypeConverter.toJavaTypes(
+                    wasmInputs
+            )));
+
+            int localValuesRestoreIndex = javaInputs.size();
+            javaInputs.add(MultiValueHelper.MULTI_VALUE_TYPE);
+
+            JavaLocal thisLocal = context.getLocalVariables().getThis();
+
+            int blockThisLocalIndex = -1;
+            if (thisLocal != null) {
+                blockThisLocalIndex = javaInputs.size();
+                javaInputs.add(thisLocal.getType());
+            }
+
+            JavaLocal heapLocal = context.getLocalVariables().getHeapLocals();
+            int blockHeapLocalsIndex = -1;
+            if (heapLocal != null) {
+                blockHeapLocalsIndex = javaInputs.size();
+                javaInputs.add(heapLocal.getType());
+            }
+
+            JavaLocal continuationLocal = context.getLocalVariables().getContinuationLocal();
+            int blockContinuationLocalIndex = -1;
+            if (continuationLocal != null) {
+                blockContinuationLocalIndex = javaInputs.size();
+                javaInputs.add(ContinuationHelper.CONTINUATION_TYPE);
+            }
+
+            // Create a new method for the block
+            MethodEmitter blockMethodEmitter = context.getClassFileEmitter().method(
+                    blockName,
+                    Visibility.PRIVATE,
+                    true,
+                    false,
+                    BLOCK_RETURN_TYPE,
+                    javaInputs,
+                    Collections.emptyList()
+            );
+
+            CodeEmitter blockCodeEmitter = blockMethodEmitter.code();
+
+            // Create non-local labels for all existing labels
+            List<WasmPushedLabel> nonLocalLabels = new ArrayList<>();
+            for (WasmPushedLabel label : context.getAllBlockJumpLabels()) {
+                nonLocalLabels.add(new WasmPushedLabel(
+                        null,
+                        label.getStackOperands(),
+                        true
+                ));
+            }
+
+            JavaLocal blockLocalsValueRestoreLocal = blockMethodEmitter.getArgumentLocals().get(localValuesRestoreIndex);
+
+            JavaLocal blockThisLocal = null;
+            if (thisLocal != null) {
+                blockThisLocal = blockMethodEmitter.getArgumentLocals().get(blockThisLocalIndex);
+            }
+
+            JavaLocal blockHeapLocal = null;
+            if (heapLocal != null) {
+                blockHeapLocal = blockMethodEmitter.getArgumentLocals().get(blockHeapLocalsIndex);
+            }
+
+            JavaLocal blockContinuationLocal = null;
+            if (continuationLocal != null) {
+                blockContinuationLocal = blockMethodEmitter.getArgumentLocals().get(blockContinuationLocalIndex);
+            }
+
+            // Calculate the required transfer of local variables into the block and reverse
+            LocalVariables blockLocalVariables = new LocalVariables(blockThisLocal, blockHeapLocal, blockContinuationLocal);
+
+            List<JavaLocal> localSaveLocals = new ArrayList<>();
+            List<JavaLocal> blockRestoreLocals = new ArrayList<>();
+            List<JavaType> blockReadLocalTypes = new ArrayList<>();
+
+            List<JavaLocal> blockSaveLocals = new ArrayList<>();
+            List<JavaLocal> localRestoreLocals = new ArrayList<>();
+            List<JavaType> blockWriteLocalTypes = new ArrayList<>();
+
+            for (Map.Entry<Integer, LocalVariableUsage.Status> localUsageEntry :
+                    context.getAnalysisResult().getLocalVariableUsage(expression).getStatus().entrySet()) {
+                int localId = localUsageEntry.getKey();
+
+                if (context.getLocalVariables().getType(localId) == LocalVariables.LocalType.HEAP) {
+                    // Heap locals are passed through automatically since the entire heap local
+                    // storage is passed down
+                    LocalVariables.HeapLocal l = context.getLocalVariables().requireHeapById(localId);
+                    blockLocalVariables.registerKnownHeapLocal(localId, l.getType(), l.getIndex());
+                    continue;
+                }
+
+                JavaLocal originalLocal = context.getLocalVariables().requireById(localId);
+                JavaLocal blockLocal = blockCodeEmitter.allocateLocal(originalLocal.getType());
+                blockLocalVariables.registerKnownLocal(localId, blockLocal);
+
+                // Save locally, restore in block
+                localSaveLocals.add(originalLocal);
+                blockRestoreLocals.add(blockLocal);
+                blockReadLocalTypes.add(originalLocal.getType());
+
+                // Save in block, restore locally
+                if (localUsageEntry.getValue().wasWritten()) {
+                    blockSaveLocals.add(blockLocal);
+                    localRestoreLocals.add(originalLocal);
+                    blockWriteLocalTypes.add(originalLocal.getType());
+                }
+            }
+
+            blockCodeEmitter.loadLocal(blockLocalsValueRestoreLocal);
+            MultiValueHelper.emitRestoreLocals(blockCodeEmitter, blockRestoreLocals, false);
+
+            CodeEmitContext blockContext = new CodeEmitContext(
+                    blockName + "$",
+                    context.getAnalysisResult(),
+                    context.getClassFileEmitter(),
+                    blockCodeEmitter,
+                    context.getLookups(),
+                    null,
+                    nonLocalLabels,
+                    context.getGenerators(),
+                    blockLocalVariables,
+                    context.getConfiguration()
+            );
+
+            // TODO: This should probably be before the locals are initialized with zero values
+            ContinuationHelper.emitContinuationFunctionEntry(blockContext);
+
+            CodeLabel blockReturnLabel = blockCodeEmitter.newLabel();
+            blockContext.getLocalGadgets().addEntryPoint(BLOCK_RETURN_ENTRY_POINT, blockReturnLabel);
+
+            blockContext.pushBlock(begunBlock, new WasmPushedLabel(
+                    blockSelfLabel,
+                    selfLabelAtStart ? blockType.getInputs() : blockType.getOutputs(),
+                    false
+            ));
+
+            // Restore the stack
+            for (int i = 0; i < wasmInputs.length; i++) {
+                blockCodeEmitter.loadLocal(blockMethodEmitter.getArgumentLocals().get(i));
+            }
+
+            if (selfLabelAtStart) {
+                blockCodeEmitter.resolveLabel(blockSelfLabel);
+            }
+
+            ControlHelper.emitExpression(blockContext, expression);
+
+            if (!selfLabelAtStart && blockSelfLabel.isReachable()) {
+                blockCodeEmitter.resolveLabel(blockSelfLabel);
+            }
+
+            if (blockContext.getFrameState().isReachable() || (!selfLabelAtStart && blockSelfLabel.isReachable())) {
+                // Could potentially fall through, we need to capture the block return values
+
+                List<JavaType> blockReturnTypes = ControlHelper.getJavaReturnTypes(blockType);
+
+                MultiValueHelper.emitCreateMultiValue(blockCodeEmitter, blockReturnTypes);
+                MultiValueHelper.emitSaveStack(blockCodeEmitter, blockReturnTypes, true);
+                UnwindHelper.emitUnwindStack(blockCodeEmitter, 1);
+
+                // -2 is the special value that indicates fallthrough
+                blockCodeEmitter.loadConstant(-2);
+                blockCodeEmitter.op(Op.SWAP);
+
+                this.endIsReachable = true;
+
+                // The return entry point is appended directly to this function, we can simply fall through here
+            }
+
+            // Construct the block return if it was used
+            if (blockReturnLabel.isReachable() || blockContext.getFrameState().isReachable() || (!selfLabelAtStart && blockSelfLabel.isReachable())) {
+                // At this point we expect on the stack:
+                // - int: return depth
+                // - multi value: block return values
+                blockCodeEmitter.resolveLabel(blockReturnLabel);
+
+                MultiValueHelper.emitCreateMultiValue(blockCodeEmitter, blockWriteLocalTypes);
+                MultiValueHelper.emitSaveLocals(blockCodeEmitter, blockSaveLocals, true);
+
+                blockCodeEmitter.invoke(
+                        BLOCK_RETURN_TYPE,
+                        "create",
+                        new JavaType[]{PrimitiveType.INT, MultiValueHelper.MULTI_VALUE_TYPE, MultiValueHelper.MULTI_VALUE_TYPE},
+                        BLOCK_RETURN_TYPE,
+                        InvokeType.STATIC,
+                        false
+                );
+
+                // And return it!
+                blockCodeEmitter.doReturn();
+            }
+
+            ContinuationHelper.emitContinuationImplementations(blockContext, MultiValueHelper.MULTI_VALUE_TYPE);
+
+            blockCodeEmitter.finish();
+            blockMethodEmitter.finish();
+
+            // On to generating the function call in the local block
+            ContinuationContext.PointAndLabel pointAndLabel = ContinuationHelper.emitFunctionContinuationPoint(
+                    context,
+                    blockType.getInputs().asFlatList(),
+                    Collections.emptyList(),
+                    BLOCK_RETURN_TYPE
+            );
+
+            MultiValueHelper.emitCreateMultiValue(localEmitter, blockReadLocalTypes);
+            MultiValueHelper.emitSaveLocals(localEmitter, localSaveLocals, true);
+
+            if (thisLocal != null) {
+                localEmitter.loadLocal(thisLocal);
+            }
+
+            if (heapLocal != null) {
+                localEmitter.loadLocal(heapLocal);
+            }
+
+            if (continuationLocal != null) {
+                localEmitter.loadLocal(continuationLocal);
+            }
+
+            localEmitter.invoke(
+                    blockCodeEmitter.getOwner(),
+                    blockName,
+                    javaInputs.toArray(new JavaType[0]),
+                    BLOCK_RETURN_TYPE,
+                    InvokeType.STATIC,
+                    false
+            );
+
+            ContinuationHelper.emitFunctionContinuationPointPostReturn(context, pointAndLabel);
+
+            // We now need to decide how to operate based on the received depth
+            Map<Integer, CodeLabel> switchTargets = new HashMap<>();
+            for (int depth = 0; depth < nonLocalLabels.size(); depth++) {
+                WasmPushedLabel nonLocalLabel = nonLocalLabels.get(nonLocalLabels.size() - 1 - depth);
+                if (nonLocalLabel.isUsed()) {
+                    // This target label was used by the block, we need to handle its return
+                    switchTargets.put(depth, localEmitter.newLabel());
+                }
+            }
+
+            if (context.getAnalysisResult().usesDirectReturn(expression)) {
+                // Need to also handle the direct return
+                switchTargets.put(-1, localEmitter.newLabel());
+            }
+
+            // Unpack the data the block returned
+            localEmitter.duplicate();
+            localEmitter.invoke(
+                    BLOCK_RETURN_TYPE,
+                    "getStack",
+                    new JavaType[0],
+                    MultiValueHelper.MULTI_VALUE_TYPE,
+                    InvokeType.VIRTUAL,
+                    false
+            );
+            localEmitter.op(Op.SWAP);
+
+            if (!switchTargets.isEmpty()) {
+                // We'll need it again later down
+                localEmitter.duplicate();
+            }
+
+            localEmitter.invoke(
+                    BLOCK_RETURN_TYPE,
+                    "getLocals",
+                    new JavaType[0],
+                    MultiValueHelper.MULTI_VALUE_TYPE,
+                    InvokeType.VIRTUAL,
+                    false
+            );
+
+            // Restore locals
+            MultiValueHelper.emitRestoreLocals(localEmitter, localRestoreLocals, false);
+
+            if (!switchTargets.isEmpty() || context.getAnalysisResult().usesDirectReturn(expression)) {
+                // Get return depth to the top of the stack
+                localEmitter.invoke(
+                        BLOCK_RETURN_TYPE,
+                        "getBranchDepth",
+                        new JavaType[0],
+                        PrimitiveType.INT,
+                        InvokeType.VIRTUAL,
+                        false
+                );
+
+                CodeLabel fallthroughTarget = localEmitter.newLabel();
+
+                localEmitter.lookupSwitch(fallthroughTarget, switchTargets);
+
+                // Fallthrough case is now done, we need to generate the other cases
+                for (Map.Entry<Integer, CodeLabel> returnHandlers : switchTargets.entrySet()) {
+                    int depth = returnHandlers.getKey();
+
+                    localEmitter.resolveLabel(returnHandlers.getValue());
+
+                    if (depth == -1) {
+                        emitHandleNonLocalDirectReturn(context);
+                    } else {
+                        emitHandleNonLocalBlockReturn(context, depth);
+                    }
+                }
+
+                // Fallthrough: we received an unknown value, this means fallthrough
+                localEmitter.resolveLabel(fallthroughTarget);
+            }
+
+            if (!this.endIsReachable) {
+                // This shouldn't happen!
+                localEmitter.doNew(ILLEGAL_STATE_EXCEPTION_TYPE);
+                localEmitter.duplicate();
+                localEmitter.loadConstant("Block fell through but was expected to be unreachable");
+                localEmitter.invoke(
+                        ILLEGAL_STATE_EXCEPTION_TYPE,
+                        "<init>",
+                        new JavaType[]{ObjectType.of(String.class)},
+                        PrimitiveType.VOID,
+                        InvokeType.SPECIAL,
+                        false
+                );
+
+                localEmitter.op(Op.THROW);
+            } else {
+                MultiValueHelper.emitRestoreStack(
+                        localEmitter,
+                        ControlHelper.getJavaReturnTypes(blockType),
+                        null,
+                        false
+                );
+            }
+
+            // In the very start we popped the block, we need to push it again with the updated state
+            context.pushBlock(blockContext.getFrameState(), new WasmPushedLabel(
+                    blockSelfLabel,
+                    selfLabelAtStart ? blockType.getInputs() : blockType.getOutputs(),
+                    false
+            ));
+        }
+
+        private void emitNonSplitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+            CodeEmitter emitter = context.getEmitter();
+
+            if (selfLabelAtStart) {
+                emitter.resolveLabel(blockSelfLabel);
+                ContinuationHelper.emitContinuationPoint(context);
+            }
+
+            ControlHelper.emitExpression(context, expression);
+
+            this.endIsReachable = context.getFrameState().isReachable() || (!selfLabelAtStart && blockSelfLabel.isReachable());
+            if (!selfLabelAtStart && endIsReachable) {
+                context.getEmitter().resolveLabel(blockSelfLabel);
+            }
+        }
+
+        @Override
+        public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+            WasmFrameState blockFrameState = context.getFrameState();
+
+            if (blockFrameState.isReachable()) {
+                // This is not necessarily the same as the block end being reachable -
+                // here we handle the fallthrough case where the block expression
+                // reaches the end without a jump
+                List<ValueType> flatOutputs = blockType.getOutputs().asFlatList();
+                if (flatOutputs == null) {
+                    throw new WasmAssemblerException("Block has too many outputs");
+                }
+
+                for (int i = flatOutputs.size() - 1; i >= 0; i--) {
+                    blockFrameState.popOperand(flatOutputs.get(i));
+                }
+
+                if (!blockFrameState.getOperandStack().isEmpty()) {
+                    throw new WasmAssemblerException("Block expression left values on the stack, expected empty stack after block: "
+                            + blockFrameState.getOperandStack());
+                }
+            }
+
+            context.popBlock();
+            context.getFrameState().endBlock(blockType);
+
+            if (!endIsReachable) {
+                context.getFrameState().markUnreachable();
+            }
+        }
+
+        public void processUnreachable(CodeEmitContext context) throws WasmAssemblerException {
+            // For unreachable we just process the expression as if it was inline,
+            // since nothing will be emitted anyway and for validation it doesn't matter
+            // if it's a split block or not
+            ControlHelper.emitExpression(context, expression);
+        }
+
+        public static ProcessedBlock processInputs(
+                CodeEmitContext context,
+                BlockData block,
+                boolean primary,
+                boolean selfLabelAtStart
+        ) throws WasmAssemblerException {
+            Expr expr = primary ? block.getPrimaryExpression() : block.getSecondaryExpression();
+            boolean isSplitBlock = context.getAnalysisResult().shouldSplitBlock(expr);
+            FunctionType blockType = ControlHelper.expandBlockType(context, block.getType());
+
+            boolean isReachable = context.getFrameState().isReachable();
+            WasmFrameState begunBlock = context.getFrameState().beginBlock(blockType);
+            CodeLabel blockSelfLabel = context.getEmitter().newLabel();
+
+            context.pushBlock(begunBlock, new WasmPushedLabel(
+                    blockSelfLabel,
+                    selfLabelAtStart ? blockType.getInputs() : blockType.getOutputs(),
+                    false
+            ));
+
+            if (!isReachable) {
+                begunBlock.markUnreachablePreserveStack();
+            }
+
+            return new ProcessedBlock(isSplitBlock, expr, blockType, selfLabelAtStart, blockSelfLabel, begunBlock);
+        }
     }
 }

@@ -1,19 +1,18 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class F32Sqrt extends PlainNumeric {
+public final class F32Sqrt extends PlainNumeric implements ProcessedInstruction {
     public static final F32Sqrt INSTANCE = new F32Sqrt();
 
     private F32Sqrt() {
@@ -21,14 +20,15 @@ public final class F32Sqrt extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.F32);
+        return this;
+    }
 
-        frameState.popOperand(NumberType.F32);
-
-        emitter.op(Op.F2D);
-        emitter.invoke(
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+        context.getEmitter().op(Op.F2D);
+        context.getEmitter().invoke(
                 ObjectType.of(Math.class),
                 "sqrt",
                 new JavaType[]{PrimitiveType.DOUBLE},
@@ -36,8 +36,11 @@ public final class F32Sqrt extends PlainNumeric {
                 InvokeType.STATIC,
                 false
         );
-        emitter.op(Op.D2F);
+        context.getEmitter().op(Op.D2F);
+    }
 
-        frameState.pushOperand(NumberType.F32);
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(NumberType.F32);
     }
 }

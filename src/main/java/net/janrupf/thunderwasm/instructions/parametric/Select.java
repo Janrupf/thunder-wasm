@@ -5,12 +5,14 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.WasmTypeConverter;
 import net.janrupf.thunderwasm.assembler.emitter.*;
 import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.UnknownType;
 import net.janrupf.thunderwasm.types.ValueType;
 import net.janrupf.thunderwasm.types.VecType;
 
@@ -42,7 +44,7 @@ public final class Select extends WasmInstruction<Select.SelectData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, SelectData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, SelectData data) throws WasmAssemblerException {
         if (data.getTypes() != null && data.getTypes().length() != 1) {
             throw new WasmAssemblerException("Expected exactly 1 type, got " + data.getTypes().length());
         }
@@ -53,30 +55,42 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         frameState.popOperand(NumberType.I32);
 
         if (types == null) {
-            // Pop the next 2 operands
             ValueType targetType = frameState.popAnyOperand();
-            if (!(targetType instanceof NumberType) && !(targetType instanceof VecType)) {
+            
+            if (!(targetType instanceof NumberType) && !(targetType instanceof VecType) && !(targetType instanceof UnknownType)) {
                 throw new WasmAssemblerException("Expected number or vector type, got " + targetType.getName());
             }
+
             frameState.popOperand(targetType);
-
-            // And push them back for further processing...
-            frameState.pushOperand(targetType);
-            frameState.pushOperand(targetType);
-
             types = LargeArray.of(ValueType.class, targetType);
-        }
-
-        ValueType firstType = types.get(LargeArrayIndex.ZERO);
-
-        if (types.length() < 2 && WasmTypeConverter.toJavaType(firstType).getSlotCount() < 2) {
-            // We only need to select a single slot, use a more efficient select implementation
-            // which doesn't require the use of a local variable
-            emitCodeSingleSlotSelect(context, firstType);
         } else {
-            // We need to select multiple slots, use the general select implementation
-            emitMultiSlotSelect(context, types);
+            ValueType firstType = types.get(LargeArrayIndex.ZERO);
+            frameState.popOperand(firstType);
+            frameState.popOperand(firstType);
         }
+
+        final LargeArray<ValueType> finalTypes = types;
+        final ValueType resultType = finalTypes.get(LargeArrayIndex.ZERO);
+        final boolean isSingleSlot = resultType instanceof UnknownType /* will never emit code either way */||
+                finalTypes.length() < 2 && (WasmTypeConverter.toJavaType(resultType).getSlotCount() < 2);
+
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (isSingleSlot) {
+                    // Use efficient single-slot select implementation
+                    emitCodeSingleSlotSelect(context, resultType);
+                } else {
+                    // Use general multi-slot select implementation
+                    emitMultiSlotSelect(context, finalTypes);
+                }
+            }
+
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(resultType);
+            }
+        };
     }
 
     private void emitCodeSingleSlotSelect(
@@ -84,7 +98,6 @@ public final class Select extends WasmInstruction<Select.SelectData> {
             ValueType targetType
     ) throws WasmAssemblerException {
         CodeEmitter emitter = context.getEmitter();
-        WasmFrameState frameState = context.getFrameState();
 
         CodeLabel endLabel = emitter.newLabel();
 
@@ -97,32 +110,13 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         // Drop the value on top
         emitter.resolveLabel(endLabel);
         emitter.pop();
-
-        frameState.popOperand(targetType);
     }
 
     private void emitMultiSlotSelect(
             CodeEmitContext context,
             LargeArray<ValueType> types
     ) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
         CodeEmitter emitter = context.getEmitter();
-
-        // We expect the types on top to be the same as specified in the instruction, but twice
-        LargeArray<ValueType> typesTimesTwo = new LargeArray<>(
-                ValueType.class,
-                types.largeLength().add(types.largeLength())
-        );
-
-        for (LargeArrayIndex i = LargeArrayIndex.ZERO; i.compareTo(types.largeLength()) < 0; i = i.add(1)) {
-            ValueType type = types.get(i);
-            typesTimesTwo.set(i, type);
-            typesTimesTwo.set(i.add(types.largeLength()), type);
-        }
-
-        frameState.requireOperands(typesTimesTwo);
-
-        // Validation complete
 
         CodeLabel elseLabel = emitter.newLabel();
         CodeLabel endLabel = emitter.newLabel();
@@ -172,12 +166,7 @@ public final class Select extends WasmInstruction<Select.SelectData> {
         // Drop all the true values on top
         i = types.largeLength().subtract(1);
         while (true) {
-            ValueType t = types.get(i);
             emitter.pop();
-
-            // We also use this loop as an opportunity to notify the frame state
-            // of its final form
-            frameState.popOperand(t);
 
             if (i.equals(LargeArrayIndex.ZERO)) {
                 break;

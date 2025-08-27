@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.memory;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmU32VariantInstruction;
 import net.janrupf.thunderwasm.instructions.data.DataIndexData;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
@@ -24,9 +25,19 @@ public final class DataDrop extends WasmU32VariantInstruction<DataIndexData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, DataIndexData data) throws WasmAssemblerException {
-        LargeArrayIndex index = data.toArrayIndex();
-        DataSegment segment = context.getLookups().requireDataSegment(index);
-        context.getGenerators().getMemoryGenerator().emitDropData(index, segment, context);
+    public ProcessedInstruction processInputs(CodeEmitContext context, DataIndexData data) throws WasmAssemblerException {
+        final LargeArrayIndex index = data.toArrayIndex();
+        final DataSegment segment = context.getLookups().requireDataSegment(index);
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                context.getGenerators().getMemoryGenerator().emitDropData(index, segment, context);
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 }

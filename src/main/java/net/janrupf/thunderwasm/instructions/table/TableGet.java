@@ -3,14 +3,15 @@ package net.janrupf.thunderwasm.instructions.table;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.TableIndexData;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
-import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.TableType;
+import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 
@@ -27,25 +28,34 @@ public final class TableGet extends WasmInstruction<TableIndexData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, TableIndexData data) throws WasmAssemblerException {
-        LargeArrayIndex index = data.toArrayIndex();
-        FoundElement<TableType, TableImportDescription> element = context.getLookups().requireTable(index);
-
+    public ProcessedInstruction processInputs(CodeEmitContext context, TableIndexData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
-
-        if (element.isImport()) {
-            context.getGenerators().getImportGenerator().emitTableGet(
-                    element.getImport(),
-                    context
-            );
-            context.getFrameState().pushOperand(element.getImport().getDescription().getType().getElementType());
-        } else {
-            context.getGenerators().getTableGenerator().emitTableGet(
-                    element.getIndex(),
-                    element.getElement(),
-                    context
-            );
-            context.getFrameState().pushOperand(element.getElement().getElementType());
-        }
+        final FoundElement<TableType, TableImportDescription> tableElement = context.getLookups().requireTable(data.toArrayIndex());
+        final ValueType elementType = tableElement.isImport() 
+            ? tableElement.getImport().getDescription().getType().getElementType()
+            : tableElement.getElement().getElementType();
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (tableElement.isImport()) {
+                    context.getGenerators().getImportGenerator().emitTableGet(
+                            tableElement.getImport(),
+                            context
+                    );
+                } else {
+                    context.getGenerators().getTableGenerator().emitTableGet(
+                            tableElement.getIndex(),
+                            tableElement.getElement(),
+                            context
+                    );
+                }
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(elementType);
+            }
+        };
     }
 }

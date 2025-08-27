@@ -8,11 +8,12 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.runtime.WasmMath;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class I64TruncF32S extends PlainNumeric {
+public final class I64TruncF32S extends PlainNumeric implements ProcessedInstruction {
     public static final I64TruncF32S INSTANCE = new I64TruncF32S();
 
     private I64TruncF32S() {
@@ -20,9 +21,13 @@ public final class I64TruncF32S extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.F32);
+        return this;
+    }
 
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
         if (context.getConfiguration().strictNumericsEnabled()) {
             context.getEmitter().invoke(
                     ObjectType.of(WasmMath.class),
@@ -35,7 +40,10 @@ public final class I64TruncF32S extends PlainNumeric {
         } else {
             context.getEmitter().op(Op.F2L);
         }
+    }
 
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
         context.getFrameState().pushOperand(NumberType.I64);
     }
 }

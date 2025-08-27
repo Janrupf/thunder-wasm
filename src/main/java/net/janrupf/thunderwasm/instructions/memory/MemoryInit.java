@@ -8,6 +8,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmU32VariantInstruction;
 import net.janrupf.thunderwasm.instructions.data.DataIndexData;
 import net.janrupf.thunderwasm.instructions.data.DoubleIndexData;
@@ -40,77 +41,85 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, DoubleIndexData<DataIndexData, MemoryIndexData> data)
+    public ProcessedInstruction processInputs(CodeEmitContext context, DoubleIndexData<DataIndexData, MemoryIndexData> data)
             throws WasmAssemblerException {
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32); // n (count)
+        context.getFrameState().popOperand(NumberType.I32); // s (source start index in data segment)
+        context.getFrameState().popOperand(NumberType.I32); // d (destination start index in memory)
 
-        CodeEmitter codeEmitter = context.getEmitter();
+        final DataIndexData dataSegment = data.getFirst();
+        final MemoryIndexData memory = data.getSecond();
 
-        DataIndexData dataSegment = data.getFirst();
-        MemoryIndexData memory = data.getSecond();
+        final FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(memory.toArrayIndex());
+        final DataSegment segment = context.getLookups().requireDataSegment(dataSegment.toArrayIndex());
 
-        FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(memory.toArrayIndex());
-        DataSegment segment = context.getLookups().requireDataSegment(dataSegment.toArrayIndex());
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter codeEmitter = context.getEmitter();
+                MemoryInstructionHelper helper = new MemoryInstructionHelper(memoryElement, context);
+                MemoryGenerator internalGenerator = context.getGenerators().getMemoryGenerator();
 
-        MemoryInstructionHelper helper = new MemoryInstructionHelper(memoryElement, context);
-        MemoryGenerator internalGenerator = context.getGenerators().getMemoryGenerator();
+                if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+                    CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(codeEmitter);
+                    helper.emitMemorySize();
 
-        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
-            CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(codeEmitter);
-            helper.emitMemorySize();
+                    codeEmitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkMemoryBulkWrite",
+                            new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
 
-            codeEmitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkMemoryBulkWrite",
-                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
+                    codeEmitter.duplicate();
+                    internalGenerator.emitDataSegmentSize(dataSegment.toArrayIndex(), segment, context);
 
-            codeEmitter.duplicate();
-            internalGenerator.emitDataSegmentSize(dataSegment.toArrayIndex(), segment, context);
+                    codeEmitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkDataBulkAccess",
+                            new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
+                }
 
-            codeEmitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkDataBulkAccess",
-                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
-        }
+                if (internalGenerator.canEmitInitFor(helper.getJavaMemoryType())) {
+                    CommonBytecodeGenerator.loadBelow(
+                            codeEmitter,
+                            3,
+                            helper.getJavaMemoryType(),
+                            helper::emitLoadMemoryReference
+                    );
 
-        if (internalGenerator.canEmitInitFor(helper.getJavaMemoryType())) {
-            CommonBytecodeGenerator.loadBelow(
-                    codeEmitter,
-                    3,
-                    helper.getJavaMemoryType(),
-                    helper::emitLoadMemoryReference
-            );
+                    if (memoryElement.isImport()) {
+                        context.getGenerators().getImportGenerator().emitMemoryInit(
+                                memoryElement.getImport(),
+                                dataSegment.toArrayIndex(),
+                                segment,
+                                context
+                        );
+                    } else {
+                        internalGenerator.emitMemoryInit(
+                                memory.toArrayIndex(),
+                                helper.getMemoryType(),
+                                dataSegment.toArrayIndex(),
+                                segment,
+                                context
+                        );
+                    }
+                    return;
+                }
 
-            if (memoryElement.isImport()) {
-                context.getGenerators().getImportGenerator().emitMemoryInit(
-                        memoryElement.getImport(),
-                        dataSegment.toArrayIndex(),
-                        segment,
-                        context
-                );
-            } else {
-                internalGenerator.emitMemoryInit(
-                        memory.toArrayIndex(),
-                        helper.getMemoryType(),
-                        dataSegment.toArrayIndex(),
-                        segment,
-                        context
-                );
+                emitFallbackInit(helper, segment, dataSegment.toArrayIndex(), context);
             }
-            return;
-        }
-
-        emitFallbackInit(helper, segment, dataSegment.toArrayIndex(), context);
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 
     private void emitFallbackInit(

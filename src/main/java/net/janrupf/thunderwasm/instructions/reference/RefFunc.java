@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.TypeImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
@@ -13,6 +14,7 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
+import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 
@@ -30,17 +32,27 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
-        context.getFrameState().pushOperand(ReferenceType.FUNCREF);
-        FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
+    public ProcessedInstruction processInputs(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        final FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
                 LargeArrayIndex.fromU32(data.getFunctionIndex()));
-        FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
-
-        if (functionTypeIndex.isImport()) {
-            context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
-        } else {
-            context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
-        }
+        final FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
+        final ValueType outputType = ReferenceType.FUNCREF;
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (functionTypeIndex.isImport()) {
+                    context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
+                } else {
+                    context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
+                }
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(outputType);
+            }
+        };
     }
 
     @Override

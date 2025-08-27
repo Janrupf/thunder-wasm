@@ -4,10 +4,11 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class I64Shl extends PlainNumeric {
+public final class I64Shl extends PlainNumeric implements ProcessedInstruction {
     public static final I64Shl INSTANCE = new I64Shl();
 
     private I64Shl() {
@@ -15,10 +16,20 @@ public final class I64Shl extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I64);
-        context.getFrameState().requireOperand(NumberType.I64);
+        context.getFrameState().popOperand(NumberType.I64);
+        return this;
+    }
+
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
         context.getEmitter().op(Op.L2I);
         context.getEmitter().op(Op.LSHL);
+    }
+
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(NumberType.I64);
     }
 }

@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.memory.base;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
@@ -21,32 +22,43 @@ public abstract class PlainMemoryStore extends PlainMemory {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, Memarg data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, Memarg data) throws WasmAssemblerException {
         validate(data, storeType.getBitWidth());
-
+        
         context.getFrameState().popOperand(getNumberType());
         context.getFrameState().popOperand(NumberType.I32);
-
-        FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
-
-        if (memoryElement.isImport()) {
-            context.getGenerators().getImportGenerator().emitMemoryStore(
-                    memoryElement.getImport(),
-                    getNumberType(),
-                    data,
-                    getStoreType(),
-                    context
-            );
-        } else {
-            context.getGenerators().getMemoryGenerator().emitStore(
-                    LargeArrayIndex.ZERO,
-                    memoryElement.getElement(),
-                    getNumberType(),
-                    data,
-                    getStoreType(),
-                    context
-            );
-        }
+        
+        final FoundElement<MemoryType, MemoryImportDescription> memoryElement = context.getLookups().requireMemory(LargeArrayIndex.ZERO);
+        final NumberType valueType = getNumberType();
+        final StoreType currentStoreType = getStoreType();
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (memoryElement.isImport()) {
+                    context.getGenerators().getImportGenerator().emitMemoryStore(
+                            memoryElement.getImport(),
+                            valueType,
+                            data,
+                            currentStoreType,
+                            context
+                    );
+                } else {
+                    context.getGenerators().getMemoryGenerator().emitStore(
+                            LargeArrayIndex.ZERO,
+                            memoryElement.getElement(),
+                            valueType,
+                            data,
+                            currentStoreType,
+                            context
+                    );
+                }
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 
     /**

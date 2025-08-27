@@ -6,6 +6,7 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
@@ -35,58 +36,68 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, Data data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
 
-        CodeEmitter emitter = context.getEmitter();
-
-        int[] branchLabels = data.getBranchLabels().asFlatArray();
+        final int[] branchLabels = data.getBranchLabels().asFlatArray();
         if (branchLabels == null) {
             throw new WasmAssemblerException("Too many branch labels");
         }
 
-        int defaultDepth = data.getDefaultLabel();
-        WasmFrameState preBranchFrameState = context.getFrameState().branch();
+        final int defaultDepth = data.getDefaultLabel();
 
-        if (branchLabels.length < 1) {
-            // Apparently we only have a default branch, this behaves like an unconditional branch
-            emitter.pop(); // Need to drop the condition, it is irrelevant
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter emitter = context.getEmitter();
 
-            BlockHelper.emitBlockReturn(context, defaultDepth);
-            return;
-        }
+                if (branchLabels.length < 1) {
+                    // Apparently we only have a default branch, this behaves like an unconditional branch
+                    emitter.pop(); // Need to drop the condition, it is irrelevant
 
-        Map<Integer, CodeLabel> targetLabels = new HashMap<>();
+                    BlockHelper.emitBlockReturn(context, defaultDepth);
+                    return;
+                }
 
-        targetLabels.put(defaultDepth, emitter.newLabel());
+                Map<Integer, CodeLabel> targetLabels = new HashMap<>();
 
-        CodeLabel defaultCodeLabel = targetLabels.get(defaultDepth);
-        CodeLabel[] branchCodeLabels = new CodeLabel[branchLabels.length];
+                targetLabels.put(defaultDepth, emitter.newLabel());
 
-        // Collect all the labels that will possibly be branched to
-        for (int i = 0; i < branchLabels.length; i++) {
-            int depth = branchLabels[i];
-            if (!targetLabels.containsKey(depth)) {
-                targetLabels.put(depth, emitter.newLabel());
+                CodeLabel defaultCodeLabel = targetLabels.get(defaultDepth);
+                CodeLabel[] branchCodeLabels = new CodeLabel[branchLabels.length];
+
+                // Collect all the labels that will possibly be branched to
+                for (int i = 0; i < branchLabels.length; i++) {
+                    int depth = branchLabels[i];
+                    if (!targetLabels.containsKey(depth)) {
+                        targetLabels.put(depth, emitter.newLabel());
+                    }
+
+                    branchCodeLabels[i] = targetLabels.get(depth);
+                }
+
+                emitter.tableSwitch(0, defaultCodeLabel, branchCodeLabels);
+
+                // Now generate all the cases
+                for (Map.Entry<Integer, CodeLabel> entry : targetLabels.entrySet()) {
+                    WasmFrameState preBranchFrameState = context.getFrameState().branch();
+
+                    int depth = entry.getKey();
+                    CodeLabel codeLabel = entry.getValue();
+
+                    emitter.resolveLabel(codeLabel);
+                    BlockHelper.emitBlockReturn(context, depth);
+
+                    context.restoreFrameStateAfterBranch(preBranchFrameState);
+                }
             }
 
-            branchCodeLabels[i] = targetLabels.get(depth);
-        }
-
-        emitter.tableSwitch(0, defaultCodeLabel, branchCodeLabels);
-
-        // Now generate all the cases
-        for (Map.Entry<Integer, CodeLabel> entry : targetLabels.entrySet()) {
-            int depth = entry.getKey();
-            CodeLabel codeLabel = entry.getValue();
-
-            emitter.resolveLabel(codeLabel);
-            BlockHelper.emitBlockReturn(context, depth);
-
-            context.restoreFrameStateAfterBranch(preBranchFrameState);
-        }
-
-        context.getFrameState().markUnreachable();
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+                // BrTable always branches somewhere - mark frame state as unreachable
+                context.getFrameState().markUnreachable();
+            }
+        };
     }
 
     public static final class Data implements WasmInstruction.Data {

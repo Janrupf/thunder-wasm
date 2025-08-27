@@ -10,12 +10,13 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.runtime.WasmMath;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class I32TruncSatF32U extends PlainNumeric {
+public final class I32TruncSatF32U extends PlainNumeric implements ProcessedInstruction {
     public static final I32TruncSatF32U INSTANCE = new I32TruncSatF32U();
 
     private I32TruncSatF32U() {
@@ -28,11 +29,14 @@ public final class I32TruncSatF32U extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.F32);
+        return this;
+    }
 
-        frameState.popOperand(NumberType.F32);
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+        CodeEmitter emitter = context.getEmitter();
 
         if (context.getConfiguration().strictNumericsEnabled()) {
             emitter.invoke(
@@ -47,7 +51,10 @@ public final class I32TruncSatF32U extends PlainNumeric {
             emitter.op(Op.F2L);
             emitter.op(Op.L2I);
         }
+    }
 
-        frameState.pushOperand(NumberType.I32);
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

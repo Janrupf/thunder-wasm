@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.assembler;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.FunctionType;
+import net.janrupf.thunderwasm.types.UnknownType;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.util.*;
@@ -44,11 +45,14 @@ public final class WasmFrameState {
 
     /**
      * Pushes a value type onto the operand stack.
+     * Always pushes the concrete type, even in unreachable code.
      *
      * @param type the value type to push
      * @throws WasmAssemblerException if the value type is not supported
      */
     public void pushOperand(ValueType type) throws WasmAssemblerException {
+        // Always push the concrete type, even when unreachable
+        // Polymorphic behavior affects consumption, not production
         operandStack.add(type);
     }
 
@@ -76,16 +80,25 @@ public final class WasmFrameState {
 
     /**
      * Pops a value type from the operand stack.
+     * Supports polymorphic behavior when frame is unreachable.
      *
      * @param type the value type to pop
      * @throws WasmAssemblerException if the value type does not match the expected type
      */
     public void popOperand(ValueType type) throws WasmAssemblerException {
         if (operandStack.isEmpty()) {
+            if (!isReachable) {
+                // In unreachable code, we can pop from empty stack (polymorphic behavior)
+                return;
+            }
             throw new WasmAssemblerException("Tried to pop from empty operand stack");
         }
 
         ValueType popped = operandStack.remove(operandStack.size() - 1);
+
+        if (popped instanceof UnknownType || type instanceof UnknownType) {
+            return;
+        }
 
         if (!popped.equals(type)) {
             throw new WasmAssemblerException("Expected " + type.getName() + " but got " + popped.getName());
@@ -94,11 +107,16 @@ public final class WasmFrameState {
 
     /**
      * Pops any value type from the operand stack.
+     * Supports polymorphic behavior when frame is unreachable.
      *
-     * @throws WasmAssemblerException if the operand stack is empty
+     * @throws WasmAssemblerException if the operand stack is empty and frame is reachable
      */
     public ValueType popAnyOperand() throws WasmAssemblerException {
         if (operandStack.isEmpty()) {
+            if (!isReachable) {
+                return UnknownType.UNKNOWN;
+            }
+
             throw new WasmAssemblerException("Tried to pop from empty operand stack");
         }
 
@@ -110,7 +128,9 @@ public final class WasmFrameState {
      *
      * @param type the value type to require
      * @throws WasmAssemblerException if the operand stack is empty or the value type does not match the expected type
+     * @deprecated Use popOperand instead for proper consumption semantics in the 3-phase compilation pattern
      */
+    @Deprecated
     public void requireOperand(ValueType type) throws WasmAssemblerException {
         if (operandStack.isEmpty()) {
             throw new WasmAssemblerException("Tried to require operand from empty operand stack");
@@ -130,7 +150,9 @@ public final class WasmFrameState {
      * @throws WasmAssemblerException if the operand stack is empty,
      *                                the value types do not match the expected types,
      *                                or there are not enough operands
+     * @deprecated Use popOperand instead for proper consumption semantics in the 3-phase compilation pattern
      */
+    @Deprecated
     public void requireOperands(LargeArray<ValueType> types) throws WasmAssemblerException {
         for (long i = 0; i < types.length(); i++) {
             ValueType requiredType = types.get(LargeArrayIndex.fromU64(i));
@@ -172,17 +194,24 @@ public final class WasmFrameState {
     }
 
     /**
-     * Marks the frame state as unreachable.
+     * Marks the frame state as unreachable (and thus polymorphic).
+     * <p>
+     * If the stack is already polymorphic, this clears all concrete types
+     * from the stack.
      */
     public void markUnreachable() {
+        this.operandStack.clear();
         this.isReachable = false;
     }
 
     /**
-     * Marks the frame state as reachable.
+     * Marks the frame state as unreachable and polymorphic, but preserves
+     * the current operand stack.
+     * <p>
+     * If the stack is already polymorphic, this does nothing.
      */
-    public void markReachable() {
-        this.isReachable = true;
+    public void markUnreachablePreserveStack() {
+        this.isReachable = false;
     }
 
     /**

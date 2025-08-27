@@ -550,6 +550,8 @@ public final class ASMCodeEmitter implements CodeEmitter {
 
     @Override
     public void doNew(ObjectType type) throws WasmAssemblerException {
+        requireValidFrameSnapshot();
+
         if (type instanceof ArrayType) {
             JavaType elementType = ((ArrayType) type).getElementType();
 

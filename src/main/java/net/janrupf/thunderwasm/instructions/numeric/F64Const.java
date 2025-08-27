@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.numeric;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.eval.EvalContext;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
@@ -23,9 +24,20 @@ public final class F64Const extends WasmInstruction<F64Const.Data> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
-        context.getEmitter().loadConstant(data.value);
-        context.getFrameState().pushOperand(NumberType.F64);
+    public ProcessedInstruction processInputs(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        final double value = data.getValue();
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                context.getEmitter().loadConstant(value);
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(NumberType.F64);
+            }
+        };
     }
 
     @Override

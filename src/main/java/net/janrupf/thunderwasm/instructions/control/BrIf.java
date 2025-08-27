@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
@@ -26,18 +27,29 @@ public final class BrIf extends WasmInstruction<LabelData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, LabelData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, LabelData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
 
-        WasmFrameState branched = context.getFrameState().branch();
+        final int labelIndex = data.getLabelIndex();
 
-        CodeLabel zeroLabel = context.getEmitter().newLabel();
-        context.getEmitter().jump(JumpCondition.INT_EQUAL_ZERO, zeroLabel);
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                WasmFrameState branched = context.getFrameState().branch();
 
-        // If not zero, branch to the indicated label block
-        BlockHelper.emitBlockReturn(context, data.getLabelIndex());
+                CodeLabel zeroLabel = context.getEmitter().newLabel();
+                context.getEmitter().jump(JumpCondition.INT_EQUAL_ZERO, zeroLabel);
 
-        context.restoreFrameStateAfterBranch(branched);
-        context.getEmitter().resolveLabel(zeroLabel);
+                // If not zero, branch to the indicated label block
+                BlockHelper.emitBlockReturn(context, labelIndex);
+
+                context.restoreFrameStateAfterBranch(branched);
+                context.getEmitter().resolveLabel(zeroLabel);
+            }
+
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 }

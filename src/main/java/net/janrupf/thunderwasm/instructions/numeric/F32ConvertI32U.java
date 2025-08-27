@@ -8,11 +8,12 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.runtime.WasmMath;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class F32ConvertI32U extends PlainNumeric {
+public final class F32ConvertI32U extends PlainNumeric implements ProcessedInstruction {
     public static final F32ConvertI32U INSTANCE = new F32ConvertI32U();
 
     private F32ConvertI32U() {
@@ -20,8 +21,13 @@ public final class F32ConvertI32U extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
+        return this;
+    }
+
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
         context.getEmitter().invoke(
                 ObjectType.of(WasmMath.class),
                 "u32ToF32",
@@ -30,6 +36,10 @@ public final class F32ConvertI32U extends PlainNumeric {
                 InvokeType.STATIC,
                 false
         );
+    }
+
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
         context.getFrameState().pushOperand(NumberType.F32);
     }
 }

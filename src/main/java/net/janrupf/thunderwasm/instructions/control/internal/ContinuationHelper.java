@@ -42,7 +42,7 @@ public final class ContinuationHelper {
         emitter.invoke(
                 CONTINUATION_TYPE,
                 "popLayerStatic",
-                new JavaType[] { CONTINUATION_TYPE },
+                new JavaType[]{CONTINUATION_TYPE},
                 CONTINUATION_LAYER_TYPE,
                 InvokeType.STATIC,
                 false
@@ -359,7 +359,13 @@ public final class ContinuationHelper {
 
             for (ValueType dummyType : point.getDummyOperands()) {
                 JavaType javaDummyType = WasmTypeConverter.toJavaType(dummyType);
-                emitter.loadConstant(javaDummyType.getDefaultValue());
+
+                Object defaultValue = javaDummyType.getDefaultValue();
+                if (defaultValue == null) {
+                    emitter.loadNull((ObjectType) javaDummyType);
+                } else {
+                    emitter.loadConstant(javaDummyType.getDefaultValue());
+                }
             }
 
             if (!point.getExtraSaveTypes().isEmpty()) {
@@ -522,7 +528,12 @@ public final class ContinuationHelper {
 
         // Load some dummy return value onto the stack
         if (!functionReturnType.equals(PrimitiveType.VOID)) {
-            emitter.loadConstant(functionReturnType.getDefaultValue());
+            Object defaultValue = functionReturnType.getDefaultValue();
+            if (defaultValue == null) {
+                emitter.loadNull((ObjectType) functionReturnType);
+            } else {
+                emitter.loadConstant(defaultValue);
+            }
         }
 
         emitter.doReturn();

@@ -78,21 +78,16 @@ public abstract class WasmInstruction<D extends WasmInstruction.Data> {
     public abstract D readData(WasmLoader loader) throws IOException, InvalidModuleException;
 
     /**
-     * Emit code for the instruction.
+     * Process inputs and prepare for code generation.
+     * This phase validates instruction inputs and consumes operands from the stack.
+     * Must return a ProcessedInstruction that can emit bytecode and process outputs.
      *
      * @param context the code emit context
      * @param data    the instruction data
-     * @throws WasmAssemblerException if emitting the code fails
+     * @return a ProcessedInstruction that handles bytecode emission and output processing
+     * @throws WasmAssemblerException if input processing fails
      */
-    public void emitCode(
-            CodeEmitContext context,
-            D data
-    ) throws WasmAssemblerException {
-        throw new WasmAssemblerException(
-                "Code emitter not implemented for " + getName(),
-                new UnsupportedOperationException("TODO")
-        );
-    }
+    public abstract ProcessedInstruction processInputs(CodeEmitContext context, D data) throws WasmAssemblerException;
 
     /**
      * Contribute data to the code analysis.

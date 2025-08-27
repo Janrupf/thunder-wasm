@@ -190,10 +190,11 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         if (returnLabel.isReachable()) {
             // Only resolve if its reachable either way
             codeEmitter.resolveLabel(returnLabel);
-            codeEmitContext.getFrameState().markReachable();
         }
 
-        this.processFunctionEpilogue(codeEmitContext);
+        if (codeEmitContext.getFrameState().isReachable() || returnLabel.isReachable()) {
+            this.processFunctionEpilogue(codeEmitContext);
+        }
         ContinuationHelper.emitContinuationImplementations(codeEmitContext, signature.getJavaReturnType());
 
         // Finish code generation
@@ -207,10 +208,6 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
         List<ValueType> wasmOutputs = context.getFrameState().getReturnTypes();
         WasmFrameState frameState = context.getFrameState();
         CodeEmitter codeEmitter = context.getEmitter();
-
-        if (!frameState.isReachable()) {
-            return;
-        }
 
         for (int i = wasmOutputs.size() - 1; i >= 0; i--) {
             frameState.popOperand(wasmOutputs.get(i));

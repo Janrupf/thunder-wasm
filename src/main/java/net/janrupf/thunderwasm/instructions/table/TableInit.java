@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.DoubleIndexData;
 import net.janrupf.thunderwasm.instructions.data.ElementIndexData;
@@ -47,68 +48,77 @@ public final class TableInit extends WasmInstruction<DoubleIndexData<ElementInde
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, DoubleIndexData<ElementIndexData, TableIndexData> data)
+    public ProcessedInstruction processInputs(CodeEmitContext context, DoubleIndexData<ElementIndexData, TableIndexData> data)
             throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
         context.getFrameState().popOperand(NumberType.I32);
         context.getFrameState().popOperand(NumberType.I32);
 
-        CodeEmitter codeEmitter = context.getEmitter();
+        final ElementIndexData element = data.getFirst();
+        final TableIndexData table = data.getSecond();
 
-        ElementIndexData element = data.getFirst();
-        TableIndexData table = data.getSecond();
+        final FoundElement<TableType, TableImportDescription> tableElement = context.getLookups().requireTable(table.toArrayIndex());
+        final ElementSegment elementSegment = context.getLookups().requireElementSegment(element.toArrayIndex());
 
-        FoundElement<TableType, TableImportDescription> tableElement = context.getLookups().requireTable(table.toArrayIndex());
-        ElementSegment elementSegment = context.getLookups().requireElementSegment(element.toArrayIndex());
+        final TableInstructionHelper helper = new TableInstructionHelper(tableElement, context);
+        final TableGenerator generator = context.getGenerators().getTableGenerator();
 
-        TableInstructionHelper helper = new TableInstructionHelper(tableElement, context);
-        TableGenerator generator = context.getGenerators().getTableGenerator();
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter codeEmitter = context.getEmitter();
 
-        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
-            CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(codeEmitter);
-            helper.emitTableSize();
+                if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+                    CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(codeEmitter);
+                    helper.emitTableSize();
 
-            codeEmitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkTableBulkWrite",
-                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
+                    codeEmitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkTableBulkWrite",
+                            new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
 
-            codeEmitter.duplicate();
-            generator.emitElementSize(element.toArrayIndex(), elementSegment, context);
+                    codeEmitter.duplicate();
+                    generator.emitElementSize(element.toArrayIndex(), elementSegment, context);
 
-            codeEmitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkElementBulkAccess",
-                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
-        }
+                    codeEmitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkElementBulkAccess",
+                            new JavaType[]{PrimitiveType.INT, PrimitiveType.INT},
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
+                }
 
-        if (generator.canEmitInitFor(helper.getJavaTableType())) {
-            CommonBytecodeGenerator.loadBelow(
-                    codeEmitter,
-                    3,
-                    helper.getJavaTableType(),
-                    () -> {
-                        generator.emitLoadTableReference(table.toArrayIndex(), context);
-                    }
-            );
-            generator.emitTableInit(
-                    helper.getTableType(),
-                    element.toArrayIndex(),
-                    elementSegment,
-                    context
-            );
-            return;
-        }
+                if (generator.canEmitInitFor(helper.getJavaTableType())) {
+                    CommonBytecodeGenerator.loadBelow(
+                            codeEmitter,
+                            3,
+                            helper.getJavaTableType(),
+                            () -> {
+                                generator.emitLoadTableReference(table.toArrayIndex(), context);
+                            }
+                    );
+                    generator.emitTableInit(
+                            helper.getTableType(),
+                            element.toArrayIndex(),
+                            elementSegment,
+                            context
+                    );
+                    return;
+                }
 
-        emitFallbackInit(helper, elementSegment, element.toArrayIndex(), context);
+                emitFallbackInit(helper, elementSegment, element.toArrayIndex(), context);
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 
     private void emitFallbackInit(

@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.control;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.imports.TypeImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.lookup.FoundElement;
@@ -27,21 +28,28 @@ public final class Call extends WasmInstruction<Call.Data> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
-        FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
+    public ProcessedInstruction processInputs(CodeEmitContext context, Data data) throws WasmAssemblerException {
+        final FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
                 LargeArrayIndex.fromU32(data.getFunctionIndex()));
-        FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
+        final FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
 
         ControlHelper.popArguments(context, functionType);
 
-        if (functionTypeIndex.isImport()) {
-            context.getGenerators().getImportGenerator().emitInvokeFunction(functionTypeIndex.getImport(), context);
-        } else {
-            context.getGenerators().getFunctionGenerator().emitInvokeFunction(functionTypeIndex.getIndex(), functionType, context);
-        }
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (functionTypeIndex.isImport()) {
+                    context.getGenerators().getImportGenerator().emitInvokeFunction(functionTypeIndex.getImport(), context);
+                } else {
+                    context.getGenerators().getFunctionGenerator().emitInvokeFunction(functionTypeIndex.getIndex(), functionType, context);
+                }
+            }
 
-        ControlHelper.pushReturnValues(context, functionType);
-
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                ControlHelper.pushReturnValues(context, functionType);
+            }
+        };
     }
 
     public static final class Data implements WasmInstruction.Data {

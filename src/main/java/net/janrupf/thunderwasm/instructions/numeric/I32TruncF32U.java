@@ -1,20 +1,19 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
-import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.InvokeType;
 import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.runtime.WasmMath;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class I32TruncF32U extends PlainNumeric {
+public final class I32TruncF32U extends PlainNumeric implements ProcessedInstruction {
     public static final I32TruncF32U INSTANCE = new I32TruncF32U();
 
     private I32TruncF32U() {
@@ -22,14 +21,15 @@ public final class I32TruncF32U extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.F32);
+        return this;
+    }
 
-        frameState.popOperand(NumberType.F32);
-
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
         if (context.getConfiguration().strictNumericsEnabled()) {
-            emitter.invoke(
+            context.getEmitter().invoke(
                     ObjectType.of(WasmMath.class),
                     "strictI32TruncF32U",
                     new JavaType[]{PrimitiveType.FLOAT},
@@ -38,10 +38,13 @@ public final class I32TruncF32U extends PlainNumeric {
                     false
             );
         } else {
-            emitter.op(Op.F2L);
-            emitter.op(Op.L2I);
+            context.getEmitter().op(Op.F2L);
+            context.getEmitter().op(Op.L2I);
         }
+    }
 
-        frameState.pushOperand(NumberType.I32);
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

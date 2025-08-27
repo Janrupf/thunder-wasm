@@ -8,6 +8,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.MemoryGenerator;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmU32VariantInstruction;
 import net.janrupf.thunderwasm.instructions.data.DoubleIndexData;
 import net.janrupf.thunderwasm.instructions.data.MemoryIndexData;
@@ -37,61 +38,67 @@ public final class MemoryCopy extends WasmU32VariantInstruction<DoubleIndexData<
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, DoubleIndexData<MemoryIndexData, MemoryIndexData> data) throws WasmAssemblerException {
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
+    public ProcessedInstruction processInputs(CodeEmitContext context, DoubleIndexData<MemoryIndexData, MemoryIndexData> data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32); // n (count)
+        context.getFrameState().popOperand(NumberType.I32); // s (source start index)
+        context.getFrameState().popOperand(NumberType.I32); // d (destination start index)
 
-        CodeEmitter emitter = context.getEmitter();
+        final MemoryIndexData target = data.getFirst();
+        final MemoryIndexData source = data.getSecond();
 
-        MemoryIndexData target = data.getFirst();
-        MemoryIndexData source = data.getSecond();
+        final LargeArrayIndex sourceIndex = source.toArrayIndex();
+        final FoundElement<MemoryType, MemoryImportDescription> sourceElement = context.getLookups().requireMemory(sourceIndex);
 
-        LargeArrayIndex sourceIndex = source.toArrayIndex();
-        FoundElement<MemoryType, MemoryImportDescription> sourceElement = context.getLookups().requireMemory(sourceIndex);
+        final LargeArrayIndex targetIndex = target.toArrayIndex();
+        final FoundElement<MemoryType, MemoryImportDescription> targetElement = context.getLookups().requireMemory(targetIndex);
 
-        LargeArrayIndex targetIndex = target.toArrayIndex();
-        FoundElement<MemoryType, MemoryImportDescription> targetElement = context.getLookups().requireMemory(targetIndex);
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter emitter = context.getEmitter();
+                MemoryGenerator memoryGenerator = context.getGenerators().getMemoryGenerator();
 
-        MemoryGenerator memoryGenerator = context.getGenerators().getMemoryGenerator();
+                MemoryInstructionHelper sourceHelper = new MemoryInstructionHelper(sourceElement, context);
+                MemoryInstructionHelper targetHelper = new MemoryInstructionHelper(targetElement, context);
 
-        // Extract the necessary information
-        MemoryInstructionHelper sourceHelper = new MemoryInstructionHelper(sourceElement, context);
-        MemoryInstructionHelper targetHelper = new MemoryInstructionHelper(targetElement, context);
+                if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+                    CommonBytecodeGenerator.emitPrepareCopyBoundsCheck(emitter);
+                    sourceHelper.emitMemorySize();
+                    targetHelper.emitMemorySize();
 
-        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
-            CommonBytecodeGenerator.emitPrepareCopyBoundsCheck(emitter);
-            sourceHelper.emitMemorySize();
-            targetHelper.emitMemorySize();
+                    emitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkMemoryCopyBulkAccess",
+                            new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
+                }
 
-            emitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkMemoryCopyBulkAccess",
-                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
-        }
+                // If the internal generator can emit a copy for the given types, use it
+                if (memoryGenerator.canEmitCopyFor(sourceHelper.getJavaMemoryType(), targetHelper.getJavaMemoryType())) {
 
-        // If the internal generator can emit a copy for the given types, use it
-        if (memoryGenerator.canEmitCopyFor(sourceHelper.getJavaMemoryType(), targetHelper.getJavaMemoryType())) {
+                    CommonBytecodeGenerator.loadBelow(
+                            emitter,
+                            3,
+                            targetHelper.getJavaMemoryType(),
+                            targetHelper::emitLoadMemoryReference
+                    );
 
-            CommonBytecodeGenerator.loadBelow(
-                    emitter,
-                    3,
-                    targetHelper.getJavaMemoryType(),
-                    targetHelper::emitLoadMemoryReference
-            );
+                    sourceHelper.emitLoadMemoryReference();
 
-            sourceHelper.emitLoadMemoryReference();
+                    memoryGenerator.emitMemoryCopy(sourceHelper.getJavaMemoryType(), targetHelper.getJavaMemoryType(), context);
+                    return;
+                }
 
-            memoryGenerator.emitMemoryCopy(sourceHelper.getJavaMemoryType(), targetHelper.getJavaMemoryType(), context);
-            return;
-        }
-
-        // If the internal generator cannot emit a copy, emit a fallback copy
-        emitFallbackCopy(sourceHelper, targetHelper, context);
+                emitFallbackCopy(sourceHelper, targetHelper, context);
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 
     private void emitFallbackCopy(

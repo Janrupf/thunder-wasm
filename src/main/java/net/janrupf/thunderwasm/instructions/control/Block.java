@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.control;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.analysis.AnalysisContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
@@ -24,9 +25,8 @@ public final class Block extends WasmInstruction<BlockData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, BlockData data) throws WasmAssemblerException {
-        BlockHelper.emitInvokeBlock(context, data, true, false);
-        // ControlHelper.emitExpression(context, data.getPrimaryExpression());
+    public ProcessedInstruction processInputs(CodeEmitContext context, BlockData data) throws WasmAssemblerException {
+        return BlockHelper.processBlockInputs(context, data, true, false);
     }
 
     @Override

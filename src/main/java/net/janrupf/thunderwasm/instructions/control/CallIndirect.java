@@ -2,6 +2,7 @@ package net.janrupf.thunderwasm.instructions.control;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
@@ -27,14 +28,26 @@ public final class CallIndirect extends WasmInstruction<CallIndirect.Data> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, Data data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, Data data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
 
-        FunctionType type = context.getLookups().requireType(LargeArrayIndex.fromU32(data.getTypeIndex()));
+        final FunctionType type = context.getLookups().requireType(LargeArrayIndex.fromU32(data.getTypeIndex()));
+        final LargeArrayIndex tableIndex = LargeArrayIndex.fromU32(data.getTableIndex());
+
         ControlHelper.popArguments(context, type);
-        context.getGenerators().getFunctionGenerator()
-                .emitInvokeFunctionIndirect(type, LargeArrayIndex.fromU32(data.getTableIndex()), context);
-        ControlHelper.pushReturnValues(context, type);
+
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                context.getGenerators().getFunctionGenerator()
+                        .emitInvokeFunctionIndirect(type, tableIndex, context);
+            }
+
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                ControlHelper.pushReturnValues(context, type);
+            }
+        };
     }
 
     public static final class Data implements WasmInstruction.Data {

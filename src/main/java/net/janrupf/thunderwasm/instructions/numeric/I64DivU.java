@@ -7,10 +7,11 @@ import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class I64DivU extends PlainNumeric {
+public final class I64DivU extends PlainNumeric implements ProcessedInstruction {
     public static final I64DivU INSTANCE = new I64DivU();
 
     private I64DivU() {
@@ -18,9 +19,14 @@ public final class I64DivU extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I64);
-        context.getFrameState().requireOperand(NumberType.I64);
+        context.getFrameState().popOperand(NumberType.I64);
+        return this;
+    }
+
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
         context.getEmitter().invoke(
                 ObjectType.of(Long.class),
                 "divideUnsigned",
@@ -29,5 +35,10 @@ public final class I64DivU extends PlainNumeric {
                 InvokeType.STATIC,
                 false
         );
+    }
+
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(NumberType.I64);
     }
 }

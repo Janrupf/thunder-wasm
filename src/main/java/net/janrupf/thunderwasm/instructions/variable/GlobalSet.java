@@ -4,6 +4,7 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.data.Global;
 import net.janrupf.thunderwasm.imports.GlobalImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.GlobalIndexData;
 import net.janrupf.thunderwasm.lookup.FoundElement;
@@ -11,6 +12,7 @@ import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.GlobalType;
+import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 
@@ -27,35 +29,46 @@ public final class GlobalSet extends WasmInstruction<GlobalIndexData> {
     }
 
     @Override
-    public void emitCode(
-            CodeEmitContext context,
-            GlobalIndexData data
-    ) throws WasmAssemblerException {
-        FoundElement<Global, GlobalImportDescription> gElement = context.getLookups().requireGlobal(
+    public ProcessedInstruction processInputs(CodeEmitContext context, GlobalIndexData data) throws WasmAssemblerException {
+        final FoundElement<Global, GlobalImportDescription> element = context.getLookups().requireGlobal(
                 LargeArrayIndex.fromU32(data.getIndex())
         );
-
-        if (gElement.isImport()) {
-            if (gElement.getImport().getDescription().getType().getMutability() != GlobalType.Mutability.VAR) {
+        
+        final ValueType globalType;
+        if (element.isImport()) {
+            if (element.getImport().getDescription().getType().getMutability() != GlobalType.Mutability.VAR) {
                 throw new WasmAssemblerException("Cannot set immutable global");
             }
-
-            context.getGenerators().getImportGenerator().emitSetGlobal(
-                    gElement.getImport(),
-                    context
-            );
-            context.getFrameState().popOperand(gElement.getImport().getDescription().getType().getValueType());
+            globalType = element.getImport().getDescription().getType().getValueType();
         } else {
-            if (gElement.getElement().getType().getMutability() != GlobalType.Mutability.VAR) {
+            if (element.getElement().getType().getMutability() != GlobalType.Mutability.VAR) {
                 throw new WasmAssemblerException("Cannot set immutable global");
             }
-
-            context.getGenerators().getGlobalGenerator().emitSetGlobal(
-                    gElement.getIndex(),
-                    gElement.getElement(),
-                    context
-            );
-            context.getFrameState().popOperand(gElement.getElement().getType().getValueType());
+            globalType = element.getElement().getType().getValueType();
         }
+        
+        context.getFrameState().popOperand(globalType);
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (element.isImport()) {
+                    context.getGenerators().getImportGenerator().emitSetGlobal(
+                            element.getImport(),
+                            context
+                    );
+                } else {
+                    context.getGenerators().getGlobalGenerator().emitSetGlobal(
+                            element.getIndex(),
+                            element.getElement(),
+                            context
+                    );
+                }
+            }
+
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 }

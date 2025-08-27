@@ -7,6 +7,7 @@ import net.janrupf.thunderwasm.assembler.emitter.frame.JavaLocal;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmU32VariantInstruction;
 import net.janrupf.thunderwasm.instructions.data.MemoryIndexData;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
@@ -29,66 +30,76 @@ public final class MemoryFill extends WasmU32VariantInstruction<MemoryIndexData>
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, MemoryIndexData data) throws WasmAssemblerException {
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
+    public ProcessedInstruction processInputs(CodeEmitContext context, MemoryIndexData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I32); // n (count)
+        context.getFrameState().popOperand(NumberType.I32); // val (value)
+        context.getFrameState().popOperand(NumberType.I32); // d (destination)
 
-        CodeEmitter emitter = context.getEmitter();
-        MemoryInstructionHelper helper = new MemoryInstructionHelper(
+        final MemoryInstructionHelper helper = new MemoryInstructionHelper(
                 context.getLookups().requireMemory(data.toArrayIndex()),
                 context
         );
 
-        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
-            CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(emitter);
-            helper.emitMemorySize();
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter emitter = context.getEmitter();
 
-            emitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkMemoryBulkWrite",
-                    new JavaType[]{ PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT },
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
-        }
+                if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+                    CommonBytecodeGenerator.emitPrepareWriteBoundsCheck(emitter);
+                    helper.emitMemorySize();
 
-        CodeLabel endLabel = emitter.newLabel();
-        CodeLabel loopStartLabel = emitter.newLabel();
+                    emitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkMemoryBulkWrite",
+                            new JavaType[]{ PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT },
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
+                }
 
-        JavaLocal nLocal = emitter.allocateLocal(PrimitiveType.INT);
+                CodeLabel endLabel = emitter.newLabel();
+                CodeLabel loopStartLabel = emitter.newLabel();
 
-        emitter.storeLocal(nLocal);
-        emitter.loadLocal(nLocal);
-        emitter.jump(JumpCondition.INT_EQUAL_ZERO, endLabel);
+                JavaLocal nLocal = emitter.allocateLocal(PrimitiveType.INT);
 
-        emitter.resolveLabel(loopStartLabel);
+                emitter.storeLocal(nLocal);
+                emitter.loadLocal(nLocal);
+                emitter.jump(JumpCondition.INT_EQUAL_ZERO, endLabel);
 
-        // Switch value and offset so value is on top, duplicate and store
-        emitter.duplicate(2, 0);
-        helper.emitMemoryStoreByte();
+                emitter.resolveLabel(loopStartLabel);
 
-        // Increment d
-        emitter.op(Op.SWAP);
-        emitter.loadConstant(1);
-        emitter.op(Op.IADD);
-        emitter.op(Op.SWAP);
+                // Switch value and offset so value is on top, duplicate and store
+                emitter.duplicate(2, 0);
+                helper.emitMemoryStoreByte();
 
-        // Decrement n and jump back to loop start if its greater than 0
-        emitter.loadLocal(nLocal);
-        emitter.loadConstant(1);
-        emitter.op(Op.ISUB);
-        emitter.duplicate();
-        emitter.storeLocal(nLocal);
-        emitter.jump(JumpCondition.INT_GREATER_THAN_ZERO, loopStartLabel);
+                // Increment d
+                emitter.op(Op.SWAP);
+                emitter.loadConstant(1);
+                emitter.op(Op.IADD);
+                emitter.op(Op.SWAP);
 
-        emitter.resolveLabel(endLabel);
+                // Decrement n and jump back to loop start if its greater than 0
+                emitter.loadLocal(nLocal);
+                emitter.loadConstant(1);
+                emitter.op(Op.ISUB);
+                emitter.duplicate();
+                emitter.storeLocal(nLocal);
+                emitter.jump(JumpCondition.INT_GREATER_THAN_ZERO, loopStartLabel);
 
-        // Pop d and value
-        emitter.pop();
-        emitter.pop();
+                emitter.resolveLabel(endLabel);
 
-        nLocal.free();
+                // Pop d and value
+                emitter.pop();
+                emitter.pop();
+
+                nLocal.free();
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) {
+            }
+        };
     }
 }

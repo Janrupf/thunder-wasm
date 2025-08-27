@@ -3,6 +3,7 @@ package net.janrupf.thunderwasm.instructions.memory;
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.imports.MemoryImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.MemoryIndexData;
 import net.janrupf.thunderwasm.lookup.FoundElement;
@@ -26,24 +27,32 @@ public final class MemoryGrow extends WasmInstruction<MemoryIndexData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, MemoryIndexData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, MemoryIndexData data) throws WasmAssemblerException {
         context.getFrameState().popOperand(NumberType.I32);
-
-        FoundElement<MemoryType, MemoryImportDescription> memory = context.getLookups().requireMemory(data.toArrayIndex());
-
-        if (memory.isImport()) {
-            context.getGenerators().getImportGenerator().emitMemoryGrow(
-                    memory.getImport(),
-                    context
-            );
-        } else {
-            context.getGenerators().getMemoryGenerator().emitMemoryGrow(
-                    memory.getIndex(),
-                    memory.getElement(),
-                    context
-            );
-        }
-
-        context.getFrameState().pushOperand(NumberType.I32);
+        
+        final FoundElement<MemoryType, MemoryImportDescription> memory = context.getLookups().requireMemory(data.toArrayIndex());
+        
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                if (memory.isImport()) {
+                    context.getGenerators().getImportGenerator().emitMemoryGrow(
+                            memory.getImport(),
+                            context
+                    );
+                } else {
+                    context.getGenerators().getMemoryGenerator().emitMemoryGrow(
+                            memory.getIndex(),
+                            memory.getElement(),
+                            context
+                    );
+                }
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                context.getFrameState().pushOperand(NumberType.I32);
+            }
+        };
     }
 }

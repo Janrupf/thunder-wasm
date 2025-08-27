@@ -5,16 +5,18 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.ReferenceType;
+import net.janrupf.thunderwasm.types.UnknownType;
 import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 
-public final class RefIsNull extends WasmInstruction<EmptyInstructionData> {
+public final class RefIsNull extends WasmInstruction<EmptyInstructionData> implements ProcessedInstruction {
     public static final RefIsNull INSTANCE = new RefIsNull();
 
     private RefIsNull() {
@@ -22,16 +24,25 @@ public final class RefIsNull extends WasmInstruction<EmptyInstructionData> {
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
         ValueType type = context.getFrameState().popAnyOperand();
-        if (!(type instanceof ReferenceType)) {
+        if (!(type instanceof ReferenceType) && !(type instanceof UnknownType)) {
             throw new WasmAssemblerException("Expected reference type on stack");
         }
 
+        return this;
+    }
+
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
         CommonBytecodeGenerator.evalConditionZeroOrOne(
                 context.getEmitter(),
                 JumpCondition.IS_NULL
         );
+    }
+
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
         context.getFrameState().pushOperand(NumberType.I32);
     }
 

@@ -9,6 +9,7 @@ import net.janrupf.thunderwasm.assembler.emitter.types.ObjectType;
 import net.janrupf.thunderwasm.assembler.emitter.types.PrimitiveType;
 import net.janrupf.thunderwasm.assembler.generator.TableGenerator;
 import net.janrupf.thunderwasm.imports.TableImportDescription;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.data.DoubleIndexData;
 import net.janrupf.thunderwasm.instructions.data.TableIndexData;
@@ -16,7 +17,6 @@ import net.janrupf.thunderwasm.instructions.decoder.InstructionDecoder;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
-import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.NumberType;
 import net.janrupf.thunderwasm.types.TableType;
@@ -45,62 +45,67 @@ public final class TableCopy extends WasmInstruction<DoubleIndexData<TableIndexD
     }
 
     @Override
-    public void emitCode(CodeEmitContext context, DoubleIndexData<TableIndexData, TableIndexData> data)
+    public ProcessedInstruction processInputs(CodeEmitContext context, DoubleIndexData<TableIndexData, TableIndexData> data)
             throws WasmAssemblerException {
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
-        context.getFrameState().popOperand(NumberType.I32);
+        context.getFrameState().popOperand(NumberType.I32); // count
+        context.getFrameState().popOperand(NumberType.I32); // source
+        context.getFrameState().popOperand(NumberType.I32); // destination
 
-        TableIndexData target = data.getFirst();
-        TableIndexData source = data.getSecond();
+        final TableIndexData target = data.getFirst();
+        final TableIndexData source = data.getSecond();
 
-        LargeArrayIndex sourceIndex = source.toArrayIndex();
-        FoundElement<TableType, TableImportDescription> sourceElement = context.getLookups().requireTable(sourceIndex);
+        final FoundElement<TableType, TableImportDescription> sourceElement = context.getLookups().requireTable(source.toArrayIndex());
+        final FoundElement<TableType, TableImportDescription> targetElement = context.getLookups().requireTable(target.toArrayIndex());
 
-        LargeArrayIndex targetIndex = target.toArrayIndex();
-        FoundElement<TableType, TableImportDescription> targetElement = context.getLookups().requireTable(targetIndex);
+        final TableInstructionHelper sourceHelper = new TableInstructionHelper(sourceElement, context);
+        final TableInstructionHelper targetHelper = new TableInstructionHelper(targetElement, context);
+        final TableGenerator internalTableGenerator = context.getGenerators().getTableGenerator();
 
-        TableGenerator internalTableGenerator = context.getGenerators().getTableGenerator();
+        return new ProcessedInstruction() {
+            @Override
+            public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+                CodeEmitter emitter = context.getEmitter();
 
-        CodeEmitter emitter = context.getEmitter();
+                if (context.getConfiguration().atomicBoundsChecksEnabled()) {
+                    CommonBytecodeGenerator.emitPrepareCopyBoundsCheck(emitter);
+                    sourceHelper.emitTableSize();
+                    targetHelper.emitTableSize();
 
-        // Extract the necessary information
-        TableInstructionHelper sourceHelper = new TableInstructionHelper(sourceElement, context);
-        TableInstructionHelper targetHelper = new TableInstructionHelper(targetElement, context);
+                    emitter.invoke(
+                            ObjectType.of(BoundsChecks.class),
+                            "checkTableCopyBulkAccess",
+                            new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
+                            PrimitiveType.VOID,
+                            InvokeType.STATIC,
+                            false
+                    );
+                }
 
-        if (context.getConfiguration().atomicBoundsChecksEnabled()) {
-            CommonBytecodeGenerator.emitPrepareCopyBoundsCheck(emitter);
-            sourceHelper.emitTableSize();
-            targetHelper.emitTableSize();
+                // If the internal generate can emit a copy for the given types, use it
+                if (internalTableGenerator.canEmitCopyFor(sourceHelper.getJavaTableType(), targetHelper.getJavaTableType())) {
 
-            emitter.invoke(
-                    ObjectType.of(BoundsChecks.class),
-                    "checkTableCopyBulkAccess",
-                    new JavaType[]{PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT, PrimitiveType.INT},
-                    PrimitiveType.VOID,
-                    InvokeType.STATIC,
-                    false
-            );
-        }
+                    CommonBytecodeGenerator.loadBelow(
+                            emitter,
+                            3,
+                            targetHelper.getJavaTableType(),
+                            targetHelper::emitLoadTableReference
+                    );
 
-        // If the internal generate can emit a copy for the given types, use it
-        if (internalTableGenerator.canEmitCopyFor(sourceHelper.getJavaTableType(), targetHelper.getJavaTableType())) {
+                    sourceHelper.emitLoadTableReference();
 
-            CommonBytecodeGenerator.loadBelow(
-                    emitter,
-                    3,
-                    targetHelper.getJavaTableType(),
-                    targetHelper::emitLoadTableReference
-            );
+                    internalTableGenerator.emitTableCopy(sourceHelper.getTableType(), targetHelper.getTableType(), context);
+                    return;
+                }
 
-            sourceHelper.emitLoadTableReference();
-
-            internalTableGenerator.emitTableCopy(sourceHelper.getTableType(), targetHelper.getTableType(), context);
-            return;
-        }
-
-        // If the internal generator cannot emit a copy, emit a fallback copy
-        emitFallbackCopy(sourceHelper, targetHelper, context);
+                // If the internal generator cannot emit a copy, emit a fallback copy
+                emitFallbackCopy(sourceHelper, targetHelper, context);
+            }
+            
+            @Override
+            public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+                // Phase 3: Process outputs - TableCopy produces no operands
+            }
+        };
     }
 
     private void emitFallbackCopy(

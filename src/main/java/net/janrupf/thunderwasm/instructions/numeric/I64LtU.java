@@ -1,13 +1,16 @@
 package net.janrupf.thunderwasm.instructions.numeric;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
-import net.janrupf.thunderwasm.assembler.WasmFrameState;
-import net.janrupf.thunderwasm.assembler.emitter.*;
+import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
+import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
+import net.janrupf.thunderwasm.assembler.emitter.Op;
 import net.janrupf.thunderwasm.instructions.EmptyInstructionData;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.numeric.internal.PlainNumeric;
 import net.janrupf.thunderwasm.types.NumberType;
 
-public final class I64LtU extends PlainNumeric {
+public final class I64LtU extends PlainNumeric implements ProcessedInstruction {
     public static final I64LtU INSTANCE = new I64LtU();
 
     private I64LtU() {
@@ -15,18 +18,24 @@ public final class I64LtU extends PlainNumeric {
     }
 
     @Override
-    public void emitCode(
-            CodeEmitContext context, EmptyInstructionData data
-    ) throws WasmAssemblerException {
-        WasmFrameState frameState = context.getFrameState();
-        CodeEmitter emitter = context.getEmitter();
+    public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        context.getFrameState().popOperand(NumberType.I64);
+        context.getFrameState().popOperand(NumberType.I64);
+        return this;
+    }
 
-        CommonBytecodeGenerator.convertTop2Unsigned(emitter, NumberType.I64);
+    @Override
+    public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
+        CommonBytecodeGenerator.convertTop2Unsigned(context.getEmitter(), NumberType.I64);
+        context.getEmitter().op(Op.LCMP);
+        CommonBytecodeGenerator.evalConditionZeroOrOne(
+                context.getEmitter(),
+                JumpCondition.INT_LESS_THAN_ZERO
+        );
+    }
 
-        frameState.popOperand(NumberType.I64);
-        frameState.popOperand(NumberType.I64);
-        emitter.op(Op.LCMP);
-        frameState.pushOperand(NumberType.I32);
-        CommonBytecodeGenerator.evalCompResultZeroOrOne(emitter, ComparisonResult.LESS_THAN);
+    @Override
+    public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
+        context.getFrameState().pushOperand(NumberType.I32);
     }
 }

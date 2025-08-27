@@ -1,7 +1,15 @@
-;; compile-args: --no-check
-(module
-  (import "spectest" "memory" (memory 1 2))
-  (data (memory 0) (i32.const 10) "\10")
+;; Test `unreachable` operator
 
-  (func (export "load") (param i32) (result i32) (i32.load (local.get 0)))
+(module
+  (func
+    unreachable
+    i32.const 0
+    i32.const 0
+    i32.const 0
+    select
+    unreachable
+    f32.const 0x0p+0 (;=0;)
+    i32.const 0
+    select
+    unreachable)
 )

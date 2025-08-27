@@ -5,6 +5,7 @@ import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.types.JavaType;
 import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.instructions.InstructionInstance;
+import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.module.encoding.LargeArray;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
@@ -54,11 +55,6 @@ public final class ControlHelper {
      */
     public static void emitExpression(CodeEmitContext context, Expr expr) throws WasmAssemblerException {
         for (InstructionInstance instructionInstance : expr.getInstructions()) {
-            if (!context.getFrameState().isReachable()) {
-                // Later instructions can't suddenly make the frame reachable again, stop here
-                break;
-            }
-
             emitInstruction(context, instructionInstance.getInstruction(), instructionInstance.getData());
         }
     }
@@ -72,7 +68,15 @@ public final class ControlHelper {
         D data = (D) instructionData;
 
         try {
-            instruction.emitCode(context, data);
+            ProcessedInstruction processedInstruction = instruction.processInputs(context, data);
+
+            if (context.getFrameState().isReachable()) {
+                processedInstruction.emitBytecode(context);
+            } else {
+                processedInstruction.processUnreachable(context);
+            }
+
+            processedInstruction.processOutputs(context);
         } catch (WasmAssemblerException e) {
             throw new WasmAssemblerException(
                     "Could not process instruction " + instruction.getName() + " inside control block", e);
