@@ -415,6 +415,14 @@ public final class WasmAssembler {
                     LargeArrayIndex.fromU32(startFunctionIndex));
             FunctionType functionType = elementLookups.resovleFunctionType(functionTypeIndex);
 
+            if (functionType.getInputs().length() != 0) {
+                throw new WasmAssemblerException("Start function must not have any parameters");
+            }
+
+            if (functionType.getOutputs().length() != 0) {
+                throw new WasmAssemblerException("Start function must not have any return values");
+            }
+
             if (functionTypeIndex.isImport()) {
                 generators.getImportGenerator().emitInvokeFunction(
                         functionTypeIndex.getImport(),
