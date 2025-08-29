@@ -24,7 +24,6 @@ import net.janrupf.thunderwasm.test.wast.linker.SpectestEnvironment;
 import net.janrupf.thunderwasm.test.wast.linker.WastEnvironmentLinker;
 import net.janrupf.thunderwasm.test.wast.value.WastValue;
 import net.janrupf.thunderwasm.types.NumberType;
-import net.janrupf.thunderwasm.types.ValueType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 

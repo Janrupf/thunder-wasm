@@ -444,7 +444,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             emitter.op(Op.SWAP);
             loadValueTypeList(context, type.getInputs());
             loadValueTypeList(context, type.getOutputs());
-            emitter.loadConstant(signature.getContinuationArgumentIndex());
+            emitter.loadConstant(signature.getContinuationArgumentIndex() - 1 /* Owner argument was bound, so one argument less */);
             emitter.invoke(
                     SIMPLE_LINKED_FUNCTION_TYPE,
                     "<init>",

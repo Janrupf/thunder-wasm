@@ -9,6 +9,7 @@ import java.lang.invoke.MethodHandles;
 /**
  * Helper that is used by the generated code to dispatch call_indirect instructions.
  */
+@SuppressWarnings("unused") // Used by generated code
 public final class WasmDynamicDispatch {
     private WasmDynamicDispatch() {
         throw new AssertionError("This is a helper class for generated code");

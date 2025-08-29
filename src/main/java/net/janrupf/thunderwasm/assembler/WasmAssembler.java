@@ -406,6 +406,10 @@ public final class WasmAssembler {
         // Call the start function if it exists
         StartSection startSection = lookups.findSingleSection(StartSection.LOCATOR);
         if (startSection != null) {
+            if (configuration.continuationsEnabled()) {
+                throw new WasmAssemblerException("Start functions are not supported with continuations enabled");
+            }
+
             int startFunctionIndex = startSection.getIndex();
             FoundElement<Integer, TypeImportDescription> functionTypeIndex = elementLookups.requireFunctionTypeIndex(
                     LargeArrayIndex.fromU32(startFunctionIndex));

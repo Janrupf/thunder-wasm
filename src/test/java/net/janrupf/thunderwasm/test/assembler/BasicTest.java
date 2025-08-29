@@ -6,6 +6,8 @@ import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.data.Limits;
 import net.janrupf.thunderwasm.module.WasmModule;
 import net.janrupf.thunderwasm.runtime.Table;
+import net.janrupf.thunderwasm.runtime.WasmModuleExports;
+import net.janrupf.thunderwasm.runtime.continuation.Continuation;
 import net.janrupf.thunderwasm.runtime.linker.RuntimeLinker;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.global.LinkedGlobal;
@@ -64,12 +66,16 @@ public class BasicTest {
         LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 64));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        ModuleFFI ffi = new ModuleFFI(moduleInstance);
+        LinkedFunction typeAllI32I64 = (LinkedFunction) ((WasmModuleExports) moduleInstance).getExports().get("type-all-i32-i64");
 
-        int patternPtr = ffi.compilePattern("Hello");
-        System.out.println("Pattern compiled at " + patternPtr);
-        System.out.println("Match count: " + ffi.matchCount(patternPtr, "Hello World, Hello Universe!"));
-        ffi.disposePattern(patternPtr);
+        typeAllI32I64.asMethodHandle().invoke(new Continuation(()  -> false));
+
+        // ModuleFFI ffi = new ModuleFFI(moduleInstance);
+//
+        // int patternPtr = ffi.compilePattern("Hello");
+        // System.out.println("Pattern compiled at " + patternPtr);
+        // System.out.println("Match count: " + ffi.matchCount(patternPtr, "Hello World, Hello Universe!"));
+        // ffi.disposePattern(patternPtr);
     }
 
     private static final class TestLinker implements RuntimeLinker {
