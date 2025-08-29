@@ -1,5 +1,9 @@
 ;; compile-args: --no-check
 (module
-  (func $main (result i32) (return (i32.const 0)))
-  (start $main)
+  (table 10 funcref)
+  (elem $e declare func $f)
+  (func $f)
+  (func (export "init")
+    (table.init $e (i32.const 0) (i32.const 0) (i32.const 1))
+  )
 )

@@ -66,9 +66,9 @@ public class BasicTest {
         LinkedMemory memory = new LinkedMemory.Simple(new Limits(1, 64));
 
         Object moduleInstance = TestUtil.instantiateModule(assembler, classBytes, new TestLinker(table, memory));
-        LinkedFunction typeAllI32I64 = (LinkedFunction) ((WasmModuleExports) moduleInstance).getExports().get("type-all-i32-i64");
+        LinkedFunction typeAllI32I64 = (LinkedFunction) ((WasmModuleExports) moduleInstance).getExports().get("init");
 
-        typeAllI32I64.asMethodHandle().invoke(new Continuation(()  -> false));
+        typeAllI32I64.asMethodHandle().invoke();
 
         // ModuleFFI ffi = new ModuleFFI(moduleInstance);
 //

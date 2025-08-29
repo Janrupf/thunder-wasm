@@ -14,6 +14,7 @@ import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
+import net.janrupf.thunderwasm.module.section.segment.ElementSegmentMode;
 import net.janrupf.thunderwasm.runtime.*;
 import net.janrupf.thunderwasm.runtime.linker.function.LinkedFunction;
 import net.janrupf.thunderwasm.runtime.linker.table.LinkedTable;
@@ -133,37 +134,45 @@ public class DefaultTableGenerator implements TableGenerator {
         ObjectType arrayElementType = objectTypeFor(segment.getType());
         ArrayType arrayType = new ArrayType(arrayElementType);
 
-        emitter.loadConstant(initValues.length);
-        emitter.doNew(arrayType);
+        if (!(segment.getMode() instanceof ElementSegmentMode.Declarative)) {
+            emitter.loadConstant(initValues.length);
+            emitter.doNew(arrayType);
 
-        for (int j = 0; j < initValues.length; j++) {
-            emitter.duplicate();
-            emitter.loadConstant(j);
+            for (int j = 0; j < initValues.length; j++) {
+                emitter.duplicate();
+                emitter.loadConstant(j);
 
-            if (initValues[j] instanceof UnresolvedFunctionReference) {
-                int functionIndex = ((UnresolvedFunctionReference) initValues[j]).getFunctionIndex();
-                FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
-                        LargeArrayIndex.fromU32(functionIndex));
-                FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
+                if (initValues[j] instanceof UnresolvedFunctionReference) {
+                    int functionIndex = ((UnresolvedFunctionReference) initValues[j]).getFunctionIndex();
+                    FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
+                            LargeArrayIndex.fromU32(functionIndex));
+                    FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
 
-                if (functionTypeIndex.isImport()) {
-                   context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
+                    if (functionTypeIndex.isImport()) {
+                        context.getGenerators().getImportGenerator().emitLoadFunctionReference(functionTypeIndex.getImport(), context);
+                    } else {
+                        context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
+                    }
+                } else if (initValues[j] instanceof ImportedGlobalValueReference) {
+                    context.getGenerators().getImportGenerator().emitGetGlobal(
+                            ((ImportedGlobalValueReference) initValues[j]).getImportDescription(),
+                            context
+                    );
                 } else {
-                    context.getGenerators().getFunctionGenerator().emitLoadFunctionReference(functionTypeIndex.getIndex(), functionType, context);
+                    if (initValues[j] == null) {
+                        emitter.loadNull(ObjectType.OBJECT);
+                    } else {
+                        emitter.loadConstant(initValues[j]);
+                    }
                 }
-            } else if (initValues[j] instanceof ImportedGlobalValueReference) {
-                context.getGenerators().getImportGenerator().emitGetGlobal(
-                        ((ImportedGlobalValueReference) initValues[j]).getImportDescription(),
-                        context
-                );
-            } else {
-                if (initValues[j] == null) {
-                    emitter.loadNull(ObjectType.OBJECT);
-                } else {
-                    emitter.loadConstant(initValues[j]);
-                }
+                emitter.storeArrayElement();
             }
-            emitter.storeArrayElement();
+        } else {
+            // Declarative segments are not stored
+            // TODO: This could in theory be optimized out entirely, but would also require more
+            //       invasive changes to the elem.drop and table.init implementations
+            emitter.loadConstant(0);
+            emitter.doNew(arrayType);
         }
 
         CommonBytecodeGenerator.loadThisBelow(context.getEmitter(), context.getLocalVariables(), 1);
