@@ -17,6 +17,7 @@ import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.DataCountSection;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.runtime.BoundsChecks;
 import net.janrupf.thunderwasm.types.MemoryType;
@@ -34,6 +35,12 @@ public final class MemoryInit extends WasmU32VariantInstruction<DoubleIndexData<
     @Override
     public DoubleIndexData<DataIndexData, MemoryIndexData> readData(WasmLoader loader)
             throws IOException, InvalidModuleException {
+        if (loader.isStrictParsing()) {
+            if (!loader.hasSeenSection(DataCountSection.LOCATOR)) {
+                throw new InvalidModuleException("Cannot use memory.init without a data count section");
+            }
+        }
+
         return new DoubleIndexData<>(
                 DataIndexData.read(loader),
                 MemoryIndexData.read(loader)

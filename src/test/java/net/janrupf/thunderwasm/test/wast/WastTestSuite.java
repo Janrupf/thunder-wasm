@@ -80,6 +80,10 @@ public class WastTestSuite {
                 // value, rather than because it is an invalid LEB128 encoding.
                 "Intentionally misplaces an LEB128 value, correctly rejected by ThunderWasm but not for the reason the test expects"
         );
+
+        // https://github.com/WebAssembly/testsuite/issues/132
+        KNOWN_BROKEN_TESTS.put(new TestIdent("memory_init", 190), "https://github.com/WebAssembly/testsuite/issues/132");
+        KNOWN_BROKEN_TESTS.put(new TestIdent("memory_init", 227), "https://github.com/WebAssembly/testsuite/issues/132");
     }
 
     // Ideally this would run the manifests concurrently, but this currently is not

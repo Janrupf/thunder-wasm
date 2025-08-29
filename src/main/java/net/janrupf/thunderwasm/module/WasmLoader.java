@@ -22,9 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class WasmLoader {
     private static final SectionLocator<?>[] SECTION_ORDER = {
@@ -46,6 +44,7 @@ public class WasmLoader {
     private final InstructionRegistry instructionRegistry;
     private final CharsetDecoder utf8Decoder;
     private final boolean strictParsing;
+    private final Set<Byte> seenSectionIds;
     private int importCounter;
     private Byte buffered;
     private long cursorPos;
@@ -67,6 +66,7 @@ public class WasmLoader {
         this.buffered = null;
         this.cursorPos = 0;
         this.nextSectionIndex = 0;
+        this.seenSectionIds = new HashSet<>();
     }
 
     public WasmModule load() throws IOException, InvalidModuleException {
@@ -113,6 +113,7 @@ public class WasmLoader {
             }
 
             sections.add(section);
+            seenSectionIds.add(section.getId());
         }
 
         if (strictParsing) {
@@ -120,6 +121,16 @@ public class WasmLoader {
         }
 
         return new WasmModule(version, sections);
+    }
+
+    /**
+     * Determine whether a section with the given locator has been seen while loading the module.
+     *
+     * @param locator the locator of the section to check
+     * @return true if a section with the given locator has been seen, false otherwise
+     */
+    public boolean hasSeenSection(SectionLocator<?> locator) {
+        return seenSectionIds.contains(locator.getSectionId());
     }
 
     /**

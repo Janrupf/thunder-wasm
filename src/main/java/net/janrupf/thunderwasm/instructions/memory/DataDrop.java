@@ -8,6 +8,8 @@ import net.janrupf.thunderwasm.instructions.data.DataIndexData;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
+import net.janrupf.thunderwasm.module.section.DataCountSection;
+import net.janrupf.thunderwasm.module.section.DataSection;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 
 import java.io.IOException;
@@ -21,6 +23,14 @@ public final class DataDrop extends WasmU32VariantInstruction<DataIndexData> {
 
     @Override
     public DataIndexData readData(WasmLoader loader) throws IOException, InvalidModuleException {
+        if (loader.isStrictParsing()) {
+            if (!loader.hasSeenSection(DataCountSection.LOCATOR)) {
+                throw new InvalidModuleException(
+                        "Cannot use data.drop without a data count section if a data section is present"
+                );
+            }
+        }
+
         return DataIndexData.read(loader);
     }
 
