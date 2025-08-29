@@ -2,7 +2,6 @@ package net.janrupf.thunderwasm.instructions.reference;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
-import net.janrupf.thunderwasm.assembler.emitter.CommonBytecodeGenerator;
 import net.janrupf.thunderwasm.eval.EvalContext;
 import net.janrupf.thunderwasm.imports.TypeImportDescription;
 import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
@@ -14,7 +13,6 @@ import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.ReferenceType;
-import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 
@@ -36,8 +34,16 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
         final FoundElement<Integer, TypeImportDescription> functionTypeIndex = context.getLookups().requireFunctionTypeIndex(
                 LargeArrayIndex.fromU32(data.getFunctionIndex()));
         final FunctionType functionType = context.getLookups().resovleFunctionType(functionTypeIndex);
-        final ValueType outputType = ReferenceType.FUNCREF;
-        
+
+        if (!context.getLookups().isFunctionDeclaredThroughConstExpression(
+                data.getFunctionIndex(),
+                new EvalContext(context.getLookups(), true)
+        )) {
+            throw new WasmAssemblerException(
+                    "Cannot create reference to function that is not declared through an element segment or global: "
+                            + data.getFunctionIndex());
+        }
+
         return new ProcessedInstruction() {
             @Override
             public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {
@@ -50,7 +56,7 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
             
             @Override
             public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
-                context.getFrameState().pushOperand(outputType);
+                context.getFrameState().pushOperand(ReferenceType.FUNCREF);
             }
         };
     }
@@ -61,7 +67,7 @@ public final class RefFunc extends WasmInstruction<RefFunc.Data> {
     }
 
     @Override
-    public void eval(EvalContext context, Data data) {
+    public void eval(EvalContext context, Data data) throws WasmAssemblerException {
         context.getFrameState().push(ReferenceType.FUNCREF, UnresolvedFunctionReference.of(data.getFunctionIndex()));
     }
 

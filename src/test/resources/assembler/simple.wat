@@ -1,9 +1,27 @@
-;; compile-args: --no-check
 (module
-  (table 10 funcref)
-  (elem $e declare func $f)
-  (func $f)
-  (func (export "init")
-    (table.init $e (i32.const 0) (i32.const 0) (i32.const 1))
+  (func $f1)
+  (func $f2)
+  (func $f3)
+  (func $f4)
+  (func $f5)
+  (func $f6)
+
+  (table $t 1 funcref)
+
+  (global funcref (ref.func $f1))
+  (export "f" (func $f2))
+  (elem (table $t) (i32.const 0) func $f3)
+  (elem (table $t) (i32.const 0) funcref (ref.func $f4))
+  (elem func $f5)
+  (elem funcref (ref.func $f6))
+
+  (func
+    (ref.func $f1)
+    (ref.func $f2)
+    (ref.func $f3)
+    (ref.func $f4)
+    (ref.func $f5)
+    (ref.func $f6)
+    (return)
   )
 )

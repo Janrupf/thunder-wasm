@@ -2,17 +2,24 @@ package net.janrupf.thunderwasm.lookup;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.data.Global;
+import net.janrupf.thunderwasm.eval.EvalContext;
+import net.janrupf.thunderwasm.exports.Export;
+import net.janrupf.thunderwasm.exports.FunctionExportDescription;
 import net.janrupf.thunderwasm.imports.*;
+import net.janrupf.thunderwasm.instructions.Expr;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.section.*;
 import net.janrupf.thunderwasm.module.section.segment.DataSegment;
 import net.janrupf.thunderwasm.module.section.segment.ElementSegment;
-import net.janrupf.thunderwasm.types.FunctionType;
-import net.janrupf.thunderwasm.types.MemoryType;
-import net.janrupf.thunderwasm.types.TableType;
+import net.janrupf.thunderwasm.runtime.UnresolvedFunctionReference;
+import net.janrupf.thunderwasm.types.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public final class ElementLookups {
     private final ModuleLookups moduleLookups;
+    private Set<Integer> declaredFunctionIndices;
 
     public ElementLookups(ModuleLookups moduleLookups) {
         this.moduleLookups = moduleLookups;
@@ -252,6 +259,72 @@ public final class ElementLookups {
      */
     public ModuleLookups getModuleLookups() {
         return moduleLookups;
+    }
+
+    // TODO: We should probably move all this to a global evaluation cache
+    //       and simply evaluate all global expressions once somewhere
+    /**
+     * Check whether a function is declared through an element segment.
+     *
+     * @param functionIndex the index of the function to check
+     * @param context the evaluation context to use
+     * @return true if the function is declared through an element segment, false otherwise
+     * @throws WasmAssemblerException if an error occurs while checking
+     */
+    public boolean isFunctionDeclaredThroughConstExpression(int functionIndex, EvalContext context) throws WasmAssemblerException {
+        if (declaredFunctionIndices == null) {
+            // Build up the cache
+            declaredFunctionIndices = new HashSet<>();
+            ElementSection elementSection = moduleLookups.findSingleSection(ElementSection.LOCATOR);
+
+            if (elementSection != null) {
+                for (ElementSegment segment : elementSection.getSegments()) {
+                    for (Expr init : segment.getInit()) {
+                        Object value = context.evalSingleValue(init, true, ReferenceType.FUNCREF);
+                        if (!(value instanceof UnresolvedFunctionReference)) {
+                            throw new WasmAssemblerException(
+                                    "Expected function reference but got " + value
+                            );
+                        }
+
+                        declaredFunctionIndices.add((((UnresolvedFunctionReference) value).getFunctionIndex()));
+                    }
+                }
+            }
+
+            GlobalSection globalSection = moduleLookups.findSingleSection(GlobalSection.LOCATOR);
+            if (globalSection != null) {
+                for (Global global : globalSection.getGlobals()) {
+                    if (global.getType().getMutability() != GlobalType.Mutability.CONST ||
+                            !global.getType().getValueType().equals(ReferenceType.FUNCREF)) {
+                        continue;
+                    }
+
+                    Object value = context.evalSingleValue(global.getInit(), true, ReferenceType.FUNCREF);
+                    if (!(value instanceof UnresolvedFunctionReference)) {
+                        throw new WasmAssemblerException(
+                                "Expected function reference but got " + value
+                        );
+                    }
+
+                    declaredFunctionIndices.add((((UnresolvedFunctionReference) value).getFunctionIndex()));
+                }
+            }
+
+            ExportSection exportSection = moduleLookups.findSingleSection(ExportSection.LOCATOR);
+            if (exportSection != null) {
+                for (Export<?> export : exportSection.getExports()) {
+                    Export<FunctionExportDescription> functionExport = export.tryCast(FunctionExportDescription.class);
+                    if (functionExport == null) {
+                        continue;
+                    }
+
+                    declaredFunctionIndices.add(functionExport.getDescription().getIndex());
+                }
+            }
+        }
+
+        return declaredFunctionIndices.contains(functionIndex);
     }
 
     /**
