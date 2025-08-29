@@ -28,6 +28,8 @@ public final class Br extends WasmInstruction<LabelData> {
     public ProcessedInstruction processInputs(CodeEmitContext context, LabelData data) throws WasmAssemblerException {
         final int labelIndex = data.getLabelIndex();
 
+        BlockHelper.validateBlockReturn(context, labelIndex);
+
         return new ProcessedInstruction() {
             @Override
             public void emitBytecode(CodeEmitContext context) throws WasmAssemblerException {

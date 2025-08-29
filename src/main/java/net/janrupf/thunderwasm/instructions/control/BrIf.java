@@ -11,8 +11,10 @@ import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
+import java.util.List;
 
 public final class BrIf extends WasmInstruction<LabelData> {
     public static final BrIf INSTANCE = new BrIf();
@@ -31,6 +33,21 @@ public final class BrIf extends WasmInstruction<LabelData> {
         context.getFrameState().popOperand(NumberType.I32);
 
         final int labelIndex = data.getLabelIndex();
+
+        List<ValueType> branchLabelArity = BlockHelper.validateBlockReturn(context, labelIndex);
+
+        // This is required in order to properly work with the polymorphic stack - we essentially
+        // transform the potentially polymorphic stack into a concrete one by pushing the
+        // branch label arity values onto the stack, which are then popped again in the
+        // branched-to block, ensuring that the stack is concrete at that point.
+        //
+        // Ideally this would happen in processOutputs, but the BlockHelper methods require
+        // the stack to contain the values that need to be kept when branching, so we
+        // have to do it here.
+        for (int i = branchLabelArity.size() - 1; i >= 0; i--) {
+            context.getFrameState().popOperand(branchLabelArity.get(i));
+        }
+        context.getFrameState().pushAllOperands(branchLabelArity);
 
         return new ProcessedInstruction() {
             @Override

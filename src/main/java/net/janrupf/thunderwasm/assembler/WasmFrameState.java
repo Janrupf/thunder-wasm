@@ -16,6 +16,7 @@ public final class WasmFrameState {
     private final List<ValueType> returnTypes;
     private final List<ValueType> blockReturnTypes;
     private boolean isReachable;
+    private boolean isPolymorphic;
 
     public WasmFrameState() {
         this(
@@ -41,6 +42,7 @@ public final class WasmFrameState {
         this.blockReturnTypes = blockReturnTypes;
 
         this.isReachable = true;
+        this.isPolymorphic = false;
     }
 
     /**
@@ -87,8 +89,7 @@ public final class WasmFrameState {
      */
     public void popOperand(ValueType type) throws WasmAssemblerException {
         if (operandStack.isEmpty()) {
-            if (!isReachable) {
-                // In unreachable code, we can pop from empty stack (polymorphic behavior)
+            if (isPolymorphic) {
                 return;
             }
             throw new WasmAssemblerException("Tried to pop from empty operand stack");
@@ -113,7 +114,7 @@ public final class WasmFrameState {
      */
     public ValueType popAnyOperand() throws WasmAssemblerException {
         if (operandStack.isEmpty()) {
-            if (!isReachable) {
+            if (isPolymorphic) {
                 return UnknownType.UNKNOWN;
             }
 
@@ -124,48 +125,30 @@ public final class WasmFrameState {
     }
 
     /**
-     * Requires a value type from the operand stack.
+     * Requires that the operand at the specified index matches the given type.
      *
-     * @param type the value type to require
-     * @throws WasmAssemblerException if the operand stack is empty or the value type does not match the expected type
-     * @deprecated Use popOperand instead for proper consumption semantics in the 3-phase compilation pattern
+     * @param index the index of the operand to check (0 is the top of the stack)
+     * @param type the expected value type
+     * @throws WasmAssemblerException if the operand does not match the expected type
      */
-    @Deprecated
-    public void requireOperand(ValueType type) throws WasmAssemblerException {
-        if (operandStack.isEmpty()) {
-            throw new WasmAssemblerException("Tried to require operand from empty operand stack");
+    public void requireOperandAt(int index, ValueType type) throws WasmAssemblerException {
+        int stackTargetIndex = operandStack.size() - index - 1;
+
+        if (stackTargetIndex < 0 || stackTargetIndex >= operandStack.size()) {
+            if (isPolymorphic) {
+                return;
+            }
+
+            throw new WasmAssemblerException("Tried to require operand at invalid index");
         }
 
-        ValueType found = operandStack.get(operandStack.size() - 1);
+        ValueType found = operandStack.get(stackTargetIndex);
+        if (found instanceof UnknownType || type instanceof UnknownType) {
+            return;
+        }
 
         if (!found.equals(type)) {
             throw new WasmAssemblerException("Expected " + type.getName() + " but got " + found.getName());
-        }
-    }
-
-    /**
-     * Requires multiple value types from the operand stack.
-     *
-     * @param types the value types to require
-     * @throws WasmAssemblerException if the operand stack is empty,
-     *                                the value types do not match the expected types,
-     *                                or there are not enough operands
-     * @deprecated Use popOperand instead for proper consumption semantics in the 3-phase compilation pattern
-     */
-    @Deprecated
-    public void requireOperands(LargeArray<ValueType> types) throws WasmAssemblerException {
-        for (long i = 0; i < types.length(); i++) {
-            ValueType requiredType = types.get(LargeArrayIndex.fromU64(i));
-
-            long stackTargetIndex = operandStack.size() - i - 1;
-            if (stackTargetIndex < 0) {
-                throw new WasmAssemblerException("Tried to require more operands than available");
-            }
-
-            ValueType found = operandStack.get((int) stackTargetIndex);
-            if (!found.equals(requiredType)) {
-                throw new WasmAssemblerException("Expected " + requiredType.getName() + " but got " + found.getName());
-            }
         }
     }
 
@@ -194,7 +177,7 @@ public final class WasmFrameState {
     }
 
     /**
-     * Marks the frame state as unreachable (and thus polymorphic).
+     * Marks the frame state as unreachable and polymorphic.
      * <p>
      * If the stack is already polymorphic, this clears all concrete types
      * from the stack.
@@ -202,13 +185,12 @@ public final class WasmFrameState {
     public void markUnreachable() {
         this.operandStack.clear();
         this.isReachable = false;
+        this.isPolymorphic = true;
     }
 
     /**
-     * Marks the frame state as unreachable and polymorphic, but preserves
-     * the current operand stack.
-     * <p>
-     * If the stack is already polymorphic, this does nothing.
+     * Marks the frame state as unreachable, but preserves
+     * the current operand stack and doesn't make it polymorphic.
      */
     public void markUnreachablePreserveStack() {
         this.isReachable = false;
@@ -297,6 +279,7 @@ public final class WasmFrameState {
         clone.returnTypes.addAll(returnTypes);
         clone.blockReturnTypes.addAll(blockReturnTypes);
         clone.isReachable = isReachable;
+        clone.isPolymorphic = isPolymorphic;
 
         return clone;
     }

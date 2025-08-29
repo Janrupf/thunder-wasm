@@ -5,19 +5,20 @@ import net.janrupf.thunderwasm.assembler.WasmFrameState;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitter;
 import net.janrupf.thunderwasm.assembler.emitter.CodeLabel;
-import net.janrupf.thunderwasm.assembler.emitter.JumpCondition;
 import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.BlockHelper;
-import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.module.encoding.LargeIntArray;
 import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.UnknownType;
+import net.janrupf.thunderwasm.types.ValueType;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class BrTable extends WasmInstruction<BrTable.Data> {
@@ -45,6 +46,19 @@ public final class BrTable extends WasmInstruction<BrTable.Data> {
         }
 
         final int defaultDepth = data.getDefaultLabel();
+
+        List<ValueType> defaultArity = BlockHelper.validateBlockReturn(context, defaultDepth);
+        for (int depth : branchLabels) {
+            List<ValueType> arity = BlockHelper.validateBlockReturn(context, depth);
+            if (arity.size() != defaultArity.size()) {
+                throw new WasmAssemblerException("Mismatched arity in br_table targets: " + arity.size() + " != " + defaultArity.size());
+            }
+
+            // Type compatibility is implicit here: In a polymorphic stack, all types are compatible with each other,
+            // thus the types can actually differ as long as they length is the same. In reachable code, the types
+            // must be exactly the same, but that is implied by the label having the same length and being validated
+            // under the same stack state.
+        }
 
         return new ProcessedInstruction() {
             @Override

@@ -49,6 +49,35 @@ public final class BlockHelper {
     }
 
     /**
+     * Validate that a block return to the given depth is possible.
+     *
+     * @param context the context to use
+     * @param depth   the depth to jump to
+     * @return the label arity that would be jumped to
+     * @throws WasmAssemblerException if the jump is not possible
+     */
+    public static List<ValueType> validateBlockReturn(
+            CodeEmitContext context,
+            int depth
+    ) throws WasmAssemblerException {
+        WasmPushedLabel targetLabel = context.getBlockJumpLabel(depth);
+        if (targetLabel == null) {
+            throw new WasmAssemblerException("No label available at depth " + depth);
+        }
+
+        List<ValueType> labelArity = targetLabel.getStackOperands().asFlatList();
+        if (labelArity == null) {
+            throw new WasmAssemblerException("Too many stack operands at label at depth " + depth);
+        }
+
+        for (int i = 0; i < labelArity.size(); i++) {
+            context.getFrameState().requireOperandAt(i, labelArity.get(labelArity.size() - i - 1));
+        }
+
+        return labelArity;
+    }
+
+    /**
      * Emit the code that leaves a block and jumps to the given depth.
      *
      * @param context the context to use
@@ -223,6 +252,22 @@ public final class BlockHelper {
         }
 
         emitter.jump(JumpCondition.ALWAYS, returnEntryPoint);
+    }
+
+    /**
+     * Validate that a direct return is possible.
+     *
+     * @param context the context to use
+     * @throws WasmAssemblerException if a direct return is not possible
+     */
+    public static void validateDirectReturn(
+            CodeEmitContext context
+    ) throws WasmAssemblerException {
+        List<ValueType> functionReturnTypes = context.getFrameState().getReturnTypes();
+
+        for (int i = 0; i < functionReturnTypes.size(); i++) {
+            context.getFrameState().requireOperandAt(i, functionReturnTypes.get(functionReturnTypes.size() - i - 1));
+        }
     }
 
     /**
@@ -748,30 +793,28 @@ public final class BlockHelper {
         public void processOutputs(CodeEmitContext context) throws WasmAssemblerException {
             WasmFrameState blockFrameState = context.getFrameState();
 
-            if (blockFrameState.isReachable()) {
-                // This is not necessarily the same as the block end being reachable -
-                // here we handle the fallthrough case where the block expression
-                // reaches the end without a jump
-                List<ValueType> flatOutputs = blockType.getOutputs().asFlatList();
-                if (flatOutputs == null) {
-                    throw new WasmAssemblerException("Block has too many outputs");
-                }
+            // This is not necessarily the same as the block end being reachable -
+            // here we handle the fallthrough case where the block expression
+            // reaches the end without a jump
+            List<ValueType> flatOutputs = blockType.getOutputs().asFlatList();
+            if (flatOutputs == null) {
+                throw new WasmAssemblerException("Block has too many outputs");
+            }
 
-                for (int i = flatOutputs.size() - 1; i >= 0; i--) {
-                    blockFrameState.popOperand(flatOutputs.get(i));
-                }
+            for (int i = flatOutputs.size() - 1; i >= 0; i--) {
+                blockFrameState.popOperand(flatOutputs.get(i));
+            }
 
-                if (!blockFrameState.getOperandStack().isEmpty()) {
-                    throw new WasmAssemblerException("Block expression left values on the stack, expected empty stack after block: "
-                            + blockFrameState.getOperandStack());
-                }
+            if (!blockFrameState.getOperandStack().isEmpty()) {
+                throw new WasmAssemblerException("Block expression left values on the stack, expected empty stack after block: "
+                        + blockFrameState.getOperandStack());
             }
 
             context.popBlock();
             context.getFrameState().endBlock(blockType);
 
             if (!endIsReachable) {
-                context.getFrameState().markUnreachable();
+                context.getFrameState().markUnreachablePreserveStack();
             }
         }
 

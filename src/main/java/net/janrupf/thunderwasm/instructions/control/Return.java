@@ -28,6 +28,8 @@ public final class Return extends WasmInstruction<EmptyInstructionData> implemen
 
     @Override
     public ProcessedInstruction processInputs(CodeEmitContext context, EmptyInstructionData data) throws WasmAssemblerException {
+        BlockHelper.validateDirectReturn(context);
+
         return this;
     }
 

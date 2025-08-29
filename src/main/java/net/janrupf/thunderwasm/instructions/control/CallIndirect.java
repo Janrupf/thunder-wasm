@@ -2,14 +2,18 @@ package net.janrupf.thunderwasm.instructions.control;
 
 import net.janrupf.thunderwasm.assembler.WasmAssemblerException;
 import net.janrupf.thunderwasm.assembler.emitter.CodeEmitContext;
+import net.janrupf.thunderwasm.imports.TableImportDescription;
 import net.janrupf.thunderwasm.instructions.ProcessedInstruction;
 import net.janrupf.thunderwasm.instructions.WasmInstruction;
 import net.janrupf.thunderwasm.instructions.control.internal.ControlHelper;
+import net.janrupf.thunderwasm.lookup.FoundElement;
 import net.janrupf.thunderwasm.module.InvalidModuleException;
 import net.janrupf.thunderwasm.module.WasmLoader;
 import net.janrupf.thunderwasm.module.encoding.LargeArrayIndex;
 import net.janrupf.thunderwasm.types.FunctionType;
 import net.janrupf.thunderwasm.types.NumberType;
+import net.janrupf.thunderwasm.types.ReferenceType;
+import net.janrupf.thunderwasm.types.TableType;
 
 import java.io.IOException;
 
@@ -33,6 +37,18 @@ public final class CallIndirect extends WasmInstruction<CallIndirect.Data> {
 
         final FunctionType type = context.getLookups().requireType(LargeArrayIndex.fromU32(data.getTypeIndex()));
         final LargeArrayIndex tableIndex = LargeArrayIndex.fromU32(data.getTableIndex());
+        final FoundElement<TableType, TableImportDescription> table = context.getLookups().requireTable(tableIndex);
+
+        ReferenceType tableType;
+        if (table.isImport()) {
+            tableType = table.getImport().getDescription().getType().getElementType();
+        } else {
+            tableType = table.getElement().getElementType();
+        }
+
+        if (!tableType.equals(ReferenceType.FUNCREF)) {
+            throw new WasmAssemblerException("Table for call_indirect must be of type funcref, but was " + tableType);
+        }
 
         ControlHelper.popArguments(context, type);
 

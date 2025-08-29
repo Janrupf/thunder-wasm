@@ -192,9 +192,7 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             codeEmitter.resolveLabel(returnLabel);
         }
 
-        if (codeEmitContext.getFrameState().isReachable() || returnLabel.isReachable()) {
-            this.processFunctionEpilogue(codeEmitContext);
-        }
+        this.processFunctionEpilogue(codeEmitContext, codeEmitContext.getFrameState().isReachable() || returnLabel.isReachable());
         ContinuationHelper.emitContinuationImplementations(codeEmitContext, signature.getJavaReturnType());
 
         // Finish code generation
@@ -203,7 +201,8 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
     }
 
     private void processFunctionEpilogue(
-            CodeEmitContext context
+            CodeEmitContext context,
+            boolean reachable
     ) throws WasmAssemblerException {
         List<ValueType> wasmOutputs = context.getFrameState().getReturnTypes();
         WasmFrameState frameState = context.getFrameState();
@@ -217,18 +216,20 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             throw new WasmAssemblerException("Expected stack to be empty at implicit return, found " + frameState.getOperandStack().size() + " values");
         }
 
-        if (!wasmOutputs.isEmpty() && wasmOutputs.size() > 1) {
-            List<JavaType> javaTypes = Arrays.asList(WasmTypeConverter.toJavaTypes(wasmOutputs.toArray(new ValueType[0])));
-            // Package up the return values into a MultiValue
-            MultiValueHelper.emitCreateMultiValue(codeEmitter, javaTypes);
-            MultiValueHelper.emitSaveStack(
-                    codeEmitter,
-                    javaTypes,
-                    true
-            );
-        }
+        if (reachable) {
+            if (!wasmOutputs.isEmpty() && wasmOutputs.size() > 1) {
+                List<JavaType> javaTypes = Arrays.asList(WasmTypeConverter.toJavaTypes(wasmOutputs.toArray(new ValueType[0])));
+                // Package up the return values into a MultiValue
+                MultiValueHelper.emitCreateMultiValue(codeEmitter, javaTypes);
+                MultiValueHelper.emitSaveStack(
+                        codeEmitter,
+                        javaTypes,
+                        true
+                );
+            }
 
-        codeEmitter.doReturn();
+            codeEmitter.doReturn();
+        }
     }
 
     @Override
@@ -444,7 +445,13 @@ public class DefaultFunctionGenerator implements FunctionGenerator {
             emitter.op(Op.SWAP);
             loadValueTypeList(context, type.getInputs());
             loadValueTypeList(context, type.getOutputs());
-            emitter.loadConstant(signature.getContinuationArgumentIndex() - 1 /* Owner argument was bound, so one argument less */);
+
+            int continuationArgumentIndex = signature.getContinuationArgumentIndex();
+            if (continuationArgumentIndex != -1) {
+                continuationArgumentIndex--; // Owner argument was bound, so one argument less
+            }
+
+            emitter.loadConstant(continuationArgumentIndex);
             emitter.invoke(
                     SIMPLE_LINKED_FUNCTION_TYPE,
                     "<init>",
